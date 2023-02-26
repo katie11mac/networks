@@ -3,30 +3,47 @@
  */
 
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include "util.h"
 
 int main(int argc, char *argv[]) 
 {
 	char *data = "ABAA"; 
-	int *malloc_int = malloc(sizeof(int));
-	
+	int *malloc_int = (int *)malloc(sizeof(int));
+	char *data_str;
+	char *int_str;
+
 	printf("data: %s\n", data);
-	printf("%s", binary_to_hex(data, 4));
-	
+	//data_str = binary_to_hex(data, 4);
+	data_str = "41    41  42  41 ";
+//	printf("converting to binary: %s", data_str); 
+	hex_to_binary(data_str);
+
+	data_str = "41   41  42 4";
+//	printf("converting to binary: %s", data_str);
+	hex_to_binary(data_str); 
+
 	malloc_int = 128;
        	//printf("data: %ls\n", malloc_int); 	
-	printf("%s", binary_to_hex(&malloc_int, 1)); 
+	//int_str = binary_to_hex(&malloc_int, 1);
+	int_str = "80";
+//	printf("converting to binary: %s", int_str);	
 
-	data = "ABCDEFGHIJK lmnop QRS tuv WX yz ";
-	printf("data: %s\n", data);
-	binary_to_hex(data, 32);
+	hex_to_binary(int_str);
+
+
+//	data = "ABCDEFGHIJK lmnop QRS tuv WX yz ";
+//	printf("data: %s\n", data);
+//	binary_to_hex(data, 32);
 	
 
-	data = "ABCDEFGHIJK lmnop QRS tuv WX yz katie";
-	printf("data: %s\n", data);
-	binary_to_hex(data, 37);
+//	data = "ABCDEFGHIJK lmnop QRS tuv WX yz katie";
+//	printf("data: %s\n", data);
+//	binary_to_hex(data, 37);
 	//binary_to_hex(NULL, 20);
+	
+//	hex_to_binary();
 }
 
 /*
@@ -89,5 +106,49 @@ char *binary_to_hex(void *data, ssize_t n)
  */
 void *hex_to_binary(char *hex)
 {
+	// in loop we should check if curr char and next characters are not spaces 
+	// substring the hex string 
+	// convert that hex value to appropriate value 
+	
+
+
+	// you can't just assume that there will only be one space in between 
+	// need to keep moving a fast ptr until it reaches a non space character
+	// but then how do you substring the array if it's not consecutive 
+	// maybe add them to a string of size 2 
+	int leading_i, trailing_i;
+	char curr_hex[2];
+	trailing_i = 0;
+	leading_i = 0;
+
+	printf("hex to binary: %s\n", hex);
+	while ((hex[trailing_i] != '\0') & (hex[leading_i] != '\0')) {
+		// have trailing i find first non-space character
+		while (hex[trailing_i] == ' ') {
+			trailing_i ++;
+		}	
+		leading_i = trailing_i + 1;
+
+		while ((hex[leading_i] == ' ') & (hex[leading_i] != '\0')) {
+			leading_i ++; 
+		}
+		// need to account for uneven, leading i reached end of the string
+		if (hex[leading_i] == '\0') {
+			printf("(is uneven)\n");
+			return NULL;
+		}
+		
+		curr_hex[0] = hex[trailing_i];	
+		curr_hex[1] = hex[leading_i];
+
+
+		printf("%s ",curr_hex);
+
+		trailing_i = leading_i + 1;
+		leading_i = trailing_i + 1;;
+	}
+
+	printf("\n"); 
+
 	return NULL;
 }
