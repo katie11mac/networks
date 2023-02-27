@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
 
 /*
  * Return a point to a malloc(3) string that contains 
- * the hex representation of the binary data pointed to by s,
+ * the hex representation of the binary data pointed to by data,
  * which has length n. 
  *
  * Note: Caller is responsible for calling free(3) 
@@ -62,30 +62,31 @@ char *binary_to_hex(void *data, ssize_t n)
 
 	// Find number of spaces and new lines needed 
 	new_lines = (n / 16) + 1;
-	new_n = (n * 3) + new_lines; // originally had the spaces - 1 but removed to count for null
-	// might need to -1 still bc snprintf include space for null 
-	// or leave it bc we'll have a trailing space lol
-
+	new_n = (n * 3) + new_lines; 
 	//printf("new_lines: %d\nnew_n: %d\n", new_lines, new_n);
 
 	hex_str = malloc(new_n);
 	
+	// Cast data pointer to dereference it
 	casted_data = (unsigned char *) data;
 
 	char_written = 0;
 	for (i = 1; i <= n; i++) {
+		
+		// Index 1 - 1 because initialized i to 1
 		snprintf(hex_str + char_written, new_n,"%02x ", casted_data[i - 1]);
 		char_written += 3;
 		
-		// % 15 bc start at 0	
-		if (i % 16 == 0 && i != 0) {
+		// Add \n every 16th pair
+		if ((i % 16 == 0) & (i != 0)) {
 			snprintf(hex_str + char_written, new_n, "\n");
 			char_written ++;
 		}
 	}
+
 	snprintf(hex_str + char_written, new_n, "\n");
-	printf("final string: \'%s\'", hex_str); 
-	printf("\n"); 	
+	//printf("final string: \'%s\'", hex_str); 
+	//printf("\n"); 	
 
 	return hex_str;
 }
@@ -106,42 +107,46 @@ char *binary_to_hex(void *data, ssize_t n)
  */
 void *hex_to_binary(char *hex)
 {
-	// convert that hex value to appropriate value 
 	int leading_i, trailing_i;
 	char curr_hex[2];
 	trailing_i = 0;
 	leading_i = 0;
 
 	printf("hex to binary: %s\n", hex);
+	
 	while ((hex[trailing_i] != '\0') & (hex[leading_i] != '\0')) {
-		// have trailing i find first non-space character
+		
+		// trailing_i finds index of first non-space character
 		while ((hex[trailing_i] == ' ') & (hex[trailing_i] != '\0')) {
 			trailing_i ++;
 		}	
+		
+		// leading_i finds index of next non-space character
 		leading_i = trailing_i + 1;
-
 		while ((hex[leading_i] == ' ') & (hex[leading_i] != '\0')) {
 			leading_i ++; 
 		}
-		// need to account for uneven, leading i reached end of the string
+
+		// Uneven amount of hex digits given 	
 		if (hex[leading_i] == '\0') {
 			printf("(is uneven)\n");
-			return NULL; // change this return statement
+			return NULL; // CHANGE THIS RETURN STATEMENT
 		}
 		
-		// check if found characters are valid hex digits 
+		// Check characters are valid hex digits 
 		if ((isxdigit(hex[trailing_i]) == 0) | (isxdigit(hex[leading_i]) == 0)) {
-			// need to free the malloc-d buffer
+			// NEED TO FREE THE MALLOC-D BUFFER
 			printf("INVALID HEX DIGIT\n");
 			return NULL;
 		}
 
+		// Update current hex digits working with
 		curr_hex[0] = hex[trailing_i];	
 		curr_hex[1] = hex[leading_i];
 
-
 		printf("%s ",curr_hex);
 
+		// Increment indices
 		trailing_i = leading_i + 1;
 		leading_i = trailing_i + 1;;
 	}
