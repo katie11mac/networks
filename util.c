@@ -2,9 +2,6 @@
  * util.c
  */
 
-#include <stdio.h>
-#include <stdint.h>
-#include <stdlib.h>
 #include "util.h"
 
 int main(int argc, char *argv[]) 
@@ -23,6 +20,9 @@ int main(int argc, char *argv[])
 	data_str = "41   41  42 4";
 //	printf("converting to binary: %s", data_str);
 	hex_to_binary(data_str); 
+
+	data_str = "Aa KM";
+	hex_to_binary(data_str);
 
 	malloc_int = 128;
        	//printf("data: %ls\n", malloc_int); 	
@@ -106,16 +106,7 @@ char *binary_to_hex(void *data, ssize_t n)
  */
 void *hex_to_binary(char *hex)
 {
-	// in loop we should check if curr char and next characters are not spaces 
-	// substring the hex string 
 	// convert that hex value to appropriate value 
-	
-
-
-	// you can't just assume that there will only be one space in between 
-	// need to keep moving a fast ptr until it reaches a non space character
-	// but then how do you substring the array if it's not consecutive 
-	// maybe add them to a string of size 2 
 	int leading_i, trailing_i;
 	char curr_hex[2];
 	trailing_i = 0;
@@ -124,7 +115,7 @@ void *hex_to_binary(char *hex)
 	printf("hex to binary: %s\n", hex);
 	while ((hex[trailing_i] != '\0') & (hex[leading_i] != '\0')) {
 		// have trailing i find first non-space character
-		while (hex[trailing_i] == ' ') {
+		while ((hex[trailing_i] == ' ') & (hex[trailing_i] != '\0')) {
 			trailing_i ++;
 		}	
 		leading_i = trailing_i + 1;
@@ -135,9 +126,16 @@ void *hex_to_binary(char *hex)
 		// need to account for uneven, leading i reached end of the string
 		if (hex[leading_i] == '\0') {
 			printf("(is uneven)\n");
-			return NULL;
+			return NULL; // change this return statement
 		}
 		
+		// check if found characters are valid hex digits 
+		if ((isxdigit(hex[trailing_i]) == 0) | (isxdigit(hex[leading_i]) == 0)) {
+			// need to free the malloc-d buffer
+			printf("INVALID HEX DIGIT\n");
+			return NULL;
+		}
+
 		curr_hex[0] = hex[trailing_i];	
 		curr_hex[1] = hex[leading_i];
 
