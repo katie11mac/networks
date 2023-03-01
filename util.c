@@ -13,7 +13,7 @@ int main(int argc, char *argv[])
 	void *results;
 //	printf("data: %s\n", data);
 //	printf("%s\n", binary_to_hex(data, 4));
-	data_str = "41   42  41   41 ";
+	data_str = "41 42 41 41 8";
 	printf("converting to binary: %s\n", data_str); 
 	results = hex_to_binary(data_str);
 	printf("%p\n",results);
@@ -118,22 +118,26 @@ void *hex_to_binary(char *hex)
 {
 	ssize_t bytes_expected;
 	int leading_i, trailing_i;
-	char curr_hex[2];
+	char curr_hex[3];
 	void *results;
-	long *curr_addr; 
-	long bytes_used;
-	
+	unsigned char *curr_addr; 
+	ssize_t bytes_used;
+	unsigned int converted_hex;
+
 	// Calculate reasonable size for malloc
 	bytes_expected = strlen(hex) / 2;
 	printf("original size: %ld\n", bytes_expected);
 	results = malloc(bytes_expected);
-	curr_addr = (long *)results;
+	curr_addr = (unsigned char *)results;
 	
 	trailing_i = 0;
 	leading_i = 0;
 
 	printf("hex to binary: %s\n", hex);
-	
+
+	// Adding null byte to treat curr_hex as a str 
+	curr_hex[2] = '\0';
+
 	while ((hex[trailing_i] != '\0') & (hex[leading_i] != '\0')) {
 		
 		// trailing_i finds index of first non-space character
@@ -157,7 +161,7 @@ void *hex_to_binary(char *hex)
 		// Check characters are valid hex digits 
 		if ((isxdigit(hex[trailing_i]) == 0) | (isxdigit(hex[leading_i]) == 0)) {
 			free(results);
-			printf("INVALID HEX DIGIT\n");
+			//printf("INVALID HEX DIGIT\n");
 			return NULL;
 		}
 
@@ -165,21 +169,23 @@ void *hex_to_binary(char *hex)
 		curr_hex[0] = hex[trailing_i];	
 		curr_hex[1] = hex[leading_i];
 
-		//printf("int: %lx ", strtol(curr_hex, NULL, 16));
-
-		*curr_addr = strtol(curr_hex, NULL, 16);
-		printf("%p: %lx\n", (void *)curr_addr, *curr_addr);
+		// Scan hex digits from the string
+		sscanf(curr_hex, "%x", &converted_hex);
+		*curr_addr = (unsigned char)converted_hex;
+		//printf("%p: %x\n", (void *)curr_addr, *curr_addr);
 		curr_addr += 1;
 
 		// Increment indices
 		trailing_i = leading_i + 1;
-		leading_i = trailing_i + 1;;
+		leading_i = trailing_i + 1;
 	}
 
 	// Reallocate if have unused extra space in orginal malloc
-	bytes_used = ((void *)curr_addr - results) / 8;
-	printf("addr gap: %ld\n", bytes_used );
+	// NEED TO CHECK AND FIX THIS
+	bytes_used = (curr_addr - (unsigned char *)results);
+	printf("addr gap: %ld\n", bytes_used);
 	if (bytes_used < bytes_expected) {
+		printf("REALLOCATING\n");
 		results = realloc(results, bytes_used); 
 	}
 
