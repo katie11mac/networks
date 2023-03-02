@@ -7,18 +7,21 @@
 /*
 int main(int argc, char *argv[]) 
 {
-	char *data = "ABAA"; 
-	int *malloc_int = (int *)(malloc(sizeof(int)));
+	char *data = "ABCDEFGHIJKLMNOPQ"; 
+	int *malloc_int;
 	char *data_str;
 	char *int_str;
 	void *results;
-//	printf("data: %s\n", data);
-//	printf("%s\n", binary_to_hex(data, 4));
-	data_str = "41 42 41 41 8";
-	printf("converting to binary: %s\n", data_str); 
-	results = hex_to_binary(data_str);
-	printf("%p\n",results);
-	printf("%s\n\n",(char *)results);
+
+	malloc_int = (int *)(malloc(sizeof(int)));
+
+	printf("data: %s\n", data);
+	printf("%s\n", binary_to_hex(data, 17));
+//	data_str = "41 42 41 41 8";
+//	printf("converting to binary: %s\n", data_str); 
+//	results = hex_to_binary(data_str);
+//	printf("%p\n",results);
+//	printf("%s\n\n",(char *)results);
 
 //	data_str = "41   41  42 4";
 //	printf("converting to binary: %s", data_str);
@@ -27,13 +30,13 @@ int main(int argc, char *argv[])
 //	data_str = "Aa KM";
 //	hex_to_binary(data_str);
 
-//	malloc_int = 128;
+	*malloc_int = 128;
        	//printf("data: %ls\n", malloc_int); 	
-//	int_str = binary_to_hex(&malloc_int, 4);
-	int_str = "7A";
-	printf("converting to binary:%s\n", int_str);
-	printf("%s\n", (char *)hex_to_binary(int_str));
-	printf("%d\n", *(int *)hex_to_binary(int_str));
+	int_str = binary_to_hex(malloc_int, 4);
+//	int_str = "7A";
+//	printf("converting to binary:%s\n", int_str);
+	printf("%s\n", int_str);
+//	printf("%d\n", *(int *)hex_to_binary(int_str));
 
 	
 //	malloc_int = 300;
@@ -66,10 +69,13 @@ int main(int argc, char *argv[])
  */
 char *binary_to_hex(void *data, ssize_t n)
 {
-	int new_n;
+	ssize_t new_n;
 	char *hex_str;
-	int i, char_written;
-	unsigned char *casted_data;
+	int i;
+	uint8_t bytes_written;
+	uint8_t *casted_data;
+	uint8_t low_nibble;
+	uint8_t high_nibble;
 
 	// Create new size to include spaces, new lines, and hex digits
 	new_n = n * 3; 
@@ -77,27 +83,44 @@ char *binary_to_hex(void *data, ssize_t n)
 	hex_str = malloc(new_n);
 	
 	// Cast data pointer to dereference it
-	casted_data = (unsigned char *) data;
-	//printf("unsigned char: %u\n", *casted_data );
-	//printf("size of unsigned char: %ld\n", sizeof(*casted_data));
+	casted_data = (uint8_t *) data;
 
-	char_written = 0;
-	for (i = 1; i <= n; i++) {
+	bytes_written = 0;
+
+	for (i = 0; i < n; i++) {
 		
-		// Index i - 1 because initialized i to 1
-		snprintf(hex_str + char_written, new_n,"%02x", casted_data[i - 1]);
-		char_written += 2;
-		
-		// Add \n every 16th pair
-		if ((i % 16 == 0) & (i != 0)) {
-			snprintf(hex_str + char_written, new_n, "\n");
+		// Grab high_nibble from current addr
+		high_nibble = (casted_data[i] & 0xf0) >> 4;
+
+		// Convert high_nibble and put in memory
+		// Referenced ASCI table
+		if (high_nibble < 10) {
+			*(hex_str + bytes_written) = (char)(high_nibble + 48);
 		} else {
-			snprintf(hex_str + char_written, new_n, " ");
+			*(hex_str + bytes_written) = (char)(high_nibble + 55);
 		}
-		char_written ++;
-	}
+		bytes_written++;
 
-	snprintf(hex_str + char_written, new_n, "\n");
+		// Grab low_nibble from current addr 
+		low_nibble = casted_data[i] & 0x0f;
+
+		// Convert low_nibble and put in memory
+		if (low_nibble < 10) {
+			*(hex_str + bytes_written) = (char)(low_nibble + 48);
+		} else {
+			*(hex_str + bytes_written) = (char)(low_nibble + 55);
+		}
+		bytes_written++;
+
+		// Add \n every 16th pair
+		if (((i + 1) % 16 == 0) && (i != 0)) {
+			*(hex_str + bytes_written) = '\n';
+		} else {
+			*(hex_str + bytes_written) = ' ';
+		}
+		bytes_written ++;
+		
+	}
 
 	return hex_str;
 }
@@ -130,6 +153,8 @@ void *hex_to_binary(char *hex)
 	bytes_expected = strlen(hex) / 2;
 	//printf("original size: %ld\n", bytes_expected);
 	results = malloc(bytes_expected);
+	// Reset the memory
+	results = memset(results, '\0', bytes_expected);
 	curr_addr = (unsigned char *)results;
 	
 	trailing_i = 0;
@@ -153,7 +178,8 @@ void *hex_to_binary(char *hex)
 			leading_i ++; 
 		}
 
-		// Uneven amount of hex digits given 	
+		// Uneven amount of hex digits given 
+		// Checked for \n bc of hexread program
 		if (hex[leading_i] == '\0' || hex[leading_i] == '\n') {
 			//printf("(is uneven)\n");
 			break;
