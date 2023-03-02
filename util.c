@@ -4,6 +4,7 @@
 
 #include "util.h"
 
+/*
 int main(int argc, char *argv[]) 
 {
 	char *data = "ABAA"; 
@@ -54,6 +55,7 @@ int main(int argc, char *argv[])
 	
 //	hex_to_binary();
 }
+*/
 
 /*
  * Return a point to a malloc(3) string that contains 
@@ -126,40 +128,40 @@ void *hex_to_binary(char *hex)
 
 	// Calculate reasonable size for malloc
 	bytes_expected = strlen(hex) / 2;
-	printf("original size: %ld\n", bytes_expected);
+	//printf("original size: %ld\n", bytes_expected);
 	results = malloc(bytes_expected);
 	curr_addr = (unsigned char *)results;
 	
 	trailing_i = 0;
 	leading_i = 0;
 
-	printf("hex to binary: %s\n", hex);
+	//printf("hex to binary: %s\n", hex);
 
 	// Adding null byte to treat curr_hex as a str 
 	curr_hex[2] = '\0';
 
-	while ((hex[trailing_i] != '\0') & (hex[leading_i] != '\0')) {
+	while ((hex[trailing_i] != '\0') && (hex[leading_i] != '\0')) {
 		
 		// trailing_i finds index of first non-space character
-		while ((hex[trailing_i] == ' ') & (hex[trailing_i] != '\0')) {
+		while ((hex[trailing_i] == ' ') && (hex[trailing_i] != '\0')) {
 			trailing_i ++;
 		}	
 		
 		// leading_i finds index of next non-space character
 		leading_i = trailing_i + 1;
-		while ((hex[leading_i] == ' ') & (hex[leading_i] != '\0')) {
+		while ((hex[leading_i] == ' ') && (hex[leading_i] != '\0')) {
 			leading_i ++; 
 		}
 
 		// Uneven amount of hex digits given 	
-		if (hex[leading_i] == '\0') {
+		if (hex[leading_i] == '\0' || hex[leading_i] == '\n') {
 			//printf("(is uneven)\n");
 			break;
 			//return results; 
 		}
 		
 		// Check characters are valid hex digits 
-		if ((isxdigit(hex[trailing_i]) == 0) | (isxdigit(hex[leading_i]) == 0)) {
+		if ((isxdigit(hex[trailing_i]) == 0) || (isxdigit(hex[leading_i]) == 0)) {
 			free(results);
 			//printf("INVALID HEX DIGIT\n");
 			return NULL;
@@ -181,11 +183,10 @@ void *hex_to_binary(char *hex)
 	}
 
 	// Reallocate if have unused extra space in orginal malloc
-	// NEED TO CHECK AND FIX THIS
 	bytes_used = (curr_addr - (unsigned char *)results);
-	printf("addr gap: %ld\n", bytes_used);
+	//printf("addr gap: %ld\n", bytes_used);
 	if (bytes_used < bytes_expected) {
-		printf("REALLOCATING\n");
+	//	printf("REALLOCATING\n");
 		results = realloc(results, bytes_used); 
 	}
 
