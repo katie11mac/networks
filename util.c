@@ -96,9 +96,9 @@ char *binary_to_hex(void *data, ssize_t n)
 		// Convert high_nibble and put in memory
 		// Referenced ASCI table
 		if (high_nibble < 10) {
-			*(hex_str + bytes_written) = (char)(high_nibble + 48);
+			*(hex_str + bytes_written) = (char)(high_nibble + '0');
 		} else {
-			*(hex_str + bytes_written) = (char)(high_nibble + 55);
+			*(hex_str + bytes_written) = (char)(high_nibble + 'A' - 10);
 		}
 		bytes_written++;
 
