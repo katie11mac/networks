@@ -1,15 +1,15 @@
-CFLAGS=-Wall -pedantic -o
+CFLAGS=-Wall -pedantic -g -o
 
 testutil: hexdump hexread
 
-hexdump: hexdump.c util
-	gcc $(CFLAGS) $@ $<
+hexdump: hexdump.c util.o
+	gcc $(CFLAGS) $@ $< util.o
 
-hexread: hexread.c util
-	gcc $(CFLAGS) $@ $<
+hexread: hexread.c util.o
+	gcc $(CFLAGS) $@ $< util.o
 
-util: util.c
-	gcc $(CFLAGS) $@ $^
+util.o: util.c
+	gcc -c $(CFLAGS) $@ $^
 
 .PHONY: clean
 clean: 
