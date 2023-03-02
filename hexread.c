@@ -49,9 +49,9 @@ void convert_input(FILE *file) {
 			break;
 		} else {
 			printf("%s", (char *)results);
-			// should probably memset here, but don't know appropriate size
-			//free(results);
+			free(results);
 		}	
 		printf("\n");
 	}
+}
 
