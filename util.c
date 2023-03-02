@@ -81,6 +81,7 @@ char *binary_to_hex(void *data, ssize_t n)
 	new_n = n * 3; 
 
 	hex_str = malloc(new_n);
+	hex_str = memset(hex_str, '\0', new_n);
 	
 	// Cast data pointer to dereference it
 	casted_data = (uint8_t *) data;
