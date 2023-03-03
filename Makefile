@@ -13,4 +13,4 @@ util.o: util.c
 
 .PHONY: clean
 clean: 
-	rm -f hexdump hexread util
+	rm -f hexdump hexread 
