@@ -25,6 +25,7 @@ int main(int argc, char *argv[])
 			if ((file = fopen(argv[i], "r")) == NULL) {
 				perror("fopen");
 			} else {
+				printf("%s:\n", argv[i]);
 				convert_input(file);	
 				if (fclose(file) == EOF) {
 					perror("fclose");
@@ -35,6 +36,9 @@ int main(int argc, char *argv[])
 	}
 }
 
+/*
+ * Reads hex strings from file and prints conversion to bytes to the screen 
+ */
 void convert_input(FILE *file) {
 	char input_buffer[READ_SIZE + 1];
 	void *results;
@@ -43,6 +47,8 @@ void convert_input(FILE *file) {
 	// 	FIX: Added space for null byte at the end of malloc-d addr in util.c
 	// BUG: Cannot handle two hex digits meant to be interpretted as a pair gets put in separate calls
 	// BUG: Prints new line after every call to hex_to_binary
+	
+	// Read until EOF
 	while (fgets(input_buffer, READ_SIZE + 1, file) != NULL) {
 		results = hex_to_binary(input_buffer);
 		if (results == NULL) {

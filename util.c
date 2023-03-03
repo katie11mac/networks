@@ -39,6 +39,7 @@ char *binary_to_hex(void *data, ssize_t n)
 
 		// Convert high_nibble and put in memory
 		// Referenced ASCI table
+		// TO-DO: CAN MAKE THIS A FUNCTION
 		if (high_nibble < 10) {
 			*(hex_str + bytes_written) = (char)(high_nibble + '0');
 		} else {
@@ -94,7 +95,7 @@ void *hex_to_binary(char *hex)
 	int leading_i, trailing_i;
 	char curr_hex[2];
 	void *results;
-	unsigned char *curr_addr; 
+	uint8_t *curr_addr; 
 	ssize_t bytes_used;
 	uint8_t converted_hex;
 
@@ -104,19 +105,15 @@ void *hex_to_binary(char *hex)
 	// Calculate reasonable size for malloc 
 	// +1 for debugging hexread (if previous input longer, adds rest of its bytes to shorter version)
 	bytes_expected = (strlen(hex) / 2) + 1;
-	//printf("original size: %ld\n", bytes_expected);
 	results = malloc(bytes_expected);
 	// Reset the memory
 	results = memset(results, '\0', bytes_expected);
+	
+	// Initialize moving pointer
 	curr_addr = (uint8_t *)results;
 	
 	trailing_i = 0;
 	leading_i = 0;
-
-	//printf("hex to binary: %s\n", hex);
-
-	// Adding null byte to treat curr_hex as a str 
-	//curr_hex[2] = '\0';
 
 	while ((hex[trailing_i] != '\0') && (hex[leading_i] != '\0')) {
 		
@@ -133,15 +130,12 @@ void *hex_to_binary(char *hex)
 
 		// Uneven amount of hex digits given 
 		if (hex[leading_i] == '\0') {
-			//printf("(is uneven)\n");
 			break;
-			//return results; 
 		}
 		
 		// Check characters are valid hex digits 
 		if ((isxdigit(hex[trailing_i]) == 0) || (isxdigit(hex[leading_i]) == 0)) {
 			free(results);
-			//printf("INVALID HEX DIGIT\n");
 			return NULL;
 		}
 
@@ -151,50 +145,43 @@ void *hex_to_binary(char *hex)
 
 		// Get value of the hex digit itself 
 		high_nibble_val = hex_digit_to_binary(curr_hex[0]);
-		//printf("%c converts to %lu\n", curr_hex[0], high_nibble_val);
 		low_nibble_val = hex_digit_to_binary(curr_hex[1]);
-		//printf("%c converts to %lu\n", curr_hex[1], low_nibble_val);
 		
 		// Need to shift high_nibble to first four hex digits 
 		high_nibble_val = high_nibble_val << 4; 
-		//printf("high nibble shifted: %lu\n", high_nibble_val);
 		
 		// Combine high and low nibble for full converted value
 		converted_hex = high_nibble_val | low_nibble_val;
-		//printf("converted hex: %u\n", converted_hex);
 
 		// Get hex digits binary values from the string and store it in malloc-d mem
 		//converted_hex = (unsigned int)strtol(curr_hex, NULL, 16);				
 		//printf("converted hex: %u\n", converted_hex);
-		
 
 		// Store converted hex in malloc-ed memory
 		*curr_addr = (uint8_t)converted_hex;
-		//printf("%p: %x\n", (void *)curr_addr, *curr_addr);
 		curr_addr += 1;
-		
 
 		// Increment indices
 		trailing_i = leading_i + 1;
 		leading_i = trailing_i + 1;
-		//printf("in loop: %s\n", (char *)results);
 	}
 
 	// Reallocate if have unused extra space in orginal malloc
 	// Want to retain extra \0 at the end
 	bytes_used = (curr_addr - (uint8_t *)results) + 1;
-	//printf("addr gap: %ld\n", bytes_used);
+	
 	// Subtract 1 from bytes_expected to retain \0
 	if (bytes_used < bytes_expected) {
-	//	printf("REALLOCATING\n");
 		results = realloc(results, bytes_used);
 	}
-	//printf("results in hex_to_binary: %s\n", (char *)results);
+	
 	return results;
 }
 
 /*
- * Given a hex digit in a string, return its binary value 
+ * Given a hex digit in a string, return its binary value
+ *
+ * Return -1 if not a valid hex digit
  */
 ssize_t hex_digit_to_binary (char hex_digit) {
 	// Note: Opposite to the binary_to_hex conversion 
