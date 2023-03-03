@@ -39,19 +39,21 @@ void convert_input(FILE *file) {
 	char input_buffer[READ_SIZE + 1];
 	void *results;
 	
-	// BUG: memory is never cleared 
-	// BUG: when two hex digits separated by many spaces are sent in separate calls
+	// BUG: Retains memory of previous call if did not fill entire buff  
+	// 	FIX: Added space for null byte at the end of malloc-d addr in util.c
+	// BUG: Cannot handle two hex digits meant to be interpretted as a pair gets put in separate calls
+	// BUG: Prints new line after every call to hex_to_binary
 	while (fgets(input_buffer, READ_SIZE + 1, file) != NULL) {
 		results = hex_to_binary(input_buffer);
 		if (results == NULL) {
-			// BUG: will convert and print binary until reaches invalid hex digit
+			// BUG: Will convert to and print binary until reaches invalid hex digit
 			printf("**PART OF INPUT NOT VALID HEX DIGITS**");
-			break;
 		} else {
 			printf("%s", (char *)results);
 			free(results);
-		}	
+		}
 		printf("\n");
 	}
+	printf("\n");
 }
 
