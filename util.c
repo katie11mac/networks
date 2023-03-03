@@ -177,7 +177,7 @@ void *hex_to_binary(char *hex)
 		// Increment indices
 		trailing_i = leading_i + 1;
 		leading_i = trailing_i + 1;
-		printf("in loop: %s\n", (char *)results);
+		//printf("in loop: %s\n", (char *)results);
 	}
 
 	// Reallocate if have unused extra space in orginal malloc
@@ -189,7 +189,7 @@ void *hex_to_binary(char *hex)
 	//	printf("REALLOCATING\n");
 		results = realloc(results, bytes_used);
 	}
-	printf("results in hex_to_binary: %s\n", (char *)results);
+	//printf("results in hex_to_binary: %s\n", (char *)results);
 	return results;
 }
 
