@@ -15,13 +15,13 @@ int main(int argc, char *argv[])
 
 	malloc_int = (int *)(malloc(sizeof(int)));
 
-	printf("data: %s\n", data);
-	printf("%s\n", binary_to_hex(data, 17));
-//	data_str = "41 42 41 41 8";
-//	printf("converting to binary: %s\n", data_str); 
-//	results = hex_to_binary(data_str);
+//	printf("data: %s\n", data);
+//	printf("%s\n", binary_to_hex(data, 17));
+	data_str = "5A 42 41 41 4\n3";
+	printf("converting to binary: %s\n", data_str); 
+	results = hex_to_binary(data_str);
 //	printf("%p\n",results);
-//	printf("%s\n\n",(char *)results);
+	printf("%s\n",(char *)results);
 
 //	data_str = "41   41  42 4";
 //	printf("converting to binary: %s", data_str);
@@ -30,12 +30,12 @@ int main(int argc, char *argv[])
 //	data_str = "Aa KM";
 //	hex_to_binary(data_str);
 
-	*malloc_int = 128;
+//	*malloc_int = 128;
        	//printf("data: %ls\n", malloc_int); 	
-	int_str = binary_to_hex(malloc_int, 4);
+//	int_str = binary_to_hex(malloc_int, 4);
 //	int_str = "7A";
 //	printf("converting to binary:%s\n", int_str);
-	printf("%s\n", int_str);
+//	printf("%s\n", int_str);
 //	printf("%d\n", *(int *)hex_to_binary(int_str));
 
 	
@@ -78,10 +78,10 @@ char *binary_to_hex(void *data, ssize_t n)
 	uint8_t high_nibble;
 
 	// Create new size to include spaces, new lines, and hex digits
-	new_n = n * 3; 
+	// Added 1 for null and new line character at end
+	new_n = (n * 3) + 1; 
 
 	hex_str = malloc(new_n);
-	hex_str = memset(hex_str, '\0', new_n);
 	
 	// Cast data pointer to dereference it
 	casted_data = (uint8_t *) data;
@@ -114,7 +114,9 @@ char *binary_to_hex(void *data, ssize_t n)
 		bytes_written++;
 
 		// Add \n every 16th pair
-		if (((i + 1) % 16 == 0) && (i != 0)) {
+		if (i == n - 1) {
+			*(hex_str + bytes_written) = '\n';
+		} else if (((i + 1) % 16 == 0) && (i != 0)) {
 			*(hex_str + bytes_written) = '\n';
 		} else {
 			*(hex_str + bytes_written) = ' ';
@@ -122,6 +124,10 @@ char *binary_to_hex(void *data, ssize_t n)
 		bytes_written ++;
 		
 	}
+
+//	*(hex_str + bytes_written) = '\n';
+//	bytes_written ++;
+	*(hex_str + bytes_written) = '\0';
 
 	return hex_str;
 }
@@ -169,19 +175,18 @@ void *hex_to_binary(char *hex)
 	while ((hex[trailing_i] != '\0') && (hex[leading_i] != '\0')) {
 		
 		// trailing_i finds index of first non-space character
-		while ((hex[trailing_i] == ' ') && (hex[trailing_i] != '\0')) {
+		while ((isspace(hex[trailing_i]) != 0) && (hex[trailing_i] != '\0')) {
 			trailing_i ++;
 		}	
 		
 		// leading_i finds index of next non-space character
 		leading_i = trailing_i + 1;
-		while ((hex[leading_i] == ' ') && (hex[leading_i] != '\0')) {
+		while ((isspace(hex[leading_i]) != 0) && (hex[leading_i] != '\0')) {
 			leading_i ++; 
 		}
 
 		// Uneven amount of hex digits given 
-		// Checked for \n bc of hexread program
-		if (hex[leading_i] == '\0' || hex[leading_i] == '\n') {
+		if (hex[leading_i] == '\0') {
 			//printf("(is uneven)\n");
 			break;
 			//return results; 
@@ -199,7 +204,9 @@ void *hex_to_binary(char *hex)
 		curr_hex[1] = hex[leading_i];
 
 		// Scan hex digits from the string
-		sscanf(curr_hex, "%x", &converted_hex);
+		converted_hex = (unsigned int)strtol(curr_hex, NULL, 16);		
+		//sscanf(curr_hex, "%x", &converted_hex);
+		
 		*curr_addr = (unsigned char)converted_hex;
 		//printf("%p: %x\n", (void *)curr_addr, *curr_addr);
 		curr_addr += 1;
