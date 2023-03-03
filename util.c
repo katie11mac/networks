@@ -78,7 +78,7 @@ char *binary_to_hex(void *data, ssize_t n)
 	uint8_t high_nibble;
 
 	// Create new size to include spaces, new lines, and hex digits
-	// Added 1 for null and new line character at end
+	// Added 1 for null 
 	new_n = (n * 3) + 1; 
 
 	hex_str = malloc(new_n);
@@ -107,13 +107,13 @@ char *binary_to_hex(void *data, ssize_t n)
 
 		// Convert low_nibble and put in memory
 		if (low_nibble < 10) {
-			*(hex_str + bytes_written) = (char)(low_nibble + 48);
+			*(hex_str + bytes_written) = (char)(low_nibble + '0');
 		} else {
-			*(hex_str + bytes_written) = (char)(low_nibble + 55);
+			*(hex_str + bytes_written) = (char)(low_nibble + 'A' - 10);
 		}
 		bytes_written++;
 
-		// Add \n every 16th pair
+		// Add \n if last byte in data or if 16th pair
 		if (i == n - 1) {
 			*(hex_str + bytes_written) = '\n';
 		} else if (((i + 1) % 16 == 0) && (i != 0)) {
@@ -125,8 +125,6 @@ char *binary_to_hex(void *data, ssize_t n)
 		
 	}
 
-//	*(hex_str + bytes_written) = '\n';
-//	bytes_written ++;
 	*(hex_str + bytes_written) = '\0';
 
 	return hex_str;
