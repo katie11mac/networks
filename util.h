@@ -9,5 +9,6 @@
 
 char *binary_to_hex(void *data, ssize_t n);
 void *hex_to_binary(char *hex);
+ssize_t hex_digit_to_binary (char hex_digit); 
 
 #endif /* __MYIO_H */

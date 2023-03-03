@@ -5,62 +5,6 @@
 #include "util.h"
 
 /*
-int main(int argc, char *argv[]) 
-{
-	char *data = "ABCDEFGHIJKLMNOPQ"; 
-	int *malloc_int;
-	char *data_str;
-	char *int_str;
-	void *results;
-
-	malloc_int = (int *)(malloc(sizeof(int)));
-
-//	printf("data: %s\n", data);
-//	printf("%s\n", binary_to_hex(data, 17));
-	data_str = "5A 42 41 41 4\n3";
-	printf("converting to binary: %s\n", data_str); 
-	results = hex_to_binary(data_str);
-//	printf("%p\n",results);
-	printf("%s\n",(char *)results);
-
-//	data_str = "41   41  42 4";
-//	printf("converting to binary: %s", data_str);
-//	hex_to_binary(data_str); 
-
-//	data_str = "Aa KM";
-//	hex_to_binary(data_str);
-
-//	*malloc_int = 128;
-       	//printf("data: %ls\n", malloc_int); 	
-//	int_str = binary_to_hex(malloc_int, 4);
-//	int_str = "7A";
-//	printf("converting to binary:%s\n", int_str);
-//	printf("%s\n", int_str);
-//	printf("%d\n", *(int *)hex_to_binary(int_str));
-
-	
-//	malloc_int = 300;
-//	int_str = binary_to_hex(&malloc_int, sizeof(int));
-//	printf("%s\n", int_str);
-//	hex_to_binary(int_str);
-
-
-//	data = "ABCDEFGHIJK lmnop QRS tuv WX yz ";
-//	printf("data: %s\n", data);
-//	printf("%s\n", binary_to_hex(data, 32));
-	
-
-//	data = "ABCDEFGHIJK lmnop QRS tuv WX yz katie";
-//	printf("data: %s\n", data);
-//	printf("%s\n", binary_to_hex(data, 37));
-
-	//binary_to_hex(NULL, 20);
-	
-//	hex_to_binary();
-}
-*/
-
-/*
  * Return a point to a malloc(3) string that contains 
  * the hex representation of the binary data pointed to by data,
  * which has length n. 
@@ -148,19 +92,23 @@ void *hex_to_binary(char *hex)
 {
 	ssize_t bytes_expected;
 	int leading_i, trailing_i;
-	char curr_hex[3];
+	char curr_hex[2];
 	void *results;
 	unsigned char *curr_addr; 
 	ssize_t bytes_used;
-	unsigned int converted_hex;
+	uint8_t converted_hex;
 
-	// Calculate reasonable size for malloc
-	bytes_expected = strlen(hex) / 2;
+	ssize_t high_nibble_val;
+	ssize_t low_nibble_val;
+
+	// Calculate reasonable size for malloc 
+	// +1 for debugging hexread (if previous input longer, adds rest of its bytes to shorter version)
+	bytes_expected = (strlen(hex) / 2) + 1;
 	//printf("original size: %ld\n", bytes_expected);
 	results = malloc(bytes_expected);
 	// Reset the memory
 	results = memset(results, '\0', bytes_expected);
-	curr_addr = (unsigned char *)results;
+	curr_addr = (uint8_t *)results;
 	
 	trailing_i = 0;
 	leading_i = 0;
@@ -168,7 +116,7 @@ void *hex_to_binary(char *hex)
 	//printf("hex to binary: %s\n", hex);
 
 	// Adding null byte to treat curr_hex as a str 
-	curr_hex[2] = '\0';
+	//curr_hex[2] = '\0';
 
 	while ((hex[trailing_i] != '\0') && (hex[leading_i] != '\0')) {
 		
@@ -201,26 +149,62 @@ void *hex_to_binary(char *hex)
 		curr_hex[0] = hex[trailing_i];	
 		curr_hex[1] = hex[leading_i];
 
-		// Scan hex digits from the string
-		converted_hex = (unsigned int)strtol(curr_hex, NULL, 16);		
-		//sscanf(curr_hex, "%x", &converted_hex);
+		// Get value of the hex digit itself 
+		high_nibble_val = hex_digit_to_binary(curr_hex[0]);
+		//printf("%c converts to %lu\n", curr_hex[0], high_nibble_val);
+		low_nibble_val = hex_digit_to_binary(curr_hex[1]);
+		//printf("%c converts to %lu\n", curr_hex[1], low_nibble_val);
 		
-		*curr_addr = (unsigned char)converted_hex;
+		// Need to shift high_nibble to first four hex digits 
+		high_nibble_val = high_nibble_val << 4; 
+		//printf("high nibble shifted: %lu\n", high_nibble_val);
+		
+		// Combine high and low nibble for full converted value
+		converted_hex = high_nibble_val | low_nibble_val;
+		//printf("converted hex: %u\n", converted_hex);
+
+		// Get hex digits binary values from the string and store it in malloc-d mem
+		//converted_hex = (unsigned int)strtol(curr_hex, NULL, 16);				
+		//printf("converted hex: %u\n", converted_hex);
+		
+
+		// Store converted hex in malloc-ed memory
+		*curr_addr = (uint8_t)converted_hex;
 		//printf("%p: %x\n", (void *)curr_addr, *curr_addr);
 		curr_addr += 1;
+		
 
 		// Increment indices
 		trailing_i = leading_i + 1;
 		leading_i = trailing_i + 1;
+		printf("in loop: %s\n", (char *)results);
 	}
 
 	// Reallocate if have unused extra space in orginal malloc
-	bytes_used = (curr_addr - (unsigned char *)results);
+	// Want to retain extra \0 at the end
+	bytes_used = (curr_addr - (uint8_t *)results) + 1;
 	//printf("addr gap: %ld\n", bytes_used);
+	// Subtract 1 from bytes_expected to retain \0
 	if (bytes_used < bytes_expected) {
 	//	printf("REALLOCATING\n");
-		results = realloc(results, bytes_used); 
+		results = realloc(results, bytes_used);
 	}
-
+	printf("results in hex_to_binary: %s\n", (char *)results);
 	return results;
+}
+
+/*
+ * Given a hex digit in a string, return its binary value 
+ */
+ssize_t hex_digit_to_binary (char hex_digit) {
+	// Note: Opposite to the binary_to_hex conversion 
+	if ((hex_digit >= '0') && (hex_digit <= '9')) {
+		return hex_digit - '0';
+	} else if ((hex_digit >= 'A') && (hex_digit <= 'F')) {
+		return hex_digit - 'A' + 10;
+	} else if ((hex_digit >= 'a') && (hex_digit <= 'f')) {
+		return hex_digit - 'f' + 10;
+	} else {
+		return -1;
+	}
 }
