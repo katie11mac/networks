@@ -39,7 +39,6 @@ char *binary_to_hex(void *data, ssize_t n)
 
 		// Convert high_nibble and put in memory
 		// Referenced ASCI table
-		// TO-DO: CAN MAKE THIS A FUNCTION
 		if (high_nibble < 10) {
 			*(hex_str + bytes_written) = (char)(high_nibble + '0');
 		} else {
@@ -144,6 +143,8 @@ void *hex_to_binary(char *hex)
 		curr_hex[1] = hex[leading_i];
 
 		// Get value of the hex digit itself 
+		// 	Could insert checks if they return -1, 
+		// 	but we check if they're hex digits before hand
 		high_nibble_val = hex_digit_to_binary(curr_hex[0]);
 		low_nibble_val = hex_digit_to_binary(curr_hex[1]);
 		
@@ -152,10 +153,6 @@ void *hex_to_binary(char *hex)
 		
 		// Combine high and low nibble for full converted value
 		converted_hex = high_nibble_val | low_nibble_val;
-
-		// Get hex digits binary values from the string and store it in malloc-d mem
-		//converted_hex = (unsigned int)strtol(curr_hex, NULL, 16);				
-		//printf("converted hex: %u\n", converted_hex);
 
 		// Store converted hex in malloc-ed memory
 		*curr_addr = (uint8_t)converted_hex;
@@ -167,10 +164,9 @@ void *hex_to_binary(char *hex)
 	}
 
 	// Reallocate if have unused extra space in orginal malloc
-	// Want to retain extra \0 at the end
+	// Want to retain extra \0 at the end, so +1
 	bytes_used = (curr_addr - (uint8_t *)results) + 1;
 	
-	// Subtract 1 from bytes_expected to retain \0
 	if (bytes_used < bytes_expected) {
 		results = realloc(results, bytes_used);
 	}
