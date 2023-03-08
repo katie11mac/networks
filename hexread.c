@@ -4,7 +4,7 @@
 
 #include "util.h"
 
-#define READ_SIZE 48
+#define READ_SIZE 4096
 
 void convert_input(FILE *file);
 

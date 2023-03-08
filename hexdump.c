@@ -4,7 +4,7 @@
 
 #include "util.h"
 
-#define READ_SIZE 16
+#define READ_SIZE 4096
 
 void convert_stdin(void);
 void convert_file(FILE *file); 
