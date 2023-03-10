@@ -16,7 +16,7 @@ char *binary_to_hex(void *data, ssize_t n)
 	ssize_t new_n;
 	char *hex_str;
 	int i;
-	uint8_t bytes_written;
+	ssize_t bytes_written;
 	uint8_t *casted_data;
 	uint8_t low_nibble;
 	uint8_t high_nibble;
