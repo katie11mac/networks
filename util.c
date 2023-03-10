@@ -186,7 +186,7 @@ ssize_t hex_digit_to_binary (char hex_digit) {
 	} else if ((hex_digit >= 'A') && (hex_digit <= 'F')) {
 		return hex_digit - 'A' + 10;
 	} else if ((hex_digit >= 'a') && (hex_digit <= 'f')) {
-		return hex_digit - 'f' + 10;
+		return hex_digit - 'a' + 10;
 	} else {
 		return -1;
 	}
