@@ -2,7 +2,7 @@ CFLAGS=-Wall -pedantic -g -o
 
 testvde: sender stack
 
-stack: stack.c util.o cs431vde.o
+stack: stack.c util.o cs431vde.o crc32.o
 	gcc $(CFLAGS) $@ $^
 
 sender: sender.c util.o cs431vde.o
@@ -12,6 +12,9 @@ receiver: receiver.c util.o cs431vde.o
 	gcc $(CFLAGS) $@ $^
 
 cs431vde.o: cs431vde.c
+	gcc -c $(CFLAGS) $@ $^
+
+crc32.o: crc32.c
 	gcc -c $(CFLAGS) $@ $^
 
 
