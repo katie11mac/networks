@@ -44,8 +44,6 @@ int main(int argc, char *argv[])
 	uint8_t broadcast_addr[6];
 	struct ether_header *curr_frame;
 	ssize_t data_len;
-	//uint8_t fcs[4];  
-	//uint32_t fcs_val;
 	uint32_t *fcs_ptr;
 	uint32_t calculated_fcs;
 
@@ -72,43 +70,25 @@ int main(int argc, char *argv[])
 		// Verify length of frame 
 		is_valid_frame = is_valid_frame_length(frame_len); 	
 
-		// Only precede if valid frame 
+		// If valid frame, interpret bits as ethernet frame 
 		if (is_valid_frame) {
-
-			// Interpret bits as ethernet frame
 
 			// Set header information
 			curr_frame = (struct ether_header *) frame;
 			//printf("new_frame dst: %s\n", binary_to_hex(curr_frame->dst, 6));
 			
-			// Set data information
+			// Get data length
 			data_len = frame_len - sizeof(struct ether_header) - sizeof(*fcs_ptr); 
 			printf("data_len: %lu\n", data_len); 	
-			// DO I HAVE TO SET A VARIABLE TO HOLD THE DATA? 
-
-
-			// Set fcs (frame check sequence)  
-			//fcs = (uint8_t[4]) (frame + sizeof(struct ether_header) + data_len);
-
-			//for (int i = 0; i < sizeof(fcs); i++) {
-			//	*(fcs + i) = frame[sizeof(struct ether_header) + data_len + i];
-			//}
-			//printf("FCS: %x %x %x %x\n", fcs[0], fcs[1], fcs[2], fcs[3]);
-
-			// Verify FCS
-			// IS THIS OKAY???????????????? 
-			// IS IT MSB TO LSB? 
-			calculated_fcs = crc32(0, frame, frame_len - sizeof(*fcs_ptr));
-			printf("calculated fcs: %u\n", calculated_fcs);
-			//fcs_val = fcs[0] << 24;
-			//fcs_val = fcs_val | fcs[1] << 16;
-			//fcs_val = fcs_val | fcs[2] << 8;
-			//fcs_val = fcs_val | fcs[3];
-			//printf("fcs val       : %u\n", fcs_val);
-			
+		
+			// Set fcs 
 			fcs_ptr = (uint32_t *)(frame + sizeof(struct ether_header) + data_len);
 			printf("fcs_ptr value: %u\n", *fcs_ptr);
 
+			// Verify fcs
+			calculated_fcs = crc32(0, frame, frame_len - sizeof(*fcs_ptr));
+			printf("calculated fcs: %u\n", calculated_fcs);
+			
 			if (calculated_fcs != *fcs_ptr) {
 				printf("ignoring %ld-byte frame (bad fcs: got 0x%08x, expected 0x%08x)\n", frame_len, *fcs_ptr, calculated_fcs);
 				is_valid_frame = 0;
@@ -168,4 +148,3 @@ void check_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, uint8_t 
 		printf("ignoring %lu-byte frame (not for me)\n", frame_len); 
 	}
 }
-
