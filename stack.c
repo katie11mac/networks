@@ -44,9 +44,9 @@ int main(int argc, char *argv[])
 	uint8_t broadcast_addr[6];
 	struct ether_header *curr_frame;
 	ssize_t data_len;
-	// NEED A VARIABLE TO HOLD THE DATA
-	uint8_t fcs[4];  
-	uint32_t fcs_val;
+	//uint8_t fcs[4];  
+	//uint32_t fcs_val;
+	uint32_t *fcs_ptr;
 	uint32_t calculated_fcs;
 
 
@@ -82,21 +82,37 @@ int main(int argc, char *argv[])
 			//printf("new_frame dst: %s\n", binary_to_hex(curr_frame->dst, 6));
 			
 			// Set data information
-			data_len = frame_len - sizeof(struct ether_header) - sizeof(fcs); 
+			data_len = frame_len - sizeof(struct ether_header) - sizeof(*fcs_ptr); 
 			printf("data_len: %lu\n", data_len); 	
 			// DO I HAVE TO SET A VARIABLE TO HOLD THE DATA? 
 
 
 			// Set fcs (frame check sequence)  
-			for (int i = 0; i < sizeof(fcs); i++) {
-				*(fcs + i) = frame[sizeof(struct ether_header) + data_len + i];
-			}
-			printf("FCS: %x %x %x %x\n", fcs[0], fcs[1], fcs[2], fcs[3]);
+			//fcs = (uint8_t[4]) (frame + sizeof(struct ether_header) + data_len);
+
+			//for (int i = 0; i < sizeof(fcs); i++) {
+			//	*(fcs + i) = frame[sizeof(struct ether_header) + data_len + i];
+			//}
+			//printf("FCS: %x %x %x %x\n", fcs[0], fcs[1], fcs[2], fcs[3]);
 
 			// Verify FCS
 			// IS THIS OKAY???????????????? 
-			calculated_fcs = crc32(0, frame, frame_len - sizeof(fcs));
-			printf("%u\n", calculated_fcs);
+			// IS IT MSB TO LSB? 
+			calculated_fcs = crc32(0, frame, frame_len - sizeof(*fcs_ptr));
+			printf("calculated fcs: %u\n", calculated_fcs);
+			//fcs_val = fcs[0] << 24;
+			//fcs_val = fcs_val | fcs[1] << 16;
+			//fcs_val = fcs_val | fcs[2] << 8;
+			//fcs_val = fcs_val | fcs[3];
+			//printf("fcs val       : %u\n", fcs_val);
+			
+			fcs_ptr = (uint32_t *)(frame + sizeof(struct ether_header) + data_len);
+			printf("fcs_ptr value: %u\n", *fcs_ptr);
+
+			if (calculated_fcs != *fcs_ptr) {
+				printf("ignoring %ld-byte frame (bad fcs: got 0x%08x, expected 0x%08x)\n", frame_len, *fcs_ptr, calculated_fcs);
+				is_valid_frame = 0;
+			}
 
 		}	
 		
@@ -106,7 +122,6 @@ int main(int argc, char *argv[])
 		}
 
 		free(data_as_hex);
-    
 	}
 
     if(frame_len < 0) {
@@ -123,9 +138,11 @@ int main(int argc, char *argv[])
  */
 int is_valid_frame_length(ssize_t frame_len) 
 {
+	// Frame length too small
 	if (frame_len < MIN_DATA_SIZE + METADATA_SIZE) {
 		printf("ignoring %lu-byte frame (short)\n", frame_len);
 		return 0;
+	// Frame length too large
 	} else if (frame_len > MAX_DATA_SIZE + METADATA_SIZE) {
 		printf("ignoring %lu-byte frame (long)\n", frame_len);
 		return 0;
@@ -143,13 +160,11 @@ void check_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, uint8_t 
 	// Check if frame is a broadcast 
 	if (memcmp(curr_frame->dst, broadcast_addr, 6) == 0) {
 		printf("received %lu-byte broadcast frame from %s\n", frame_len, binary_to_hex(curr_frame->src, 6)); 
-	}
-	// Check if frame is for self
-	else if (memcmp(curr_frame->dst, ether_addr, 6) == 0) {
+	// Check if frame is for me 
+	} else if (memcmp(curr_frame->dst, ether_addr, 6) == 0) {
 		printf("received %lu-byte frame for me from %s\n", frame_len, binary_to_hex(curr_frame->src, 6)); 
-	}
-	// Otherwise frame is not for me 
-	else {
+	// Otherwise frame is not for me
+	} else {
 		printf("ignoring %lu-byte frame (not for me)\n", frame_len); 
 	}
 }
