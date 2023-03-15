@@ -9,7 +9,6 @@
 
 #include "util.h"
 #include "cs431vde.h"
-//#include "crc32.c"
 
 #define METADATA_SIZE 18
 #define MIN_DATA_SIZE 46 
@@ -21,8 +20,11 @@ struct ether_header {
 	uint8_t type[2];
 };
 
-int
-main(int argc, char *argv[])
+uint32_t crc32(uint32_t crc, const void *buf, size_t size);
+int is_valid_frame_length(ssize_t frame_len); 
+void check_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, uint8_t broadcast_addr[6], uint8_t ether_addr[6]);
+
+int main(int argc, char *argv[])
 {
     int fds[2];
 
@@ -37,19 +39,23 @@ main(int argc, char *argv[])
                                       NULL };
     char **vde_cmd = connect_to_remote_switch ? remote_vde_cmd : local_vde_cmd;
 
-	// CREATED VARIABLES
 	int is_valid_frame = 1;
-	uint8_t ether_addr[6]; // 86:46:6c:7e:ff:1a
+	uint8_t ether_addr[6]; 
+	uint8_t broadcast_addr[6];
 	struct ether_header *curr_frame;
 	ssize_t data_len;
 	// NEED A VARIABLE TO HOLD THE DATA
-	uint8_t fcs[4]; // frame check sequence 
+	uint8_t fcs[4];  
+	uint32_t fcs_val;
 	uint32_t calculated_fcs;
 
 
 	// Create ethernet/MAC address
 	memcpy(ether_addr, "\x86\x46\x6c\x7e\xff\x1a", 6);
-//	printf("ether_addr: %x:%x:%x:%x:%x:%x\n", ether_addr[0], ether_addr[1], ether_addr[2], ether_addr[3], ether_addr[4], ether_addr[5]);
+
+	// Set broadcast address 
+	memcpy(broadcast_addr, "\xff\xff\xff\xff\xff\xff", 6);
+
 
 	// Connecting to vde virtual switch
     if(connect_to_vde_switch(fds, vde_cmd) < 0) {
@@ -64,14 +70,7 @@ main(int argc, char *argv[])
         puts(data_as_hex);
 
 		// Verify length of frame 
-		if (frame_len < MIN_DATA_SIZE + METADATA_SIZE) {
-			// IS THERE A BETTER WAY TO PRINT THESE MESSAGES?? 
-			printf("ignoring %lu-byte frame (short)\n", frame_len);
-			is_valid_frame = 0;
-		} else if (frame_len > MAX_DATA_SIZE + METADATA_SIZE) {
-			printf("ignoring %lu-byte frame (long)\n", frame_len);
-			is_valid_frame = 0;
-		}
+		is_valid_frame = is_valid_frame_length(frame_len); 	
 
 		// Only precede if valid frame 
 		if (is_valid_frame) {
@@ -80,12 +79,14 @@ main(int argc, char *argv[])
 
 			// Set header information
 			curr_frame = (struct ether_header *) frame;
-			printf("new_frame dst: %s\n", binary_to_hex(curr_frame->dst, 6));
+			//printf("new_frame dst: %s\n", binary_to_hex(curr_frame->dst, 6));
 			
 			// Set data information
 			data_len = frame_len - sizeof(struct ether_header) - sizeof(fcs); 
 			printf("data_len: %lu\n", data_len); 	
-			
+			// DO I HAVE TO SET A VARIABLE TO HOLD THE DATA? 
+
+
 			// Set fcs (frame check sequence)  
 			for (int i = 0; i < sizeof(fcs); i++) {
 				*(fcs + i) = frame[sizeof(struct ether_header) + data_len + i];
@@ -93,14 +94,17 @@ main(int argc, char *argv[])
 			printf("FCS: %x %x %x %x\n", fcs[0], fcs[1], fcs[2], fcs[3]);
 
 			// Verify FCS
-			//calculated_fcs = crc32(0, frame, frame_len - sizeof(fcs));
+			// IS THIS OKAY???????????????? 
+			calculated_fcs = crc32(0, frame, frame_len - sizeof(fcs));
+			printf("%u\n", calculated_fcs);
 
 		}	
+		
+		// Check if destination is for me
+		if (is_valid_frame) {
+			check_dst_addr(curr_frame, frame_len, broadcast_addr, ether_addr);
+		}
 
-			// Check if frame is broadcast 
-			
-
-			// Check if frame is for sel
 		free(data_as_hex);
     
 	}
@@ -111,5 +115,42 @@ main(int argc, char *argv[])
     }
 
     return 0;
+}
+
+
+/*
+ * Return 1 if the frame has a valid length and 0 otherwise 
+ */
+int is_valid_frame_length(ssize_t frame_len) 
+{
+	if (frame_len < MIN_DATA_SIZE + METADATA_SIZE) {
+		printf("ignoring %lu-byte frame (short)\n", frame_len);
+		return 0;
+	} else if (frame_len > MAX_DATA_SIZE + METADATA_SIZE) {
+		printf("ignoring %lu-byte frame (long)\n", frame_len);
+		return 0;
+	} else {
+		return 1;
+	}
+}
+
+/*
+ * Check whether destination address is for me (i.e. broadcast or my MAC address) 
+ * and print appropriate messages 
+ */
+void check_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, uint8_t broadcast_addr[6], uint8_t ether_addr[6]) 
+{
+	// Check if frame is a broadcast 
+	if (memcmp(curr_frame->dst, broadcast_addr, 6) == 0) {
+		printf("received %lu-byte broadcast frame from %s\n", frame_len, binary_to_hex(curr_frame->src, 6)); 
+	}
+	// Check if frame is for self
+	else if (memcmp(curr_frame->dst, ether_addr, 6) == 0) {
+		printf("received %lu-byte frame for me from %s\n", frame_len, binary_to_hex(curr_frame->src, 6)); 
+	}
+	// Otherwise frame is not for me 
+	else {
+		printf("ignoring %lu-byte frame (not for me)\n", frame_len); 
+	}
 }
 
