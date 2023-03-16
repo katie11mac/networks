@@ -1,11 +1,11 @@
 CFLAGS=-Wall -pedantic -g -o
 
-testvde: sender stack
+testvde: testing-sender stack
 
 stack: stack.c util.o cs431vde.o crc32.o
 	gcc $(CFLAGS) $@ $^
 
-sender: sender.c util.o cs431vde.o
+testing-sender: testing-sender.c util.o cs431vde.o crc32.o
 	gcc $(CFLAGS) $@ $^
 
 receiver: receiver.c util.o cs431vde.o
@@ -32,4 +32,4 @@ util.o: util.c
 
 .PHONY: clean
 clean: 
-	rm -f hexdump hexread receiver sender stack 
+	rm -f hexdump hexread receiver testing-sender stack 
