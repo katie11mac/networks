@@ -11,12 +11,6 @@ testing-sender: testing-sender.c util.o cs431vde.o crc32.o
 receiver: receiver.c util.o cs431vde.o
 	gcc $(CFLAGS) $@ $^
 
-cs431vde.o: cs431vde.c
-	gcc -c $(CFLAGS) $@ $^
-
-crc32.o: crc32.c
-	gcc -c $(CFLAGS) $@ $^
-
 
 
 testutil: hexdump hexread
@@ -27,9 +21,11 @@ hexdump: hexdump.c util.o
 hexread: hexread.c util.o
 	gcc $(CFLAGS) $@ $^
 
-util.o: util.c
+
+
+%.o: %.c
 	gcc -c $(CFLAGS) $@ $^
 
 .PHONY: clean
 clean: 
-	rm -f hexdump hexread receiver testing-sender stack 
+	rm -f hexdump hexread receiver testing-sender stack *.o 
