@@ -44,8 +44,8 @@ int main(int argc, char *argv[])
 	// Process frames until user terminates with Control-C
     while((frame_len = receive_ethernet_frame(fds[0], frame)) > 0) {
         data_as_hex = binary_to_hex(frame, frame_len);
-        printf("received frame, length %ld:\n", frame_len);
-        puts(data_as_hex);
+        //printf("received frame, length %ld:\n", frame_len);
+        //puts(data_as_hex);
 
 		// Verify length of frame 
 		is_valid_frame = is_valid_frame_length(frame_len); 	
@@ -59,15 +59,15 @@ int main(int argc, char *argv[])
 			
 			// Get data length
 			data_len = frame_len - sizeof(struct ether_header) - sizeof(*fcs_ptr); 
-			printf("data_len: %lu\n", data_len); 	
+			//printf("data_len: %lu\n", data_len); 	
 		
 			// Set fcs 
 			fcs_ptr = (uint32_t *)(frame + sizeof(struct ether_header) + data_len);
-			printf("fcs_ptr value: %u\n", *fcs_ptr);
+			//printf("fcs_ptr value: %u\n", *fcs_ptr);
 
 			// Verify fcs
 			calculated_fcs = crc32(0, frame, frame_len - sizeof(*fcs_ptr));
-			printf("calculated fcs: %u\n", calculated_fcs);
+			//printf("calculated fcs: %u\n", calculated_fcs);
 			
 			if (calculated_fcs != *fcs_ptr) {
 				printf("ignoring %ld-byte frame (bad fcs: got 0x%08x, expected 0x%08x)\n", frame_len, *fcs_ptr, calculated_fcs);
@@ -91,7 +91,6 @@ int main(int argc, char *argv[])
 
     return 0;
 }
-
 
 /*
  * Return 1 if the frame has a valid length and 0 otherwise 
@@ -119,10 +118,10 @@ void check_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, uint8_t 
 {
 	// Check if frame is a broadcast 
 	if (memcmp(curr_frame->dst, broadcast_addr, 6) == 0) {
-		printf("received %lu-byte broadcast frame from %s\n", frame_len, binary_to_hex(curr_frame->src, 6)); 
+		printf("received %lu-byte broadcast frame from %s", frame_len, binary_to_hex(curr_frame->src, 6)); 
 	// Check if frame is for me 
 	} else if (memcmp(curr_frame->dst, ether_addr, 6) == 0) {
-		printf("received %lu-byte frame for me from %s\n", frame_len, binary_to_hex(curr_frame->src, 6)); 
+		printf("received %lu-byte frame for me from %s", frame_len, binary_to_hex(curr_frame->src, 6)); 
 	// Otherwise frame is not for me
 	} else {
 		printf("ignoring %lu-byte frame (not for me)\n", frame_len); 
