@@ -1,0 +1,5 @@
+Run your program with N = 10, N = 20, N = 40, and N = 80. 
+
+Hypothesize how the delay incurred by collisions scales with N. 
+
+Summarize your results and your hypothesis in a file called README, which should also contain documentation describing how you obtained the results.
