@@ -34,7 +34,6 @@ int main(int argc, char *argv[])
 	// Set broadcast address 
 	memcpy(broadcast_addr, "\xff\xff\xff\xff\xff\xff", 6);
 
-
 	// Connecting to vde virtual switch
     if(connect_to_vde_switch(fds, vde_cmd) < 0) {
         printf("Could not connect to switch, exiting.\n");
@@ -73,7 +72,6 @@ int main(int argc, char *argv[])
 				printf("ignoring %ld-byte frame (bad fcs: got 0x%08x, expected 0x%08x)\n", frame_len, *fcs_ptr, calculated_fcs);
 				is_valid_frame = 0;
 			}
-
 		}	
 		
 		// Check if destination is for me
