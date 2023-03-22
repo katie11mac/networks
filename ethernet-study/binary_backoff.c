@@ -9,9 +9,8 @@
 #include <math.h>
 
 struct device {
-	int trying_to_send; // should i change this to also represent whether it errored
+	int trying_to_send;
 	uint32_t num_collisions; // num_collisions - 1 will help us with the range
-	// FIGURE OUT RELATIONSHIP BETWEEN num_collisions and attempts 
 	uint32_t random_wait;
 };
 
@@ -67,14 +66,17 @@ int main(int argc, char *argv[]) {
 
 }
 
+/*
+ * Simulate the sending of num_devices devices 
+ * sending after all colliding
+ */
 void send_devices(int num_devices) {
 	int num_devices_completed = 0;
 	int curr_time = 0;
-	
 	int num_devices_sending;
 	struct device *devices;
 
-	// Create n device structs and store in array
+	// Create num_devices device structs and store in array
 	if ((devices = (struct device *) malloc(num_devices * sizeof(struct device))) == NULL) {
 		printf("malloc failed\n");
 	}
@@ -82,7 +84,7 @@ void send_devices(int num_devices) {
 	// Iterate through and initialize devices array
 	for (int i = 0; i < num_devices; i++) {
 		devices[i].trying_to_send = 1;
-		devices[i].num_collisions = 1; // 1 because scenario simulates all n devices colliding 
+		devices[i].num_collisions = 1; // 1 because scenario simulates all devices colliding 
 		// Set random wait time
 		set_random_wait_time(&devices[i]);
 
@@ -91,8 +93,6 @@ void send_devices(int num_devices) {
 	}
 
 	printf("----------------------------------------------------\n");
-
-	// lol lets just move on and act like random_wait is correct 
 
 	// Keep looping through all devices until they have all have sent or errored 
 	while (num_devices_completed < num_devices) {
@@ -134,12 +134,14 @@ void send_devices(int num_devices) {
 						printf("\tERROR: device %d reached max collisions\n", i);
 						
 						num_devices_completed += 1;
+
+					// Otherwise generate a new random wait time
+					} else {
+						// Generate new random wait time 
+						set_random_wait_time(&devices[i]);
+
+						printf("\tNEW RANDOM: device %d sending in %u\n", i, devices[i].random_wait); 
 					}
-
-					// Generate new random wait time 
-					set_random_wait_time(&devices[i]);
-
-					printf("\tNEW RANDOM: device %d sending in %u\n", i, devices[i].random_wait); 
 				}
 			} 
 		}
@@ -152,9 +154,9 @@ void send_devices(int num_devices) {
 		}
 
 		curr_time += 1;	
-
 	}
 		
+	// INCLUDE PRINT STATEMENT FOR WHEN ALL DEVICES WERE ABLE TO SEND
 
 	// Iterate through our array until all devices have sent (while loop)
 	// (can check this either through a boolean variable or 
@@ -178,6 +180,10 @@ void send_devices(int num_devices) {
 
 }
 
+/*
+ * Generate random wait time for curr_device using 
+ * getrandom
+ */
 void set_random_wait_time(struct device *curr_device) {
 	uint32_t random_num;
 	ssize_t random_result;
