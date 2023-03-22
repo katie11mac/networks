@@ -22,6 +22,9 @@ int main(int argc, char *argv[]) {
 
 	int num_devices;
 
+	uint32_t testing;
+	uint32_t num;
+
 	// Read number of devices from command line 
 	if (argc == 2) {
 		
@@ -46,6 +49,22 @@ int main(int argc, char *argv[]) {
 
 	send_devices(num_devices);
 
+	/*
+	// PLAYING AROUND WITH getrandom
+	if((random_result = getrandom(&testing, sizeof(testing), 0)) == -1) {
+		perror("getrandom");
+		// DO WE WANT TO RETURN? 
+	}
+
+	//num = 1;
+	//printf("random number: %d\n", testing & num);
+	num = 3;
+	printf("random number: %d\n", testing & num);
+	
+	testing = (uint32_t)exp2(1);
+	printf("testing power: %d\n", testing);
+	*/
+
 }
 
 void send_devices(int num_devices) {
@@ -54,12 +73,6 @@ void send_devices(int num_devices) {
 	
 	int num_devices_sending;
 	struct device *devices;
-
-	uint32_t testing;
-	
-	
-	uint32_t num;
-
 
 	// Create n device structs and store in array
 	if ((devices = (struct device *) malloc(num_devices * sizeof(struct device))) == NULL) {
@@ -163,22 +176,6 @@ void send_devices(int num_devices) {
 	//		- Increament curr_time
 	// ********NEED TO THINK CAREFULLY ABOUT UPDATING VARIABLES************ 
 
-
-	/*
-	// PLAYING AROUND WITH getrandom
-	if((random_result = getrandom(&testing, sizeof(testing), 0)) == -1) {
-		perror("getrandom");
-		// DO WE WANT TO RETURN? 
-	}
-
-	//num = 1;
-	//printf("random number: %d\n", testing & num);
-	num = 3;
-	printf("random number: %d\n", testing & num);
-	
-	testing = (uint32_t)exp2(1);
-	printf("testing power: %d\n", testing);
-	*/
 }
 
 void set_random_wait_time(struct device *curr_device) {
