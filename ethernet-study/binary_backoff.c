@@ -15,31 +15,22 @@ struct device {
 	uint32_t random_wait;
 };
 
+void simulate_sending(int num_devices);
+
 int main(int argc, char *argv[]) {
 
-	int all_devices_sent = 0;
-	int num_devices_sent = 0;
-	int curr_time = 0;
 	int num_devices;
-	int num_devices_sending;
-	struct device *devices;
-
-	uint32_t testing;
-	uint32_t random_num;
-	ssize_t random_result;
-	uint32_t num_bits;
-	uint32_t num;
 
 	// Read number of devices from command line 
 	if (argc == 2) {
 		
 		if (sscanf(argv[1], "%d", &num_devices) == 0) {
-			printf("Invalid number of devices\n");
+			printf("Invalid number of devices.\n");
 			return 0;
 		}
 		
 		if (num_devices < 1) {
-			printf("Invalid number of devices\n"); 
+			printf("Invalid number of devices.\n"); 
 			return 0;
 		}
 
@@ -47,10 +38,27 @@ int main(int argc, char *argv[]) {
 	
 	} else {
 		
-		printf("Please provide one command-line argument specifying the number of devices to simulate\n"); 
+		printf("Please provide one command-line argument specifying the number of devices to simulate.\n"); 
 		return 0;
 	
 	}
+
+	simulate_sending(num_devices);
+
+}
+
+void simulate_sending(int num_devices) {
+	int num_devices_sent = 0;
+	int curr_time = 0;
+	
+	int num_devices_sending;
+	struct device *devices;
+
+	uint32_t testing;
+	uint32_t random_num;
+	ssize_t random_result;
+	uint32_t num;
+
 
 	// Create n device structs and store in array
 	if ((devices = (struct device *) malloc(num_devices * sizeof(struct device))) == NULL) {
@@ -71,12 +79,19 @@ int main(int argc, char *argv[]) {
 		//num_bits = (uint32_t)exp2(devices[i].num_collisions);
 		//		POTENTIAL SOLUTION: change types of num_collisions and random_wait to unsigned int, but then there's ambiguity 
 		devices[i].random_wait = random_num & devices[i].num_collisions;
+
+		printf("DEVICE %d\n", i);
+		printf("\tinitial sending time: %u\n", devices[i].random_wait);
 	}
-	
+
+	printf("----------------------------------------------------\n");
+
 	// lol lets just move on and act like random_wait is correct 
 
 	// Keep looping through all devices until they have all been able to send 
 	while (num_devices_sent < num_devices) {
+
+		printf("\nTIME %d\n", curr_time);
 
 		// MAKE SURE YOU ARE NOT CHECKING DEVICES THAT HAVE ALREADY SENT
 		//		Note: could technically 
@@ -101,12 +116,12 @@ int main(int argc, char *argv[]) {
 					devices[i].trying_to_send = 0;
 					num_devices_sent += 1;
 
-					printf("sending device %d at time %d\n", i, curr_time);
+					printf("\tSENDING: device %d at time %d\n", i, curr_time);
 				
 				// More than one device is trying to send on next time slot
 				} else {
 				
-					printf("COLLISION: device %d trying to send at time %d (collision %d)\n", i, curr_time, devices[i].num_collisions);
+					printf("\tCOLLISION: device %d trying to send at time %d (collision %d)\n", i, curr_time, devices[i].num_collisions);
 
 					devices[i].num_collisions += 1;
 					
@@ -114,7 +129,7 @@ int main(int argc, char *argv[]) {
 					if (devices[i].num_collisions > 9) {
 						devices[i].trying_to_send = 0;
 						
-						printf("device %d reached max collisions\n", i);
+						printf("\tERROR: device %d reached max collisions\n", i);
 						
 						// DON'T KNOW IF num_devices_sent IS GOOD VARIABLE NAME
 						num_devices_sent += 1;
@@ -127,7 +142,7 @@ int main(int argc, char *argv[]) {
 						// DO WE WANT TO RETURN? 
 					}
 					devices[i].random_wait = random_num & devices[i].num_collisions;
-				
+					printf("\tNEW RANDOM: device %d sending in %u\n", i, devices[i].random_wait); 
 				}
 			} 
 		}
@@ -135,7 +150,6 @@ int main(int argc, char *argv[]) {
 		for (int i = 0; i < num_devices; i++) {
 			if (devices[i].trying_to_send == 1) {
 				devices[i].random_wait -= 1;
-
 			}
 		}
 
@@ -180,6 +194,6 @@ int main(int argc, char *argv[]) {
 	testing = (uint32_t)exp2(1);
 	printf("testing power: %d\n", testing);
 	*/
-	
+
 
 }
