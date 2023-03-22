@@ -72,15 +72,6 @@ void send_devices(int num_devices) {
 		devices[i].num_collisions = 1; // 1 because scenario simulates all n devices colliding 
 		// Set random wait time
 		set_random_wait_time(&devices[i]);
-		//if((random_result = getrandom(&random_num, sizeof(random_num), 0)) == -1) {
-		//	perror("getrandom");
-			// DO WE WANT TO RETURN? 
-		//}
-		// !!!!!! THIS IS WRONG !!!!! need to & with 2 raised to (devices[i].num_collisions) - 1
-		// hmmmm but raising something to the power results in a double and we dont want that 
-		//num_bits = (uint32_t)exp2(devices[i].num_collisions);
-		//		POTENTIAL SOLUTION: change types of num_collisions and random_wait to unsigned int, but then there's ambiguity 
-		//devices[i].random_wait = random_num & devices[i].num_collisions;
 
 		printf("DEVICE %d\n", i);
 		printf("\tinitial sending time: %u\n", devices[i].random_wait);
@@ -135,12 +126,6 @@ void send_devices(int num_devices) {
 					// Generate new random wait time 
 					set_random_wait_time(&devices[i]);
 
-					// THIS NEEDS TO GET FIXEDDDD and remember its range increases 
-					//if((random_result = getrandom(&random_num, sizeof(random_num), 0)) == -1) {
-					//	perror("getrandom");
-						// DO WE WANT TO RETURN? 
-					//}
-					//devices[i].random_wait = random_num & devices[i].num_collisions;
 					printf("\tNEW RANDOM: device %d sending in %u\n", i, devices[i].random_wait); 
 				}
 			} 
