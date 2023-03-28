@@ -123,10 +123,10 @@ void send_devices(int num_devices) {
 				// More than one device is trying to send right now
 				} else {
 				
-					printf("\tCOLLISION: device %d trying to send at time %d (collision %d)\n", i, curr_time, devices[i].num_collisions);
-
 					devices[i].num_collisions += 1;
 					
+					printf("\tCOLLISION: device %d trying to send at time %d (collision %d)\n", i, curr_time, devices[i].num_collisions);
+
 					// Want to stop trying if has collided more than 10 times
 					if (devices[i].num_collisions > 9) {
 						devices[i].trying_to_send = 0;
@@ -181,21 +181,20 @@ void send_devices(int num_devices) {
 }
 
 /*
- * Generate random wait time for curr_device using 
- * getrandom
+ * Generate random wait time for curr_device using getrandom 
  */
 void set_random_wait_time(struct device *curr_device) {
-	uint32_t random_num;
 	ssize_t random_result;
+	uint32_t random_num;	
+	uint32_t wait_range;
 
 	// Set random wait time
 	if((random_result = getrandom(&random_num, sizeof(random_num), 0)) == -1) {
 		perror("getrandom");
 		// DO WE WANT TO RETURN? 
 	}
-	// !!!!!! THIS IS WRONG !!!!! need to & with 2 raised to (devices[i].num_collisions) - 1
-	// hmmmm but raising something to the power results in a double and we dont want that 
-	//num_bits = (uint32_t)exp2(devices[i].num_collisions);
-	//		POTENTIAL SOLUTION: change types of num_collisions and random_wait to unsigned int, but then there's ambiguity 
-	curr_device->random_wait = random_num & curr_device->num_collisions;
+	// Use bit manipulation to find 2 to the num_collisions power, which is the wait range 
+	wait_range = (1 << curr_device->num_collisions) - 1;
+	//printf("\t\tRANGE UP TO: %u\n", wait_range);
+	curr_device->random_wait = random_num & wait_range;
 }
