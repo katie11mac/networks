@@ -34,7 +34,7 @@ int main(int argc, char *argv[]) {
 			return 0;
 		}
 
-		printf("Starting simulation for %d devices...\n", num_devices);
+		//printf("Starting simulation for %d devices...\n", num_devices);
 	
 	} else {
 		
@@ -68,16 +68,16 @@ void send_devices(int num_devices) {
 		// Set random wait time
 		set_random_wait_time(&devices[i]);
 
-		printf("DEVICE %d\n", i);
-		printf("\tinitial sending time: %u\n", devices[i].random_wait);
+		//printf("DEVICE %d\n", i);
+		//printf("\tinitial sending time: %u\n", devices[i].random_wait);
 	}
 
-	printf("----------------------------------------------------\n");
+	//printf("----------------------------------------------------\n");
 
 	// Keep looping through all devices until they have all have sent or errored 
 	while (num_devices_completed < num_devices) {
 
-		printf("\nTIME %d\n", curr_time);
+		//printf("\nTIME %d\n", curr_time);
 
 		// Count how many devices are trying to send right now and have not sent already
 		num_devices_sending = 0;
@@ -98,20 +98,20 @@ void send_devices(int num_devices) {
 					devices[i].trying_to_send = 0;
 					num_devices_completed += 1;
 
-					printf("\tSENDING: device %d at time %d\n", i, curr_time);
+					//printf("\tSENDING: device %d at time %d\n", i, curr_time);
 				
 				// More than one device is trying to send right now
 				} else {
 				
 					devices[i].num_collisions += 1;
 					
-					printf("\tCOLLISION: device %d trying to send at time %d (collision %d)\n", i, curr_time, devices[i].num_collisions);
+					//printf("\tCOLLISION: device %d trying to send at time %d (collision %d)\n", i, curr_time, devices[i].num_collisions);
 
 					// Want to stop trying if has collided more than 10 times
 					if (devices[i].num_collisions > 9) {
 						devices[i].trying_to_send = 0;
 						
-						printf("\tERROR: device %d reached max collisions\n", i);
+						printf("ERROR AT TIMESLOT %d: device %d reached max collisions\n", curr_time, i);
 						
 						num_devices_completed += 1;
 
@@ -120,7 +120,7 @@ void send_devices(int num_devices) {
 						// Generate new random wait time 
 						set_random_wait_time(&devices[i]);
 
-						printf("\tNEW RANDOM: device %d sending in %u\n", i, devices[i].random_wait); 
+						//printf("\tNEW RANDOM: device %d sending in %u\n", i, devices[i].random_wait); 
 					}
 				}
 			} 
@@ -137,6 +137,8 @@ void send_devices(int num_devices) {
 	}
 	
 	free(devices);
+	//printf("*COMPLETED ALL DEVICES AT TIMESLOT %d*\n", curr_time);
+	printf("%d\n", curr_time);
 }
 
 
