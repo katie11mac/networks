@@ -108,7 +108,8 @@ void send_devices(int num_devices) {
 					//printf("\tCOLLISION: device %d trying to send at time %d (collision %d)\n", i, curr_time, devices[i].num_collisions);
 
 					// Want to stop trying if has collided more than 10 times
-					if (devices[i].num_collisions > 9) {
+					//		FIX THIS: Set it to > 15 for the experiment purposes
+					if (devices[i].num_collisions > 15) {
 						devices[i].trying_to_send = 0;
 						
 						printf("ERROR AT TIMESLOT %d: device %d reached max collisions\n", curr_time, i);
