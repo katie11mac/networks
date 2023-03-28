@@ -10,7 +10,7 @@
 
 struct device {
 	int trying_to_send;
-	uint32_t num_collisions; // num_collisions - 1 will help us with the range
+	uint32_t num_collisions; 
 	uint32_t random_wait;
 };
 
@@ -20,9 +20,6 @@ void set_random_wait_time(struct device *curr_device);
 int main(int argc, char *argv[]) {
 
 	int num_devices;
-
-	uint32_t testing;
-	uint32_t num;
 
 	// Read number of devices from command line 
 	if (argc == 2) {
@@ -47,28 +44,11 @@ int main(int argc, char *argv[]) {
 	}
 
 	send_devices(num_devices);
-
-	/*
-	// PLAYING AROUND WITH getrandom
-	if((random_result = getrandom(&testing, sizeof(testing), 0)) == -1) {
-		perror("getrandom");
-		// DO WE WANT TO RETURN? 
-	}
-
-	//num = 1;
-	//printf("random number: %d\n", testing & num);
-	num = 3;
-	printf("random number: %d\n", testing & num);
-	
-	testing = (uint32_t)exp2(1);
-	printf("testing power: %d\n", testing);
-	*/
-
 }
 
+
 /*
- * Simulate the sending of num_devices devices 
- * sending after all colliding
+ * Simulate the sending of num_devices devices sending after all colliding
  */
 void send_devices(int num_devices) {
 	int num_devices_completed = 0;
@@ -155,30 +135,10 @@ void send_devices(int num_devices) {
 
 		curr_time += 1;	
 	}
-		
-	// INCLUDE PRINT STATEMENT FOR WHEN ALL DEVICES WERE ABLE TO SEND
-
-	// Iterate through our array until all devices have sent (while loop)
-	// (can check this either through a boolean variable or 
-	// counting the number of devices that have sent)
-	// 
-	//		- For Loop: Count how many are trying to send (random_time 0)
-	//	****		****	CAN PROBABLY COMBINE THESE TWO LOOPS *****		*****
-	//		- If more than one device is trying to send rn 
-	//			- For Loop through devices looking for those with random_time 0: 
-	//				- increase their number of collisions 
-	//				- have them select a new wait time 
-	//		- If one or none devices are trying to send rn 
-	//			- Floop Loop through devices looking for those with random_time 0: 
-	//				- Mark that device as sent
-	//	****			*****			****			****		*****
-	//		- For Loop: Need to decrement random times for every single device
-	//			- But would we decrement for all devices? Where should this for loop land? 
-	//		*** WE ALSO NEED TO FIGURE OUT WHEN TO CHECK IF THE DEVICE REACHED MAX COLLISIONS *** 
-	//		- Increament curr_time
-	// ********NEED TO THINK CAREFULLY ABOUT UPDATING VARIABLES************ 
-
+	
+	free(devices);
 }
+
 
 /*
  * Generate random wait time for curr_device using getrandom 
