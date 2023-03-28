@@ -1,5 +1,23 @@
-Run your program with N = 10, N = 20, N = 40, and N = 80. 
+Assignment 2, Part II: Run binary exponential backoff with N = 10, N = 20, N = 40, and N = 80, and hypothesize how the delay incurred by collisions scales with N. 
 
-Hypothesize how the delay incurred by collisions scales with N. 
+To hypothesize how the delay incurred by collisions scales with N, I first ran the binary exponential backoff ten times with each specified number of devices. Then I took their averages. 
 
-Summarize your results and your hypothesis in a file called README, which should also contain documentation describing how you obtained the results.
+N = 10 
+Delay Times: 33, 78, 40, 42, 42, 50, 73, 66, 53, 50
+Average Delay: 53
+
+N = 20
+Delay Times: 98, 94, 67, 89, 152, 331, 74, 106, 90, 104
+Average Delay: 120
+
+N = 40 
+Delay Times: 326, 334, 176, 364, 231, 311, 324, 285, 605, 283
+Average Delay: 324
+
+N = 80
+Delay Times: 869, 1146, 853, 597, 909, 749, 1023, 1373, 2522, 878
+Average Delay: 1092
+
+With these numbers, I then worked to find the equation of a line that best fits these points. Since the points when graphed looked like it would fit a quadratic equation, I used that to help find a reasonable relationship between the delay and number of devices N. 
+
+Ultimately I found that the delay scales at 0.15N^2+2N. ? 
