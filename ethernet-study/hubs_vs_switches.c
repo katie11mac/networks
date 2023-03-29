@@ -16,14 +16,14 @@ void set_devices_sending_and_dest(int num_devices, struct device *devices);
 int generate_random_int(void); 
 void simulate_hub(int num_time_slots, int num_devices, struct device *devices);
 
-
 int main(int argc, char *argv[]) {
 
 	int num_devices, num_time_slots;
 	struct device *devices;
 
-	int random_number;
+	int random_number; // REMOVE: USED FOR DEBUGGING 
 
+	// Provided required number of command line arguments
 	if (argc == 3) {
 	
 		// Get num_devices from argv and check it is an integer
@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
 
 		printf("num_devices: %u\nnum_time_slots: %u\n", num_devices, num_time_slots);
 
-	// Number of required command line arguments not specified 
+	// Did not provide number of required command line arguments 
 	} else {
 		
 		printf("Please provide two command-line arguments.\nThe first specifying the number of devices and the second specifying number of timeslots.\n");
@@ -83,10 +83,17 @@ int main(int argc, char *argv[]) {
 	//		Reset the struct of devices (whatever that means) 
 	//		Do a function for the switch
 	
+
+
+	// !!!!! DON'T FORGET TO FREE THE MALLOC !!!!!
+
 }
 
 /*
- *
+ * Given a struct device *, randomly set all fields in each struct device appropriately.
+ * NOTES: 
+ *		- Each device has a 50% probability of deciding to send a frame 
+ *		- If device devices to send a frame, it randomly chooses which device to send to 
  */
 void set_devices_sending_and_dest(int num_devices, struct device *devices) {
 	
@@ -95,12 +102,16 @@ void set_devices_sending_and_dest(int num_devices, struct device *devices) {
 		devices[i].is_sending = generate_random_int() & 0x1;
 		// THIS IS WRONG 
 		devices[i].dest_device = generate_random_int(); 
+		// MAYBE ONLY SET THE DESTINATION DEVICE WHEN is_sending is 1
+		//		if is_sending is 0, then set destination device to -1 
+		// NEED A WHILE LOOP MAKING SURE THAT DESTINATION RESULT IS NOT ITSELF
 	}
 
 }
 
+
 /*
- *
+ * Generate a random int using getrandom
  */
 int generate_random_int(void) {
 	ssize_t random_result; 
@@ -115,8 +126,10 @@ int generate_random_int(void) {
 	
 }	
 
+
 /*
- *
+ * Simulate the behavoir of a simplified Ethernet hub.
+ * Assumes that devices do not attempt to resend in the face of collision. 
  */
 void simulate_hub(int num_time_slots, int num_devices, struct device *devices) {
 
@@ -124,13 +137,16 @@ void simulate_hub(int num_time_slots, int num_devices, struct device *devices) {
 	int sent_frames = 0;
 	int num_devices_sending;
 
-	// Keep running until hit num_time_slots 
+	// Run for num_time_slots
 	for (int i = 0; i < num_time_slots; i++) {
 		printf("TIMESLOT %d\n", i);
+		
 		num_devices_sending = 0;
 		
+		// Set appropriate values for all devices
 		set_devices_sending_and_dest(num_devices, devices);
 
+		// Count how many devices are trying to send
 		for (int j = 0; j < num_devices; j++) {
 			if (devices[j].is_sending == 1) {
 				total_frames += 1; 
@@ -139,15 +155,16 @@ void simulate_hub(int num_time_slots, int num_devices, struct device *devices) {
 			}
 		}
 	
-		// Only one device is trying to send
+		// Can successfully send frame if only 1 device is sending 
 		if (num_devices_sending == 1) {
 			sent_frames += 1;
+		
+		// Collision detected if more than 1 frame is being sent
 		} else if (num_devices_sending > 1) {
 			printf("\tCOlLISION: %d devices trying to send at once.\n", num_devices_sending);
 		}
 
 	}
-
 	
 	printf("HUB SIMULATION RESULTS:\n");
 	printf("TOTAL FRAMES SUCESSFULLY SENT: %d\n", sent_frames);
