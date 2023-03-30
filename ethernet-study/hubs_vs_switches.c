@@ -147,7 +147,7 @@ uint32_t generate_random_uint(void) {
 
 
 /*
- * Simulate the behavoir of a simplified Ethernet hub.
+ * Simulate the behavior of a simplified Ethernet hub.
  * Assumes that devices do not attempt to resend in the face of collision. 
  */
 void simulate_hub(int num_time_slots, int num_devices, struct device *devices) {
@@ -192,18 +192,22 @@ void simulate_hub(int num_time_slots, int num_devices, struct device *devices) {
 }
 
 /*
- *
+ * Simulate the behavior of a simple switch. 
+ * Assumes devices do not attempt to resend in the face of collision.
+ * Does not buffer any frames if they are unable to immediately deliver them 
+ * (ie, the switch silently discards the frame).
+ * Assumes switch knows which port each device is connected to before the simulation begins.
  */
 void simulate_switch(int num_time_slots, int num_devices, struct device *devices) {
 	// NOTE: This 1-D array appraoch gets rid of information about the source of the frame.
-	// While this information may not be relevant here, it might be needed if we needed to populate 
+	// While this information may not be relevant here, it might be needed if we needed to populate
 	// our own table of ports for each devices. To retain this information maybe use a 2-D array?
 	
 	int total_frames = 0;
 	int sent_frames = 0;
-	int dest_device_counts[num_devices];
-
-	// NEED TO DEBUG THIS!!!! 
+	int dest_device_counts[num_devices]; 
+	// index of dest_device_counts represents destination device 
+	// values represent how many devices trying to send to that host 
 
 	// Run for num_time_slots
 	for (int i = 0; i < num_time_slots; i++) {
@@ -219,6 +223,7 @@ void simulate_switch(int num_time_slots, int num_devices, struct device *devices
 		set_devices_sending_and_dest(num_devices, devices);
 		
 		printf("\nCOUNTING DEST DEVICES\n");
+		// Count how many devices are sending and their destinations 
 		for (int j = 0; j < num_devices; j++) {
 			if (devices[j].is_sending == 1) {
 				total_frames += 1; 
@@ -235,10 +240,10 @@ void simulate_switch(int num_time_slots, int num_devices, struct device *devices
 		}
 
 
-		// 
-		//
+		// Check how many devices are trying to send to each device 
 		printf("CHECKING HOW MANY DEVICES WANT TO SEND TO EACH DEVICE\n");
 		for (int j = 0; j < sizeof(dest_device_counts) / sizeof(dest_device_counts[0]); j++) {
+			// Can only send that constructed frame if only one device is sending to that destination
 			if (dest_device_counts[j] == 1) {
 				sent_frames += 1;
 				printf("\tSENDING TO DEVICE %d\n", j);
@@ -248,16 +253,12 @@ void simulate_switch(int num_time_slots, int num_devices, struct device *devices
 		}
 
 			printf("\n\n");
-	
-
 	}
 	
 	printf("SWITCH SIMULATION RESULTS:\n");
 	printf("TOTAL FRAMES SUCESSFULLY SENT: %d\n", sent_frames);
 	printf("TOTAL FRAMES ATTEMPTED TO SEND: %d\n", total_frames); 
 	printf("%f%% of frames successfully delivered\n", ((double)sent_frames / (double)total_frames) * 100);
-
-
 
 }
 
