@@ -1,26 +1,65 @@
 Assignment 2
-
+--------------------------------------------------------------------------------
 Part II: Binary Exponential Backoff
-Run binary exponential backoff with N = 10, N = 20, N = 40, and N = 80, and hypothesize how the delay incurred by collisions scales with N. 
+Instructions: Run binary exponential backoff with N = 10, N = 20, N = 40, and N = 80, and hypothesize how the delay incurred by collisions scales with N. 
 
 To hypothesize how the delay incurred by collisions scales with N, I first ran the binary exponential backoff ten times with each specified number of devices. Then I took their averages. 
 
 N = 10 
-Delay Times: 33, 78, 40, 42, 42, 50, 73, 66, 53, 50
-Average Delay: 53
+	Delay Times: 33, 78, 40, 42, 42, 50, 73, 66, 53, 50
+	Average Delay: 53
 
 N = 20
-Delay Times: 98, 94, 67, 89, 152, 331, 74, 106, 90, 104
-Average Delay: 120
+	Delay Times: 98, 94, 67, 89, 152, 331, 74, 106, 90, 104
+	Average Delay: 120
 
 N = 40 
-Delay Times: 326, 334, 176, 364, 231, 311, 324, 285, 605, 283
-Average Delay: 324
+	Delay Times: 326, 334, 176, 364, 231, 311, 324, 285, 605, 283
+	Average Delay: 324
 
 N = 80
-Delay Times: 869, 1146, 853, 597, 909, 749, 1023, 1373, 2522, 878
-Average Delay: 1092
+	Delay Times: 869, 1146, 853, 597, 909, 749, 1023, 1373, 2522, 878
+	Average Delay: 1092
 
 With these numbers, I then worked to find the equation of a line that best fits these points. Since the points when graphed looked like it would fit a quadratic equation, I used that to help find a reasonable relationship between the delay and number of devices N. 
 
-Ultimately I found that the delay scales at 0.15N^2+2N. ? 
+Ultimately I found that the delay scales at 0.15N^2+2N. ?
+
+--------------------------------------------------------------------------------
+
+Part III: Hubs vs Switches 
+Instructions: Find the percentage of frames that were successfully delivered by the hub and switch with N = 10, N = 20, and N = 40 devices. Run your tests 5 times, for 1000 timeslots each, and average the results. 
+
+Hub Results 
+	N = 10
+	Percent Frames Delivered: 0.098658%, 0.302786%, 0.117440%, 0.078989%, 0.239904%
+	Average Percent: 0.1675554% 
+
+	N = 20 
+	Percent Frames Delivered: 0.000000%, 0.000000%, 0.000000%, 0.000000%, 0.000000% 
+	Average Percent: 0%
+
+	N = 40 
+	Percent Frames Delivered: 0.000000%, 0.000000%, 0.000000%, 0.000000%, 0.000000%
+	Average Percent: 0%
+
+
+Switch Results
+	N = 10 
+	Percent Frames Delivered: 62.033898%, 63.355892%, 65.886748%, 63.434343%, 64.130435%
+	Average Percent: 63.7682632%
+
+	N = 20 
+	Percent Frames Delivered: 61.750828%, 62.067245%, 62.249320%, 61.703413%, 61.517884%
+	Average Percent: 61.857738%
+
+	N = 40 
+	Percent Frames Delivered: 61.601602%, 61.601602%, 61.407779%, 61.423657%, 61.095739% 
+	Average Percent: 61.4260758%
+
+The results of these tests show us how a switch is more reliable and consistent than a hub. 
+
+
+
+
+
