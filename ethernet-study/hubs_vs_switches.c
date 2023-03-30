@@ -8,12 +8,12 @@
 #include <sys/random.h>
 
 struct device {
-	int is_sending;
-	int dest_device; // NEED TO MAKE SURE IT DOES NOT GENERATE SELF AS DEST 
+	uint32_t is_sending;
+	uint32_t dest_device;  
 };
 
 void set_devices_sending_and_dest(int num_devices, struct device *devices); 
-int generate_random_int(void); 
+uint32_t generate_random_uint(void); 
 void simulate_hub(int num_time_slots, int num_devices, struct device *devices);
 
 int main(int argc, char *argv[]) {
@@ -21,7 +21,7 @@ int main(int argc, char *argv[]) {
 	int num_devices, num_time_slots;
 	struct device *devices;
 
-	int random_number; // REMOVE: USED FOR DEBUGGING 
+	uint32_t random_number; // REMOVE: USED FOR DEBUGGING 
 
 	// Provided required number of command line arguments
 	if (argc == 3) {
@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
 			return 0;
 		}
 
-		printf("num_devices: %u\nnum_time_slots: %u\n", num_devices, num_time_slots);
+		//printf("num_devices: %u\nnum_time_slots: %u\n", num_devices, num_time_slots);
 
 	// Did not provide number of required command line arguments 
 	} else {
@@ -65,28 +65,16 @@ int main(int argc, char *argv[]) {
 		printf("malloc failed\n");
 	}
 
-	//random_number = generate_random_int();
-	//printf("RANDOM NUMBER: %d\n", random_number);
+	random_number = generate_random_uint();
+	printf("RANDOM NUMBER: %u\n", random_number);
 	//printf("RANDOM NUMBER & 0x1: %d\n", random_number & 0x1);
-	//printf("RANDOM NUMBER & num_devices: %d\n", random_number & num_devices);
-	// I'm struggling to generate the number device for a random destination!!!!!! 
-	// BC if we and it, it might not take care of the entire range 
-	// if we or it, it might be outside of the range 
+	printf("RANDOM NUMBER %% num_devices: %u\n", random_number % num_devices);
 
+	set_devices_sending_and_dest(num_devices, devices);
 
-	simulate_hub(num_time_slots, num_devices, devices);
+//	simulate_hub(num_time_slots, num_devices, devices);
 
-//	set_devices_sending_and_dest(num_devices, devices);
-
-	// IDEA FOR NOW: 
-	//		Do a function for hub 
-	//		Reset the struct of devices (whatever that means) 
-	//		Do a function for the switch
-	
-
-
-	// !!!!! DON'T FORGET TO FREE THE MALLOC !!!!!
-
+	free(devices);
 }
 
 /*
@@ -97,25 +85,53 @@ int main(int argc, char *argv[]) {
  */
 void set_devices_sending_and_dest(int num_devices, struct device *devices) {
 	
+	uint32_t generated_dest; 
+
 	// Go through every device in devices
 	for (int i = 0; i < num_devices; i++) {
-		devices[i].is_sending = generate_random_int() & 0x1;
-		// THIS IS WRONG 
-		devices[i].dest_device = generate_random_int(); 
-		// MAYBE ONLY SET THE DESTINATION DEVICE WHEN is_sending is 1
-		//		if is_sending is 0, then set destination device to -1 
-		// NEED A WHILE LOOP MAKING SURE THAT DESTINATION RESULT IS NOT ITSELF
+		printf("DEVICE %d\n", i);
+		
+		// Randomly decide whether device i wants to send a frame
+		devices[i].is_sending = generate_random_uint() & 1;
+		printf("\tis_sending: %u\n", devices[i].is_sending);
+		
+		// If device i is sending, generate new random destination
+		if (devices[i].is_sending == 1) {
+			generated_dest = generate_random_uint() % num_devices;
+			printf("\tINITAL DEST: %u\n", generated_dest);
+			
+			// If generates self as destination and it's the first device
+			if ((generated_dest == 0) && (i == 0)) {
+				generated_dest += 1; 
+			
+			// If it generated self as destination
+			} else if (generated_dest == i) {
+				generated_dest -= 1;
+			}
+
+			devices[i].dest_device = generated_dest;
+		
+			printf("\tFINAL DEST: %u\n", devices[i].dest_device);
+
+		// Device is not sending 
+	//	} else {
+			// Set destination to itself 
+			// Would set it to -1, but dest_device is uint32_t
+			
+	//		devices[i].dest_device = i;
+			
+		}
 	}
 
 }
 
 
 /*
- * Generate a random int using getrandom
+ * Generate a random uint using getrandom
  */
-int generate_random_int(void) {
+uint32_t generate_random_uint(void) {
 	ssize_t random_result; 
-	int random_num; 
+	uint32_t random_num; 
 
 	if ((random_result = getrandom(&random_num, sizeof(random_num), 0)) == -1) {
 		perror("getrandom");
