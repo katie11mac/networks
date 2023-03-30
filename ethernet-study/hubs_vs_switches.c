@@ -15,6 +15,7 @@ struct device {
 void set_devices_sending_and_dest(int num_devices, struct device *devices); 
 uint32_t generate_random_uint(void); 
 void simulate_hub(int num_time_slots, int num_devices, struct device *devices);
+void simulate_switch(int num_time_slots, int num_devices, struct device *devices);
 
 int main(int argc, char *argv[]) {
 
@@ -65,14 +66,16 @@ int main(int argc, char *argv[]) {
 		printf("malloc failed\n");
 	}
 
-	random_number = generate_random_uint();
-	printf("RANDOM NUMBER: %u\n", random_number);
+	//random_number = generate_random_uint();
+	//printf("RANDOM NUMBER: %u\n", random_number);
 	//printf("RANDOM NUMBER & 0x1: %d\n", random_number & 0x1);
-	printf("RANDOM NUMBER %% num_devices: %u\n", random_number % num_devices);
+	//printf("RANDOM NUMBER %% num_devices: %u\n", random_number % num_devices);
 
-	set_devices_sending_and_dest(num_devices, devices);
+//	set_devices_sending_and_dest(num_devices, devices);
 
 //	simulate_hub(num_time_slots, num_devices, devices);
+
+	simulate_switch(num_time_slots, num_devices, devices);
 
 	free(devices);
 }
@@ -185,7 +188,76 @@ void simulate_hub(int num_time_slots, int num_devices, struct device *devices) {
 	printf("HUB SIMULATION RESULTS:\n");
 	printf("TOTAL FRAMES SUCESSFULLY SENT: %d\n", sent_frames);
 	printf("TOTAL FRAMES ATTEMPTED TO SEND: %d\n", total_frames); 
-	printf("%f%% of frames successfully delivered\n", (double)sent_frames / (double)total_frames);
+	printf("%f%% of frames successfully delivered\n", ((double)sent_frames / (double)total_frames) * 100);
+}
+
+/*
+ *
+ */
+void simulate_switch(int num_time_slots, int num_devices, struct device *devices) {
+	// NOTE: This 1-D array appraoch gets rid of information about the source of the frame.
+	// While this information may not be relevant here, it might be needed if we needed to populate 
+	// our own table of ports for each devices. To retain this information maybe use a 2-D array?
+	
+	int total_frames = 0;
+	int sent_frames = 0;
+	int dest_device_counts[num_devices];
+
+	// NEED TO DEBUG THIS!!!! 
+
+	// Run for num_time_slots
+	for (int i = 0; i < num_time_slots; i++) {
+		printf("TIMESLOT %d\n", i);
+		
+		// Initialize/Reset dest_device_counts array 
+		for (int j = 0; j < sizeof(dest_device_counts) / sizeof(dest_device_counts[0]); j++) {
+			dest_device_counts[j] = 0;
+		}
+		
+		// Set appropriate values for all devices
+		printf("SETTING VALUES FOR ALL DEVICES\n");
+		set_devices_sending_and_dest(num_devices, devices);
+		
+		printf("\nCOUNTING DEST DEVICES\n");
+		for (int j = 0; j < num_devices; j++) {
+			if (devices[j].is_sending == 1) {
+				total_frames += 1; 
+				//printf("\tdebugging: %d\n", dest_device_counts[(devices[j].dest_device)]);
+				dest_device_counts[(devices[j].dest_device)] += 1; 
+				
+				printf("\tDEVICE %d TRYING TO SEND TO %u\n", j, devices[j].dest_device);
+			}
+		}
+	
+
+		for (int j = 0; j < sizeof(dest_device_counts) / sizeof(dest_device_counts[0]); j++) {
+			printf("\tDEVICE %d: %d\n", j, dest_device_counts[j]);
+		}
+
+
+		// 
+		//
+		printf("CHECKING HOW MANY DEVICES WANT TO SEND TO EACH DEVICE\n");
+		for (int j = 0; j < sizeof(dest_device_counts) / sizeof(dest_device_counts[0]); j++) {
+			if (dest_device_counts[j] == 1) {
+				sent_frames += 1;
+				printf("\tSENDING TO DEVICE %d\n", j);
+			} else if (dest_device_counts[j] > 1) {
+				printf("\tCOLLISION: %d TOTAL DEVICES TRYING TO SEND TO %d\n", dest_device_counts[j], j);
+			}
+		}
+
+			printf("\n\n");
+	
+
+	}
+	
+	printf("SWITCH SIMULATION RESULTS:\n");
+	printf("TOTAL FRAMES SUCESSFULLY SENT: %d\n", sent_frames);
+	printf("TOTAL FRAMES ATTEMPTED TO SEND: %d\n", total_frames); 
+	printf("%f%% of frames successfully delivered\n", ((double)sent_frames / (double)total_frames) * 100);
+
+
 
 }
 
