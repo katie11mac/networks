@@ -34,8 +34,6 @@ int main(int argc, char *argv[]) {
 			return 0;
 		}
 
-		//printf("Starting simulation for %d devices...\n", num_devices);
-	
 	} else {
 		
 		printf("Please provide one command-line argument specifying the number of devices to simulate.\n"); 
@@ -156,8 +154,8 @@ void set_random_wait_time(struct device *curr_device) {
 		perror("getrandom");
 		// DO WE WANT TO RETURN? 
 	}
+
 	// Use bit manipulation to find 2 to the num_collisions power, which is the wait range 
 	wait_range = (1 << curr_device->num_collisions) - 1;
-	//printf("\t\tRANGE UP TO: %u\n", wait_range);
 	curr_device->random_wait = random_num & wait_range;
 }

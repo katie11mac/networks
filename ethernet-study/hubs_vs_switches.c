@@ -22,8 +22,6 @@ int main(int argc, char *argv[]) {
 	int num_devices, num_time_slots;
 	struct device *devices;
 
-	uint32_t random_number; // REMOVE: USED FOR DEBUGGING 
-
 	// Provided required number of command line arguments
 	if (argc == 3) {
 	
@@ -163,7 +161,7 @@ void simulate_hub(int num_time_slots, int num_devices, struct device *devices) {
 	printf("Hub Simulation Results:\n");
 	//printf("TOTAL FRAMES SUCESSFULLY SENT: %d\n", sent_frames);
 	//printf("TOTAL FRAMES ATTEMPTED TO SEND: %d\n", total_frames); 
-	printf("%f%% of frames successfully delivered\n", ((double)sent_frames / (double)total_frames) * 100);
+	printf("\t%f%% of frames successfully delivered\n", ((double)sent_frames / (double)total_frames) * 100);
 }
 
 /*
@@ -225,7 +223,7 @@ void simulate_switch(int num_time_slots, int num_devices, struct device *devices
 	printf("Switch Simulation Results: \n");
 	//printf("TOTAL FRAMES SUCESSFULLY SENT: %d\n", sent_frames);
 	//printf("TOTAL FRAMES ATTEMPTED TO SEND: %d\n", total_frames); 
-	printf("%f%% of frames successfully delivered\n", ((double)sent_frames / (double)total_frames) * 100);
+	printf("\t%f%% of frames successfully delivered\n", ((double)sent_frames / (double)total_frames) * 100);
 
 }
 

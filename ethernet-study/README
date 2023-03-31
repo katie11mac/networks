@@ -23,17 +23,20 @@ N = 80
 
 With these numbers, I then worked to find the equation of a line that best fits these points. Since the points when graphed looked like it would fit a quadratic equation, I used that to help find a reasonable relationship between the delay and number of devices N. 
 
-Ultimately I found that the delay scales at 0.15N^2+2N. ?
+I'm unsure of this relationship, but ultimately I found that the delay scales at around 0.15N^2+2N.
 
 --------------------------------------------------------------------------------
 
 Part III: Hubs vs Switches 
 Instructions: Find the percentage of frames that were successfully delivered by the hub and switch with N = 10, N = 20, and N = 40 devices. Run your tests 5 times, for 1000 timeslots each, and average the results. 
 
+
+These are my results of conducting the experiments specified in the instructions. 
+
 Hub Results 
 	N = 10
 	Percent Frames Delivered: 0.098658%, 0.302786%, 0.117440%, 0.078989%, 0.239904%
-	Average Percent: 0.1675554% 
+	Average Percent: 0.1675554%
 
 	N = 20 
 	Percent Frames Delivered: 0.000000%, 0.000000%, 0.000000%, 0.000000%, 0.000000% 
@@ -57,7 +60,7 @@ Switch Results
 	Percent Frames Delivered: 61.601602%, 61.601602%, 61.407779%, 61.423657%, 61.095739% 
 	Average Percent: 61.4260758%
 
-The results of these tests show us how a switch is more reliable and consistent than a hub. 
+The results of these tests show us how a switch is more reliable and consistent than a hub. Based on these results, it looks like a switch has a good chance of successfully delivering at least 60% of created frames. 
 
 
 
