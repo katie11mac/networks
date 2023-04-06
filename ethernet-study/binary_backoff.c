@@ -65,17 +65,10 @@ void send_devices(int num_devices) {
 		devices[i].num_collisions = 1; // 1 because scenario simulates all devices colliding 
 		// Set random wait time
 		set_random_wait_time(&devices[i]);
-
-		//printf("DEVICE %d\n", i);
-		//printf("\tinitial sending time: %u\n", devices[i].random_wait);
 	}
-
-	//printf("----------------------------------------------------\n");
 
 	// Keep looping through all devices until they have all have sent or errored 
 	while (num_devices_completed < num_devices) {
-
-		//printf("\nTIME %d\n", curr_time);
 
 		// Count how many devices are trying to send right now and have not sent already
 		num_devices_sending = 0;
@@ -96,15 +89,11 @@ void send_devices(int num_devices) {
 					devices[i].trying_to_send = 0;
 					num_devices_completed += 1;
 
-					//printf("\tSENDING: device %d at time %d\n", i, curr_time);
-				
 				// More than one device is trying to send right now
 				} else {
 				
 					devices[i].num_collisions += 1;
 					
-					//printf("\tCOLLISION: device %d trying to send at time %d (collision %d)\n", i, curr_time, devices[i].num_collisions);
-
 					// Want to stop trying if has collided more than 10 times
 					//		FIX THIS: Set it to > 15 for the experiment purposes
 					if (devices[i].num_collisions > 15) {
@@ -118,8 +107,6 @@ void send_devices(int num_devices) {
 					} else {
 						// Generate new random wait time 
 						set_random_wait_time(&devices[i]);
-
-						//printf("\tNEW RANDOM: device %d sending in %u\n", i, devices[i].random_wait); 
 					}
 				}
 			} 
@@ -136,7 +123,6 @@ void send_devices(int num_devices) {
 	}
 	
 	free(devices);
-	//printf("*COMPLETED ALL DEVICES AT TIMESLOT %d*\n", curr_time);
 	printf("%d\n", curr_time);
 }
 

@@ -80,16 +80,13 @@ void set_devices_sending_and_dest(int num_devices, struct device *devices) {
 
 	// Go through every device in devices
 	for (int i = 0; i < num_devices; i++) {
-		//printf("DEVICE %d\n", i);
 		
 		// Randomly decide whether device i wants to send a frame
 		devices[i].is_sending = generate_random_uint() & 1;
-		//printf("\tis_sending: %u\n", devices[i].is_sending);
 		
 		// If device i is sending, generate new random destination
 		if (devices[i].is_sending == 1) {
 			generated_dest = generate_random_uint() % num_devices;
-			//printf("\tINITAL DEST: %u\n", generated_dest);
 			
 			// If generates self as destination and it's the first device
 			if ((generated_dest == 0) && (i == 0)) {
@@ -102,7 +99,6 @@ void set_devices_sending_and_dest(int num_devices, struct device *devices) {
 
 			devices[i].dest_device = generated_dest;
 		
-			//printf("\tFINAL DEST: %u\n", devices[i].dest_device);		
 		}
 	}
 }
@@ -136,7 +132,6 @@ void simulate_hub(int num_time_slots, int num_devices, struct device *devices) {
 
 	// Run for num_time_slots
 	for (int i = 0; i < num_time_slots; i++) {
-		//printf("TIMESLOT %d\n", i);
 		
 		num_devices_sending = 0;
 		
@@ -148,7 +143,6 @@ void simulate_hub(int num_time_slots, int num_devices, struct device *devices) {
 			if (devices[j].is_sending == 1) {
 				total_frames += 1; 
 				num_devices_sending += 1; 
-				//printf("\tDEVICE %d TRYING TO SEND\n", j);
 			}
 		}
 	
@@ -159,8 +153,6 @@ void simulate_hub(int num_time_slots, int num_devices, struct device *devices) {
 	}
 	
 	printf("Hub Simulation Results:\n");
-	//printf("TOTAL FRAMES SUCESSFULLY SENT: %d\n", sent_frames);
-	//printf("TOTAL FRAMES ATTEMPTED TO SEND: %d\n", total_frames); 
 	printf("\t%f%% of frames successfully delivered\n", ((double)sent_frames / (double)total_frames) * 100);
 }
 
@@ -184,7 +176,6 @@ void simulate_switch(int num_time_slots, int num_devices, struct device *devices
 
 	// Run for num_time_slots
 	for (int i = 0; i < num_time_slots; i++) {
-		//printf("TIMESLOT %d\n", i);
 		
 		// Initialize/Reset dest_device_counts array 
 		for (int j = 0; j < sizeof(dest_device_counts) / sizeof(dest_device_counts[0]); j++) {
@@ -192,37 +183,26 @@ void simulate_switch(int num_time_slots, int num_devices, struct device *devices
 		}
 		
 		// Set appropriate values for all devices
-		//printf("SETTING VALUES FOR ALL DEVICES\n");
 		set_devices_sending_and_dest(num_devices, devices);
 		
-		//printf("\nCOUNTING DEST DEVICES\n");
 		// Count how many devices are sending and their destinations 
 		for (int j = 0; j < num_devices; j++) {
 			if (devices[j].is_sending == 1) {
 				total_frames += 1; 
 				dest_device_counts[(devices[j].dest_device)] += 1; 
-				
-				//printf("\tDEVICE %d TRYING TO SEND TO %u\n", j, devices[j].dest_device);
 			}
 		}
 	
 		// Check how many devices are trying to send to each device 
-		//printf("CHECKING HOW MANY DEVICES WANT TO SEND TO EACH DEVICE\n");
 		for (int j = 0; j < sizeof(dest_device_counts) / sizeof(dest_device_counts[0]); j++) {
 			// Can only send that constructed frame if only one device is sending to that destination
 			if (dest_device_counts[j] == 1) {
 				sent_frames += 1;
-				//printf("\tSENDING TO DEVICE %d\n", j);
 			}
 		}
-		
-		//printf("SENT:%d\nTOTAL:%d\n", sent_frames, total_frames); 
-		//printf("\n\n");
 	}
 	
 	printf("Switch Simulation Results: \n");
-	//printf("TOTAL FRAMES SUCESSFULLY SENT: %d\n", sent_frames);
-	//printf("TOTAL FRAMES ATTEMPTED TO SEND: %d\n", total_frames); 
 	printf("\t%f%% of frames successfully delivered\n", ((double)sent_frames / (double)total_frames) * 100);
 
 }
