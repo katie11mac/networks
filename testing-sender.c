@@ -76,7 +76,7 @@ int main(int argc, char *argv[])
     send_ethernet_frame(fds[1], frame, frame_len);
 
 	// TEST 3: Send frame for me with valid FCS
-	memcpy(test.dst, "\x86\x46\x6c\x7e\xff\x1a", 6);
+	memcpy(test.dst, "\x05\x06\x07\x08\xff\xff", 6);
 	memcpy(test.src, "\x06\xdd\x79\xe0\x8b\x4d", 6);
 	memcpy(test.type, "\x08\x00", 2);
 	memcpy(frame, &test, sizeof(struct ether_header));
