@@ -31,6 +31,19 @@ struct interface {
     struct ip_address ip_addr;  
 };
 
+struct arp_entry {
+	uint8_t ether_addr[6];
+	struct ip_address ip_addr;
+};
+
+struct route_entry {
+	// need something to signify which interface it would be for
+	int num_interface;
+	struct ip_address dst;
+	struct ip_address genmask;
+	// what about gateway
+};
+
 struct ip_header {
 	uint8_t version : 4;
 	uint8_t ihl : 4;
