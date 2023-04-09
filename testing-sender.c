@@ -17,6 +17,30 @@ struct ether_header {
     uint8_t type[2];
 };
 
+struct ip_address {
+    uint8_t part1;
+    uint8_t part2;
+    uint8_t part3;
+    uint8_t part4;
+};
+
+struct ip_header {
+    uint8_t version : 4;
+    uint8_t ihl : 4;
+    uint8_t service;
+    uint16_t total_length;
+    uint16_t identification;
+    uint8_t flags : 3;
+    uint16_t frame_offset : 13;
+    uint8_t ttl;
+    uint8_t protocol;
+    uint16_t header_checksum;
+    struct ip_address src_addr;
+    struct ip_address dst_addr;
+    // OPTIONS WITH VARIABLE LENGTH 
+};
+
+
 uint32_t crc32(uint32_t crc, const void *buf, size_t size);
 
 int main(int argc, char *argv[])
@@ -34,6 +58,7 @@ int main(int argc, char *argv[])
     char **vde_cmd = connect_to_remote_switch ? remote_vde_cmd : local_vde_cmd;
 	
 	struct ether_header test;
+	struct ip_header ip_test;
 	ssize_t data_len;
 	uint32_t fcs;
 
@@ -76,15 +101,23 @@ int main(int argc, char *argv[])
     send_ethernet_frame(fds[1], frame, frame_len);
 
 	// TEST 3: Send frame for me with valid FCS
+	// ethernet 
 	memcpy(test.dst, "\x05\x06\x07\x08\xff\xff", 6);
 	memcpy(test.src, "\x06\xdd\x79\xe0\x8b\x4d", 6);
 	memcpy(test.type, "\x08\x00", 2);
-	memcpy(frame, &test, sizeof(struct ether_header));
+	memcpy(frame, &test, sizeof(struct ether_header));	
 	
+	// ip packet
+	// I NEED HELP WITH THE VERSIONNNNNNNNNNN 
+	//memcpy(ip_test.version, "\x04", 1);
+	memcpy(&ip_test.src_addr, "\x01\x02\x03\x04", 4);
+	memcpy(&ip_test.dst_addr, "\xd0\xe0\xf0\x00", 4);
+    memcpy(frame + sizeof(struct ether_header), &ip_test, sizeof(struct ip_header));
+
 	data_len = 64;
-    memset(frame + sizeof(struct ether_header), '\xff', data_len);
-    
-	frame_len = sizeof(struct ether_header) + data_len;
+	memset(frame + sizeof(struct ether_header) + sizeof(struct ip_header), '\xff', data_len);
+
+	frame_len = sizeof(struct ether_header) + sizeof(struct ip_header) + data_len;
 	fcs = crc32(0, frame, frame_len);  
 	memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
 	frame_len += sizeof(uint32_t);

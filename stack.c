@@ -10,7 +10,7 @@ int main(int argc, char *argv[])
 
 	// Variables for vde_switch
     int connect_to_remote_switch = 0;
-    char *local_vde_cmd[] = { "vde_plug", NULL };
+    char *local_vde_cmd[] = { "vde_plug", NULL }; // NEED TO CHANGE THIS
     char *remote_vde_cmd[] = { "ssh", "pjohnson@weathertop.cs.middlebury.edu",
                                       "/home/pjohnson/cs431/bin/vde_plug",
                                       NULL };
@@ -29,9 +29,13 @@ int main(int argc, char *argv[])
 	uint32_t *fcs_ptr;
 	uint32_t calculated_fcs;
 
+	// Variables for processing IP frame
+	struct ip_header *curr_packet; 
+
 	// Variables for our collection of interfaces 
 	struct interface *interfaces;
 	uint8_t num_interfaces = 4;
+	
 
 	// ---------- TRIED PUTTING THIS IN A FUNCTION, BUT GOT FUNKY RESULTS ----------
 	if ((interfaces = (struct interface *) malloc(num_interfaces * sizeof(struct interface))) == NULL) {
@@ -80,7 +84,9 @@ int main(int argc, char *argv[])
 			// Set header information
 			curr_frame = (struct ether_header *) frame;
 			//printf("new_frame dst: %s\n", binary_to_hex(curr_frame->dst, 6));
-			
+		
+
+			// ------------------ MAKE THIS A FUNCTION??? ------------------------
 			// Get data length
 			data_len = frame_len - sizeof(struct ether_header) - sizeof(*fcs_ptr); 
 			//printf("data_len: %lu\n", data_len); 	
@@ -97,15 +103,21 @@ int main(int argc, char *argv[])
 				printf("ignoring %ld-byte frame (bad fcs: got 0x%08x, expected 0x%08x)\n", frame_len, *fcs_ptr, calculated_fcs);
 				is_valid_frame = 0;
 			}
+			// ------------------------------------------------------------------
 		}	
 		
 		// Check if destination is for any of my interfaces
 		if (is_valid_frame) {
+			// THIS IS CURRENTLY ONLY CHECKING IF FRAME WAS FOR ME (NOT BROADCAST)
 
-			check_dst_addr(curr_frame, frame_len, broadcast_addr, interfaces, num_interfaces); 
-			//printf("jfdksl");
-			//check_dst_addr(curr_frame, frame_len, broadcast_addr, ether_addr);
+			if (check_dst_addr(curr_frame, frame_len, broadcast_addr, interfaces, num_interfaces) == 1) {
+				printf("\tUNWRAPPING ETHERNET FRAME FOR ME\n"); 
+				curr_packet = (struct ip_header *) (frame + sizeof(struct ether_header));
+			}
 		}
+
+		
+
 
 		free(data_as_hex);
 	}
@@ -116,8 +128,9 @@ int main(int argc, char *argv[])
     }
 
     return 0;
-}
 
+	// CHECK WHERE WE NEED TO FREE INTERFACES !!!!!!!!!!!!
+}
 
 /*
  * Return 1 if the frame has a valid length and 0 otherwise 
@@ -150,7 +163,7 @@ int check_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, uint8_t b
 	// Check if frame is a broadcast 
 	if (memcmp(curr_frame->dst, broadcast_addr, 6) == 0) {
 		printf("received %lu-byte broadcast frame from %s", frame_len, binary_to_hex(curr_frame->src, 6)); 
-		return 1;
+		return 0;
 	}
 	
 	for (int i = 0; i < num_interfaces; i++) {

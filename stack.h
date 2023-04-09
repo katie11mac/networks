@@ -31,9 +31,24 @@ struct interface {
     struct ip_address ip_addr;  
 };
 
+struct ip_header {
+	uint8_t version : 4;
+	uint8_t ihl : 4;
+	uint8_t service;
+	uint16_t total_length;
+	uint16_t identification;
+	uint8_t flags : 3;
+	uint16_t frame_offset : 13;
+	uint8_t ttl;
+	uint8_t protocol;
+	uint16_t header_checksum;
+	struct ip_address src_addr;
+	struct ip_address dst_addr;
+	// OPTIONS WITH VARIABLE LENGTH 
+};
+
 uint32_t crc32(uint32_t crc, const void *buf, size_t size);
 
-void initialize_interfaces(struct interface *interfaces);
 int is_valid_frame_length(ssize_t frame_len);
 int check_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, uint8_t broadcast_addr[6], struct interface *interfaces, uint8_t num_interfaces);
 
