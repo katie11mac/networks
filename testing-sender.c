@@ -102,7 +102,7 @@ int main(int argc, char *argv[])
 
 	// TEST 3: Send frame for me with valid FCS
 	// ethernet 
-	memcpy(test.dst, "\x05\x06\x07\x08\xff\xff", 6);
+	memcpy(test.dst, "\x01\x02\x03\x04\xff\xff", 6);
 	memcpy(test.src, "\x06\xdd\x79\xe0\x8b\x4d", 6);
 	memcpy(test.type, "\x08\x00", 2);
 	memcpy(frame, &test, sizeof(struct ether_header));	
@@ -110,7 +110,7 @@ int main(int argc, char *argv[])
 	// ip packet
 	// I NEED HELP WITH THE VERSIONNNNNNNNNNN 
 	//memcpy(ip_test.version, "\x04", 1);
-	memcpy(&ip_test.src_addr, "\x01\x02\x03\x04", 4);
+	memcpy(&ip_test.src_addr, "\x0d\x0e\x0f\x10", 4);
 	memcpy(&ip_test.dst_addr, "\xd0\xe0\xf0\x00", 4);
     memcpy(frame + sizeof(struct ether_header), &ip_test, sizeof(struct ip_header));
 
