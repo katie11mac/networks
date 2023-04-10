@@ -10,7 +10,7 @@ int main(int argc, char *argv[])
 
 	// Variables for vde_switch
     int connect_to_remote_switch = 0;
-    char *local_vde_cmd[] = { "vde_plug", "/tmp/net0.vde", NULL }; // ORIGINAL 2ND PARAM: NULL, NO 3RD
+    char *local_vde_cmd[] = { "vde_plug", NULL };//"/tmp/net1.vde", NULL }; // ORIGINAL 2ND PARAM: NULL, NO 3RD
     char *remote_vde_cmd[] = { "ssh", "pjohnson@weathertop.cs.middlebury.edu",
                                       "/home/pjohnson/cs431/bin/vde_plug",
                                       NULL };
@@ -160,12 +160,23 @@ int is_valid_frame_length(ssize_t frame_len)
  */
 int check_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, uint8_t broadcast_addr[6], struct interface *interfaces, uint8_t num_interfaces) 
 {
+	int receiving_interface = 0;
+
 	// Check if frame is a broadcast 
 	if (memcmp(curr_frame->dst, broadcast_addr, 6) == 0) {
 		printf("received %lu-byte broadcast frame from %s", frame_len, binary_to_hex(curr_frame->src, 6)); 
 		return 0;
-	}
 	
+	// Check if frame is for the receiving interface 
+	} else if (memcmp(curr_frame->dst, interfaces[receiving_interface].ether_addr, 6) == 0) {
+		printf("received %lu-byte frame for me from %s", frame_len, binary_to_hex(curr_frame->src, 6)); 
+		printf("\tframe dest: %s\tinterface MAC: %s", binary_to_hex(curr_frame->dst, 6), binary_to_hex(interfaces[receiving_interface].ether_addr, 6));
+		// Can return immediately since MAC addresses unique
+		return 1; 
+	}
+
+	/* 
+	// THIS NEEDS TO CHANGE SO THAT WE CHECK THAT IT'S ONLY THE DEVICE THAT IS RECIEVING
 	for (int i = 0; i < num_interfaces; i++) {
 		// Check if frame is for one of my interfaces 
 		if (memcmp(curr_frame->dst, interfaces[i].ether_addr, 6) == 0) {
@@ -175,7 +186,8 @@ int check_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, uint8_t b
 			return 1; 
 		}
 	}
-	
+	*/
+
 	// Frame is not for any of my interfaces
 	printf("ignoring %lu-byte frame (not for me)\n", frame_len); 
 	return 0;
