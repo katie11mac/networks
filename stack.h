@@ -40,7 +40,7 @@ struct route {
 	// need something to signify which interface it would be for
 	int num_interface;
 	struct ip_address dst;
-	uint32_t genmask; // unsure of the data type 
+	struct ip_address genmask; // unsure of the data type 
 	// gateway -- i dont think you need it, since we have the num_interface and can determine the ip address through there 
 };
 
@@ -62,6 +62,9 @@ struct ip_header {
 
 uint32_t crc32(uint32_t crc, const void *buf, size_t size);
 
+void init_interfaces(struct interface **interfaces, uint8_t num_interfaces);
+void init_routing_table(struct route **routing_table, uint8_t num_routes);
+void init_arp_cache(struct arp_entry **arp_entries, uint8_t num_arp_entries);
 int is_valid_frame_length(ssize_t frame_len);
 int check_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, uint8_t broadcast_addr[6], struct interface *interfaces, uint8_t num_interfaces);
 
