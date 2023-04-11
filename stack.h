@@ -45,13 +45,11 @@ struct route {
 };
 
 struct ip_header {
-	uint8_t version : 4;
-	uint8_t ihl : 4;
+	uint8_t version_and_ihl; // NEED BIT SHIFTING
 	uint8_t service;
 	uint16_t total_length;
 	uint16_t identification;
-	uint8_t flags : 3;
-	uint16_t frame_offset : 13;
+	uint16_t flags_and_fragment_offset; // NEED BIT SHIFTING
 	uint8_t ttl;
 	uint8_t protocol;
 	uint16_t header_checksum;

@@ -102,6 +102,7 @@ int main(int argc, char *argv[])
 
 			if (check_dst_addr(curr_frame, frame_len, broadcast_addr, interfaces, num_interfaces) == 1) {
 				printf("\tUNWRAPPING ETHERNET FRAME FOR ME\n"); 
+				// ONLY WANT TO INTERPRET IT AS AN IP HEADER IF GIVEN IP TYPE
 				curr_packet = (struct ip_header *) (frame + sizeof(struct ether_header));
 			}
 		}
@@ -116,7 +117,7 @@ int main(int argc, char *argv[])
 
     return 0;
 
-	// CHECK WHERE WE NEED TO FREE INTERFACES !!!!!!!!!!!!
+	// CHECK WHERE WE NEED TO FREE INTERFACES, ROUTING TABLE, and CACHE !!!!!!!!!!!!
 }
 
 /*
