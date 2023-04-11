@@ -35,39 +35,29 @@ int main(int argc, char *argv[])
 	// Variables for our collection of interfaces 
 	struct interface *interfaces;
 	uint8_t num_interfaces = 4;
-	
 
-	// ---------- TRIED PUTTING THIS IN A FUNCTION, BUT GOT FUNKY RESULTS ----------
-	if ((interfaces = (struct interface *) malloc(num_interfaces * sizeof(struct interface))) == NULL) {
-		printf("malloc failed\n");
-	}
-	
-	// Interface 0 - WILL BE RECIEVING IN PART I
-	memcpy(interfaces[0].ether_addr, "\x01\x02\x03\x04\xff\xff", 6);
-	memcpy(&interfaces[0].ip_addr, "\x01\02\03\04", 4);
+	// Variables for ARP cache 
+	struct arp_entry *arp_cache;
+	uint8_t num_arp_entries = 2;
 
-	// Interface 1
-	memcpy(interfaces[1].ether_addr, "\x05\x06\x07\x08\xff\xff", 6);
-	memcpy(&interfaces[1].ip_addr, "\x05\x06\x07\x08", 4);
+	// Variables for routing table 
+	struct route *routing_table;
+	uint8_t num_routes = num_interfaces;
 
-	// Interface 2
-	memcpy(interfaces[2].ether_addr, "\x09\x0a\x0b\x0c\xff\xff", 6);
-	memcpy(&interfaces[2].ip_addr, "\x09\x0a\x0b\x0c", 4);
-	
-	// Interface 3
-	memcpy(interfaces[3].ether_addr, "\x0d\x0e\x0f\x10\xff\xff", 6);
-	memcpy(&interfaces[3].ip_addr, "\x0d\x0e\x0f\x10", 4);
-	//-----------------------------------------------------------------------------
 
 	// Set broadcast address 
 	memcpy(broadcast_addr, "\xff\xff\xff\xff\xff\xff", 6);
+
+	// Initialize interfaces, arp cache, and routing table
+	init_interfaces(&interfaces, num_interfaces);
+	init_routing_table(&routing_table, num_routes);
+	init_arp_cache(&arp_cache, num_arp_entries); 
 
 	// Connecting to vde virtual switch
     if(connect_to_vde_switch(fds, vde_cmd) < 0) {
         printf("Could not connect to switch, exiting.\n");
         exit(1);
     }
-
 
 	// Process frames until user terminates with Control-C
     while((frame_len = receive_ethernet_frame(fds[0], frame)) > 0) {
@@ -116,9 +106,6 @@ int main(int argc, char *argv[])
 			}
 		}
 
-		
-
-
 		free(data_as_hex);
 	}
 
@@ -130,6 +117,85 @@ int main(int argc, char *argv[])
     return 0;
 
 	// CHECK WHERE WE NEED TO FREE INTERFACES !!!!!!!!!!!!
+}
+
+/*
+ * Initialize interfaces with hardcoded values
+ */
+void init_interfaces(struct interface **interfaces, uint8_t num_interfaces) {
+
+	if ((*interfaces = (struct interface *) malloc(num_interfaces * sizeof(struct interface))) == NULL) {
+        printf("malloc failed\n");
+		return;
+	}
+
+    // Interface 0 - WILL BE RECIEVING IN PART I
+    memcpy((*interfaces)[0].ether_addr, "\x01\x02\x03\x04\xff\xff", 6);
+    memcpy(&(*interfaces)[0].ip_addr, "\x01\02\03\04", 4);
+
+    // Interface 1
+    memcpy((*interfaces)[1].ether_addr, "\x05\x06\x07\x08\xff\xff", 6);
+    memcpy(&(*interfaces)[1].ip_addr, "\x05\x06\x07\x08", 4);
+
+    // Interface 2
+    memcpy((*interfaces)[2].ether_addr, "\x09\x0a\x0b\x0c\xff\xff", 6);
+    memcpy(&(*interfaces)[2].ip_addr, "\x09\x0a\x0b\x0c", 4);
+
+    // Interface 3
+    memcpy((*interfaces)[3].ether_addr, "\x0d\x0e\x0f\x10\xff\xff", 6);
+    memcpy(&(*interfaces)[3].ip_addr, "\x0d\x0e\x0f\x10", 4);
+
+}
+
+/*
+ * Initialize routing table with hard coded routes 
+ */
+void init_routing_table(struct route **routing_table, uint8_t num_routes) {
+	
+	if ((*routing_table = (struct route *) malloc(num_routes * sizeof(struct route))) == NULL) {
+		printf("malloc failed\n");
+		return;
+	}
+
+	// Route 0
+	(*routing_table)[0].num_interface = 0;
+	memcpy(&(*routing_table)[0].dst, "\x01\x02\x03\x00", 4);
+	memcpy(&(*routing_table)[0].genmask, "\xff\xff\xff\x00", 4);
+
+	// Route 1
+	(*routing_table)[1].num_interface = 1;
+	memcpy(&(*routing_table)[1].dst, "\x05\x06\x07\x00", 4);
+	memcpy(&(*routing_table)[1].genmask, "\xff\xff\xff\x00", 4);
+	
+	// Route 2
+	(*routing_table)[2].num_interface = 2;
+	memcpy(&(*routing_table)[2].dst, "\x09\x0a\x0b\x00", 4);
+	memcpy(&(*routing_table)[2].genmask, "\xff\xff\xff\x00", 4);
+
+	// Route 3
+	(*routing_table)[3].num_interface = 3;
+	memcpy(&(*routing_table)[3].dst, "\x0d\x0e\x0f\x00", 4);
+	memcpy(&(*routing_table)[3].genmask, "\xff\xff\xff\x00", 4);
+}
+
+/*
+ * Initialize arp cache with hard coded values 
+ */
+void init_arp_cache(struct arp_entry **arp_cache, uint8_t num_arp_entries) {
+	
+	if ((*arp_cache = (struct arp_entry *) malloc(num_arp_entries * sizeof(struct arp_entry))) == NULL) {
+		printf("malloc failed\n");
+		return;
+	}
+	
+	// ARP Entry 0
+	memcpy((*arp_cache)[0].ether_addr, "\x11\x22\x33\x00\xff\xff", 6);
+	memcpy(&(*arp_cache)[0].ip_addr, "\x01\x02\x03\x00", 4);
+
+	// ARP Entry 1
+	memcpy((*arp_cache)[1].ether_addr, "\xdd\xee\xff\x00\xff\xff", 6);
+	memcpy(&(*arp_cache)[1].ip_addr, "\x0d\x0e\x0f\x00", 4);
+
 }
 
 /*
