@@ -25,9 +25,6 @@ int main(int argc, char *argv[])
 	int is_valid_frame = 1;
 	uint8_t broadcast_addr[6];
 	struct ether_header *curr_frame;
-	ssize_t data_len;
-	uint32_t *fcs_ptr;
-	uint32_t calculated_fcs;
 
 	// Variables for processing IP frame
 	struct ip_header *curr_packet;
@@ -75,26 +72,9 @@ int main(int argc, char *argv[])
 			// Set header information
 			curr_frame = (struct ether_header *) frame;
 			//printf("new_frame dst: %s\n", binary_to_hex(curr_frame->dst, 6));
-		
-
-			// ------------------ MAKE THIS A FUNCTION??? ------------------------
-			// Get data length
-			data_len = frame_len - sizeof(struct ether_header) - sizeof(*fcs_ptr); 
-			//printf("data_len: %lu\n", data_len); 	
-		
-			// Set fcs 
-			fcs_ptr = (uint32_t *)(frame + sizeof(struct ether_header) + data_len);
-			//printf("fcs_ptr value: %u\n", *fcs_ptr);
-
-			// Verify fcs
-			calculated_fcs = crc32(0, frame, frame_len - sizeof(*fcs_ptr));
-			//printf("calculated fcs: %u\n", calculated_fcs);
 			
-			if (calculated_fcs != *fcs_ptr) {
-				printf("ignoring %ld-byte frame (bad fcs: got 0x%08x, expected 0x%08x)\n", frame_len, *fcs_ptr, calculated_fcs);
-				is_valid_frame = 0;
-			}
-			// ------------------------------------------------------------------
+			is_valid_frame = is_valid_fcs(&frame, frame_len);
+			
 		}	
 		
 		// Check if destination is for any of my interfaces
@@ -222,6 +202,36 @@ int is_valid_frame_length(ssize_t frame_len)
 		return 1;
 	}
 }
+
+
+int is_valid_fcs (uint8_t (*frame)[1600], size_t frame_len) 
+{
+	ssize_t data_len;
+	uint32_t *fcs_ptr;
+	uint32_t calculated_fcs;
+
+	// Get data length
+	data_len = frame_len - sizeof(struct ether_header) - sizeof(*fcs_ptr); 
+	//printf("data_len: %lu\n", data_len); 	
+		
+	// Set fcs 
+	fcs_ptr = (uint32_t *)(*frame + sizeof(struct ether_header) + data_len);
+	//printf("fcs_ptr value: %u\n", *fcs_ptr);
+
+	// Verify fcs
+	calculated_fcs = crc32(0, *frame, frame_len - sizeof(*fcs_ptr));
+	//printf("calculated fcs: %u\n", calculated_fcs);
+		
+	if (calculated_fcs != *fcs_ptr) {
+		printf("ignoring %ld-byte frame (bad fcs: got 0x%08x, expected 0x%08x)\n", frame_len, *fcs_ptr, calculated_fcs);
+		return 0;
+	}
+
+	return 1;
+
+}
+
+
 
 /*
  * Check whether destination address is for me (i.e. broadcast or interfaces' MAC address) 
