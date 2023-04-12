@@ -40,7 +40,7 @@ struct ip_header {
 
 uint32_t crc32(uint32_t crc, const void *buf, size_t size);
 
-uint16_t internet_checksum (void *addr, uint32_t count);
+uint16_t ip_checksum (void *addr, uint32_t count);
 
 int main(int argc, char *argv[])
 {
@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
     send_ethernet_frame(fds[1], frame, frame_len);
 	//----------------------------------------------------------------------------
 
-	// TEST 2: Send a broadcast with invalid FCS
+	// TEST 2: Send a broadcast with invalid FCS----------------------------------
 	memcpy(test.dst, "\xff\xff\xff\xff\xff\xff", 6);
 	memcpy(test.src, "\x06\xdd\x79\xe0\x8b\x4d", 6);
 	memcpy(test.type, "\x08\x00", 2);
@@ -102,7 +102,7 @@ int main(int argc, char *argv[])
 	//----------------------------------------------------------------------------
 
 
-	// TEST 3: Send frame not for me with a valid fcs
+	// TEST 3: Send frame not for me with a valid fcs-----------------------------
 	memcpy(test.dst, "\x11\x46\x6c\x7e\xff\x1a", 6);
     memcpy(test.src, "\x06\xdd\x79\xe0\x8b\x4d", 6);
     memcpy(test.type, "\x08\x00", 2);
@@ -143,26 +143,29 @@ int main(int argc, char *argv[])
 
 
 	// TEST 5: Send frame for me with valid FCS----------------------------------
-	// ethernet 
+	// Ethernet Frame 
 	memcpy(test.dst, "\x01\x02\x03\x04\xff\xff", 6);
 	memcpy(test.src, "\x11\x22\x33\x00\xff\xff", 6);
 	memcpy(test.type, "\x08\x00", 2);
 	memcpy(frame, &test, sizeof(struct ether_header));	
 	
-	// ip packet
+	// IP Packet
 	memcpy(&ip_test.version_and_ihl, "\x45", 1);
 	ip_test.ttl = 10;
 	ip_test.protocol = 4;
 	memcpy(&ip_test.src_addr, "\x01\x02\x03\x00", 4);
 	memcpy(&ip_test.dst_addr, "\x0d\x0e\x0f\x00", 4);
 
+	// Set data inside of the IP packet
 	data_len = 64;
 	memset(frame + sizeof(struct ether_header) + sizeof(struct ip_header), '\xff', data_len);
 	
+	// Set ip header values that depend on the data
 	ip_test.total_length = (sizeof(struct ip_header) + data_len);
-	ip_test.header_checksum = internet_checksum(&ip_test, 20); // DON'T KNOW IF I SHOULD HARD CODE THAT
+	ip_test.header_checksum = ip_checksum(&ip_test, 20); // DON'T KNOW IF I SHOULD HARD CODE THAT
 	
-	memcpy(frame + sizeof(struct ether_header), &ip_test, sizeof(struct ip_header)); // copy info to ip_test 
+	// Copy all ip_header to ip_test for sending 
+	memcpy(frame + sizeof(struct ether_header), &ip_test, sizeof(struct ip_header)); 
 
 
 	// rest of Ethernet 
@@ -188,27 +191,3 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-uint16_t internet_checksum (void *addr, uint32_t count) {
-    uint16_t checksum;
-    register uint32_t sum = 0;
-
-    while( count > 1 )  {
-        //  This is the inner loop
-       sum += *((uint16_t *) addr);
-	   addr = (uint16_t *) addr + 1;
-       count -= 2;
-    }
-
-    //  Add left-over byte, if any 
-    if( count > 0 ) {
-       sum += *((uint8_t *) addr);
-    }
-
-    //  Fold 32-bit sum to 16 bits 
-    while (sum>>16) {
-        sum = (sum & 0xffff) + (sum >> 16);
-    }
-
-    checksum = ~sum;
-    return checksum;
-}

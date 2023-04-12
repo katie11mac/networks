@@ -2,10 +2,10 @@ CFLAGS=-Wall -pedantic -g -o
 
 testvde: testing-sender stack
 
-stack: stack.c util.o cs431vde.o crc32.o
+stack: stack.c util.o cs431vde.o crc32.o ip_checksum.o
 	gcc $(CFLAGS) $@ $^
 
-testing-sender: testing-sender.c util.o cs431vde.o crc32.o
+testing-sender: testing-sender.c util.o cs431vde.o crc32.o ip_checksum.o
 	gcc $(CFLAGS) $@ $^
 
 receiver: receiver.c util.o cs431vde.o
