@@ -2,45 +2,7 @@
  * testing-sender.c
  */
 
-#include <stdio.h>
-#include <unistd.h>
-#include <string.h>
-#include <stdint.h>
-
-#include "util.h"
-#include "cs431vde.h"
-
-
-struct ether_header {
-    uint8_t dst[6];
-    uint8_t src[6];
-    uint8_t type[2];
-};
-
-struct ip_address {
-    uint8_t part1;
-    uint8_t part2;
-    uint8_t part3;
-    uint8_t part4;
-};
-
-struct ip_header {
-    uint8_t version_and_ihl; // NEED BIT SHIFTING
-    uint8_t service;
-    uint16_t total_length;
-    uint16_t identification;
-    uint16_t flags_and_frame_offset; // NEED BIT SHIFTING
-    uint8_t ttl;
-    uint8_t protocol;
-    uint16_t header_checksum;
-    struct ip_address src_addr;
-    struct ip_address dst_addr;
-    // OPTIONS WITH VARIABLE LENGTH 
-};
-
-uint32_t crc32(uint32_t crc, const void *buf, size_t size);
-
-uint16_t ip_checksum (void *addr, uint32_t count);
+#include "stack.h"
 
 int main(int argc, char *argv[])
 {
@@ -102,7 +64,25 @@ int main(int argc, char *argv[])
 	//----------------------------------------------------------------------------
 
 
-	// TEST 3: Send frame not for me with a valid fcs-----------------------------
+	// TEST 3: Send frame not for me with unrecognized type (not IPv4)------------
+	memcpy(test.dst, "\x11\x46\x6c\x7e\xff\x1a", 6);
+    memcpy(test.src, "\x06\xdd\x79\xe0\x8b\x4d", 6);
+    memcpy(test.type, "\x88\x80", 2);
+    memcpy(frame, &test, sizeof(struct ether_header));
+    
+    data_len = 64;
+    memset(frame + sizeof(struct ether_header), '\xff', data_len);
+    
+    frame_len = sizeof(struct ether_header) + data_len;
+    fcs = crc32(0, frame, frame_len);
+    memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
+    frame_len += sizeof(uint32_t);
+    printf("sending frame, length %ld\n", frame_len);
+    send_ethernet_frame(fds[1], frame, frame_len);
+	//----------------------------------------------------------------------------
+
+
+	// TEST 4: Send frame not for me with a valid fcs-----------------------------
 	memcpy(test.dst, "\x11\x46\x6c\x7e\xff\x1a", 6);
     memcpy(test.src, "\x06\xdd\x79\xe0\x8b\x4d", 6);
     memcpy(test.type, "\x08\x00", 2);
@@ -121,7 +101,7 @@ int main(int argc, char *argv[])
 
 
 
-	// TEST 4: Send too small frame (tried sending too large frame, but vde got mad) 
+	// TEST 5: Send too small frame (tried sending too large frame, but vde got mad) 
 	//		Note that vde ends up padding this to 60 bytes instead ... 
 	//		Also memory in frame is never reset, but that shouldn't matter 
 	memcpy(test.dst, "\x11\x46\x6c\x7e\xff\x1a", 6);
@@ -142,7 +122,7 @@ int main(int argc, char *argv[])
 
 
 
-	// TEST 5: Send frame for me with valid FCS----------------------------------
+	// TEST 6: Send frame for me with valid FCS and IPv4 packet------------------
 	// Ethernet Frame 
 	memcpy(test.dst, "\x01\x02\x03\x04\xff\xff", 6);
 	memcpy(test.src, "\x11\x22\x33\x00\xff\xff", 6);

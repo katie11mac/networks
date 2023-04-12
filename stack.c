@@ -27,6 +27,7 @@ int main(int argc, char *argv[])
 	struct ether_header *curr_frame;
 
 	// Variables for processing IP frame
+	int dst_addr_results;
 	struct ip_header *curr_packet;
 	uint16_t given_checksum;
 
@@ -68,20 +69,31 @@ int main(int argc, char *argv[])
 
 		// If valid frame, interpret bits as ethernet frame 
 		if (is_valid_frame) {
-
 			// Set header information
 			curr_frame = (struct ether_header *) frame;
 			//printf("new_frame dst: %s\n", binary_to_hex(curr_frame->dst, 6));
-			
-			is_valid_frame = is_valid_fcs(&frame, frame_len);
-			
-		}	
-		
-		// Check if destination is for any of my interfaces
-		if (is_valid_frame) {
-			// THIS IS CURRENTLY ONLY CHECKING IF FRAME WAS FOR ME (NOT BROADCAST)
+		}
 
-			if (check_dst_addr(curr_frame, frame_len, broadcast_addr, interfaces, num_interfaces) == 1) {
+		// Verify fcs
+		if (is_valid_frame) { 
+			is_valid_frame = is_valid_fcs(&frame, frame_len);
+		}
+
+		// Verify type 
+		if (is_valid_frame) {
+			if (memcmp(curr_frame->type, "\x08\x00", 2) != 0) {
+				printf("ignoring %lu-byte frame (unrecognized type)\n", frame_len); 
+				is_valid_frame = 0;
+			}
+		}
+		
+		// If valid frame, check if destination is my receiving interface (PART I) 
+		if (is_valid_frame) {
+			
+			dst_addr_results = check_dst_addr(curr_frame, frame_len, broadcast_addr, interfaces, num_interfaces);
+
+			// THIS IS CURRENTLY ONLY CHECKING IF FRAME WAS FOR ME (NOT BROADCAST)
+			if (dst_addr_results == 1) {
 				printf("\tUNWRAPPING ETHERNET FRAME FOR ME\n"); 
 				// ONLY WANT TO INTERPRET IT AS AN IP HEADER IF GIVEN IP TYPE
 				curr_packet = (struct ip_header *) (frame + sizeof(struct ether_header));
@@ -89,7 +101,6 @@ int main(int argc, char *argv[])
 				given_checksum = curr_packet->header_checksum;
 				
 				// Check if total length is correct 
-
 			}
 		}
 
@@ -270,7 +281,6 @@ int check_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, uint8_t b
 		}
 	}
 	*/
-
 	// Frame is not for any of my interfaces
 	printf("ignoring %lu-byte frame (not for me)\n", frame_len); 
 	return 0;
