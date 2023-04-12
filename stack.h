@@ -59,6 +59,7 @@ struct ip_header {
 };
 
 uint32_t crc32(uint32_t crc, const void *buf, size_t size);
+uint16_t internet_checksum (void *addr, uint32_t count);
 
 void init_interfaces(struct interface **interfaces, uint8_t num_interfaces);
 void init_routing_table(struct route **routing_table, uint8_t num_routes);

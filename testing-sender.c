@@ -40,6 +40,8 @@ struct ip_header {
 
 uint32_t crc32(uint32_t crc, const void *buf, size_t size);
 
+uint16_t internet_checksum (void *addr, uint32_t count);
+
 int main(int argc, char *argv[])
 {
     int fds[2];
@@ -153,13 +155,17 @@ int main(int argc, char *argv[])
 	ip_test.protocol = 4;
 	memcpy(&ip_test.src_addr, "\x01\x02\x03\x00", 4);
 	memcpy(&ip_test.dst_addr, "\x0d\x0e\x0f\x00", 4);
-	memcpy(frame + sizeof(struct ether_header), &ip_test, sizeof(struct ip_header));
 
 	data_len = 64;
 	memset(frame + sizeof(struct ether_header) + sizeof(struct ip_header), '\xff', data_len);
 	
 	ip_test.total_length = (sizeof(struct ip_header) + data_len);
+	ip_test.header_checksum = internet_checksum(&ip_test, 20); // DON'T KNOW IF I SHOULD HARD CODE THAT
+	
+	memcpy(frame + sizeof(struct ether_header), &ip_test, sizeof(struct ip_header)); // copy info to ip_test 
 
+
+	// rest of Ethernet 
 	frame_len = sizeof(struct ether_header) + sizeof(struct ip_header) + data_len;
 	fcs = crc32(0, frame, frame_len);  
 	memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
@@ -182,3 +188,27 @@ int main(int argc, char *argv[])
     return 0;
 }
 
+uint16_t internet_checksum (void *addr, uint32_t count) {
+    uint16_t checksum;
+    register uint32_t sum = 0;
+
+    while( count > 1 )  {
+        //  This is the inner loop
+       sum += *((uint16_t *) addr);
+	   addr = (uint16_t *) addr + 1;
+       count -= 2;
+    }
+
+    //  Add left-over byte, if any 
+    if( count > 0 ) {
+       sum += *((uint8_t *) addr);
+    }
+
+    //  Fold 32-bit sum to 16 bits 
+    while (sum>>16) {
+        sum = (sum & 0xffff) + (sum >> 16);
+    }
+
+    checksum = ~sum;
+    return checksum;
+}
