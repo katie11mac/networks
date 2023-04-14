@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
 	int is_ipv4 = 0;
 
 	// Variables for processing IP frame
-	int dst_addr_results;
+	int ether_dst_addr_results;
 	struct ip_header *curr_packet;
 	uint16_t given_checksum;
 	uint8_t given_version;
@@ -66,8 +66,6 @@ int main(int argc, char *argv[])
 	// Process frames until user terminates with Control-C
     while((frame_len = receive_ethernet_frame(fds[0], frame)) > 0) {
         data_as_hex = binary_to_hex(frame, frame_len);
-        //printf("received frame, length %ld:\n", frame_len);
-        //puts(data_as_hex);
 
 		// Verify length of frame 
 		is_valid = is_valid_frame_length(frame_len); 	
@@ -76,18 +74,13 @@ int main(int argc, char *argv[])
 		if (is_valid) {
 			// Set header information
 			curr_frame = (struct ether_header *) frame;
-			//printf("new_frame dst: %s\n", binary_to_hex(curr_frame->dst, 6));
 		}
 
 		// Verify fcs
 		if (is_valid) { 
-			// Get data length
+			// Get data length and set ptr to given fcs 
 			data_len = frame_len - sizeof(struct ether_header) - sizeof(*fcs_ptr); 
-			//printf("data_len: %lu\n", data_len); 	
-		
-			// Set fcs 
 			fcs_ptr = (uint32_t *)(frame + sizeof(struct ether_header) + data_len);
-			//printf("fcs_ptr value: %u\n", *fcs_ptr);
 
 			is_valid = is_valid_fcs(&frame, frame_len, data_len, *fcs_ptr);
 		}
@@ -104,19 +97,20 @@ int main(int argc, char *argv[])
 			}
 		}
 		
-		// If valid frame, check if destination is my receiving interface (PART I) 
+		// If valid frame and IPv4, check if destination is my receiving interface (PART I) 
 		if (is_valid && is_ipv4) {
-			// AND IT'S IPv4?
-			dst_addr_results = check_dst_addr(curr_frame, frame_len, broadcast_addr, interfaces, num_interfaces);
+			
+			ether_dst_addr_results = check_ether_dst_addr(curr_frame, frame_len, broadcast_addr, interfaces, num_interfaces);
 
 			// THIS IS CURRENTLY ONLY CHECKING IF FRAME WAS FOR ME (NOT BROADCAST)
-			if (dst_addr_results == 1) {
+			
+			if (ether_dst_addr_results == 1) {
 				printf("\tUNWRAPPING ETHERNET FRAME FOR ME\n"); 
-				// ONLY WANT TO INTERPRET IT AS AN IP HEADER IF GIVEN IP TYPE
-				curr_packet = (struct ip_header *) (frame + sizeof(struct ether_header));
-
-				//printf("total_length: %u\ncalculated length:%lu\n", ntohs(curr_packet->total_length), (uint8_t *)fcs_ptr - (uint8_t *)curr_packet);
 				
+				// Interpret data as IPv4
+				curr_packet = (struct ip_header *) (frame + sizeof(struct ether_header));
+				
+				// ---------------------------- MAKE THIS A FUNCTION ??? --------------------------------------
 				// Check if total length is correct 
 				if (((uint8_t *)fcs_ptr - (uint8_t *)curr_packet) != ntohs(curr_packet->total_length)) {
 					printf("dropping packet from %u.%u.%u.%u (wrong length)\n", curr_packet->src_addr.part1, 
@@ -132,15 +126,12 @@ int main(int argc, char *argv[])
 					
 					// Get given IHL 
 					given_ihl = curr_packet->version_and_ihl & 0x0f; // low nibble
-					//printf("given ihl: %u\n", given_ihl);
 
 					// Get given ip checksum 
 					given_checksum = curr_packet->header_checksum;
-					// Reset the header checksum to calculate it correctly
+					
+					// Reset the header checksum to recalculate it correctly
 					curr_packet->header_checksum = 0;
-				
-					//printf("given checksum: 0x%x\n", given_checksum);
-					//printf("calculated checksum: 0x%x\n", ip_checksum(curr_packet, (given_ihl * 32) / 8));
 				
 					if (given_checksum != ip_checksum(curr_packet, (given_ihl * 32) / 8)) {
 						printf("dropping packet from %u.%u.%u.%u (bad IP header checksum)\n", curr_packet->src_addr.part1, 
@@ -150,12 +141,28 @@ int main(int argc, char *argv[])
 						is_valid = 0;
 					}
 				}
+				// --------------------------------------------------------------------------------------------
 
-				//given_version = (curr_packet->version_and_ihl & 0xf0) >> 4; // high nibble
-				//printf("given version: %u\n", given_version);
+				// Check if provided recognized IP version (only IPv4)
+				if (is_valid) {
+				
+					// Get given version
+					given_version = (curr_packet->version_and_ihl & 0xf0) >> 4; // high nibble
+
+					if (given_version != 4) {
+						printf("dropping packet from %u.%u.%u.%u (unrecognized IP version)\n", curr_packet->src_addr.part1, 
+																				curr_packet->src_addr.part2, 
+																				curr_packet->src_addr.part3, 
+																				curr_packet->src_addr.part4);
+						is_valid = 0;
+					}
+				}
+				
+				if (is_valid) {
+					check_ip_dst(curr_packet, interfaces, num_interfaces);
+				}
 
 
-				// Check version
 				// Check ip dst 
 				// if dst is already here ... 
 				// if needs to hop elsewhere ... 
@@ -277,23 +284,10 @@ int is_valid_frame_length(ssize_t frame_len)
 
 int is_valid_fcs (uint8_t (*frame)[1600], size_t frame_len, ssize_t data_len, uint32_t fcs) 
 {
-	//ssize_t data_len;
-	//uint32_t *fcs_ptr;
 	uint32_t calculated_fcs;
-
-	/*
-	// Get data length
-	data_len = frame_len - sizeof(struct ether_header) - sizeof(*fcs_ptr); 
-	//printf("data_len: %lu\n", data_len); 	
-		
-	// Set fcs 
-	fcs_ptr = (uint32_t *)(*frame + sizeof(struct ether_header) + data_len);
-	//printf("fcs_ptr value: %u\n", *fcs_ptr);
-	*/
 
 	// Verify fcs
 	calculated_fcs = crc32(0, *frame, frame_len - sizeof(fcs));
-	//printf("calculated fcs: %u\n", calculated_fcs);
 		
 	if (calculated_fcs != fcs) {
 		printf("ignoring %ld-byte frame (bad fcs: got 0x%08x, expected 0x%08x)\n", frame_len, fcs, calculated_fcs);
@@ -314,7 +308,7 @@ int is_valid_fcs (uint8_t (*frame)[1600], size_t frame_len, ssize_t data_len, ui
  * Return 1 if frame was for me (i.e. interfaces' MAC address)
  * Return -1 if frame was not for me 
  */
-int check_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, uint8_t broadcast_addr[6], struct interface *interfaces, uint8_t num_interfaces) 
+int check_ether_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, uint8_t broadcast_addr[6], struct interface *interfaces, uint8_t num_interfaces) 
 {
 	int receiving_interface = 0;
 
@@ -346,4 +340,18 @@ int check_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, uint8_t b
 	// Frame is not for any of my interfaces
 	printf("ignoring %lu-byte frame (not for me)\n", frame_len); 
 	return 0;
+}
+
+
+/*
+ */
+int check_ip_dst(struct ip_header *curr_packet, struct interface *interfaces, uint8_t num_interfaces) {
+	for (int i = 0; i < num_interfaces; i++) {
+		// Check if packet is for one of my interfaces 
+		if (memcmp((uint32_t)curr_packet->dst_addr, (uint32_t)interfaces[i].ip_addr, sizeof(struct ip_address)) == 0) {
+			printf("THIS IS FOR ME!\n");	
+		} else {
+			printf("NOT FOR ME!!\n");
+		}
+	}
 }
