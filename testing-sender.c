@@ -119,10 +119,12 @@ int main(int argc, char *argv[])
     printf("sending frame, length %ld\n", frame_len);
     send_ethernet_frame(fds[1], frame, frame_len);
 	//----------------------------------------------------------------------------
+	
 
 
 
-	// TEST 6: Send frame for me with valid FCS and IPv4 packet------------------
+	// TEST 6: Send frame for me with valid FCS and IPv4 packet w/ wrong length--
+	// NOTE: THIS WILL STILL PASS THE CHECKSUM BC CHECKSUM WAS CALCULATED W WRONG LENGTH
 	// Ethernet Frame 
 	memcpy(test.dst, "\x01\x02\x03\x04\xff\xff", 6);
 	memcpy(test.src, "\x11\x22\x33\x00\xff\xff", 6);
@@ -141,7 +143,7 @@ int main(int argc, char *argv[])
 	memset(frame + sizeof(struct ether_header) + sizeof(struct ip_header), '\xff', data_len);
 	
 	// Set ip header values that depend on the data
-	ip_test.total_length = (sizeof(struct ip_header) + data_len);
+	ip_test.total_length = htons(60);
 	ip_test.header_checksum = ip_checksum(&ip_test, 20); // DON'T KNOW IF I SHOULD HARD CODE THAT
 	
 	// Copy all ip_header to ip_test for sending 
@@ -155,6 +157,85 @@ int main(int argc, char *argv[])
 	frame_len += sizeof(uint32_t);
     printf("sending frame, length %ld\n", frame_len);
     send_ethernet_frame(fds[1], frame, frame_len);
+	//--------------------------------------------------------------------------
+
+
+
+	// TEST 7: Send frame for me with valid FCS and incorrect IP checksum ------  
+	// Ethernet Frame 
+	memcpy(test.dst, "\x01\x02\x03\x04\xff\xff", 6);
+	memcpy(test.src, "\x11\x22\x33\x00\xff\xff", 6);
+	memcpy(test.type, "\x08\x00", 2);
+	memcpy(frame, &test, sizeof(struct ether_header));	
+	
+	// IP Packet
+	memcpy(&ip_test.version_and_ihl, "\x45", 1);
+	ip_test.ttl = 10;
+	ip_test.protocol = 4;
+	memcpy(&ip_test.src_addr, "\x01\x02\x03\x00", 4);
+	memcpy(&ip_test.dst_addr, "\x0d\x0e\x0f\x00", 4);
+
+	// Set data inside of the IP packet
+	data_len = 64;
+	memset(frame + sizeof(struct ether_header) + sizeof(struct ip_header), '\xff', data_len);
+	
+	// Set ip header values that depend on the data
+	ip_test.total_length = htons(sizeof(struct ip_header) + data_len);
+	ip_test.header_checksum = 0;
+	ip_test.header_checksum = 189; // DON'T KNOW IF I SHOULD HARD CODE THAT
+	
+	// Copy all ip_header to ip_test for sending 
+	memcpy(frame + sizeof(struct ether_header), &ip_test, sizeof(struct ip_header)); 
+
+
+	// rest of Ethernet 
+	frame_len = sizeof(struct ether_header) + sizeof(struct ip_header) + data_len;
+	fcs = crc32(0, frame, frame_len);  
+	memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
+	frame_len += sizeof(uint32_t);
+    printf("sending frame, length %ld\n", frame_len);
+    send_ethernet_frame(fds[1], frame, frame_len);
+	// ---------------------------------------------------------------------------------------
+
+
+
+
+	// TEST 8: Send frame for me with valid FCS and IPv4 packet------------------
+	// Ethernet Frame 
+	memcpy(test.dst, "\x01\x02\x03\x04\xff\xff", 6);
+	memcpy(test.src, "\x11\x22\x33\x00\xff\xff", 6);
+	memcpy(test.type, "\x08\x00", 2);
+	memcpy(frame, &test, sizeof(struct ether_header));	
+	
+	// IP Packet
+	memcpy(&ip_test.version_and_ihl, "\x45", 1);
+	ip_test.ttl = 10;
+	ip_test.protocol = 4;
+	memcpy(&ip_test.src_addr, "\x01\x02\x03\x00", 4);
+	memcpy(&ip_test.dst_addr, "\x0d\x0e\x0f\x00", 4);
+
+	// Set data inside of the IP packet
+	data_len = 64;
+	memset(frame + sizeof(struct ether_header) + sizeof(struct ip_header), '\xff', data_len);
+	
+	// Set ip header values that depend on the data
+	ip_test.total_length = htons(sizeof(struct ip_header) + data_len);
+	ip_test.header_checksum = 0;
+	ip_test.header_checksum = ip_checksum(&ip_test, 20); // DON'T KNOW IF I SHOULD HARD CODE THAT
+	
+	// Copy all ip_header to ip_test for sending 
+	memcpy(frame + sizeof(struct ether_header), &ip_test, sizeof(struct ip_header)); 
+
+
+	// rest of Ethernet 
+	frame_len = sizeof(struct ether_header) + sizeof(struct ip_header) + data_len;
+	fcs = crc32(0, frame, frame_len);  
+	memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
+	frame_len += sizeof(uint32_t);
+    printf("sending frame, length %ld\n", frame_len);
+    send_ethernet_frame(fds[1], frame, frame_len);
+	// ---------------------------------------------------------------------------------------
+
 
 
     /* If the program exits immediately after sending its frames, there is a

@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdint.h>
+#include <arpa/inet.h>
 
 #include "util.h"
 #include "cs431vde.h"
@@ -65,7 +66,7 @@ void init_interfaces(struct interface **interfaces, uint8_t num_interfaces);
 void init_routing_table(struct route **routing_table, uint8_t num_routes);
 void init_arp_cache(struct arp_entry **arp_entries, uint8_t num_arp_entries);
 int is_valid_frame_length(ssize_t frame_len);
-int is_valid_fcs (uint8_t (*frame)[1600], size_t frame_len);
+int is_valid_fcs (uint8_t (*frame)[1600], size_t frame_len, ssize_t data_len, uint32_t fcs);
 int check_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, uint8_t broadcast_addr[6], struct interface *interfaces, uint8_t num_interfaces);
 
 #endif /* __STACK_H */
