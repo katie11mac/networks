@@ -35,6 +35,7 @@ int main(int argc, char *argv[])
 	uint16_t given_checksum;
 	uint8_t given_version;
 	uint8_t given_ihl;
+	int ip_dst_addr_results;
 
 	// Variables for our collection of interfaces 
 	struct interface *interfaces;
@@ -159,7 +160,22 @@ int main(int argc, char *argv[])
 				}
 				
 				if (is_valid) {
-					check_ip_dst(curr_packet, interfaces, num_interfaces);
+					
+					ip_dst_addr_results = check_ip_dst(curr_packet, interfaces, num_interfaces);
+				
+					// curr_packet destined for one of my interfaces
+					if (ip_dst_addr_results != -1) {
+						printf("received packet from %u.%u.%u.%u for %u.%u.%u.%u (interface %d)", 
+																	curr_packet->src_addr.part1,
+																	curr_packet->src_addr.part2,
+                                                                    curr_packet->src_addr.part3,
+                                                                    curr_packet->src_addr.part4, 
+																	interfaces[ip_dst_addr_results].ip_addr.part1, 
+																	interfaces[ip_dst_addr_results].ip_addr.part2,
+																	interfaces[ip_dst_addr_results].ip_addr.part3,
+																	interfaces[ip_dst_addr_results].ip_addr.part4, 
+																	ip_dst_addr_results);
+					}
 				}
 
 
@@ -344,14 +360,39 @@ int check_ether_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, uin
 
 
 /*
+ * Return index of interface it was destined for
+ * Return -1 otherwise 
  */
 int check_ip_dst(struct ip_header *curr_packet, struct interface *interfaces, uint8_t num_interfaces) {
+	
 	for (int i = 0; i < num_interfaces; i++) {
 		// Check if packet is for one of my interfaces 
-		if (memcmp((uint32_t)curr_packet->dst_addr, (uint32_t)interfaces[i].ip_addr, sizeof(struct ip_address)) == 0) {
-			printf("THIS IS FOR ME!\n");	
-		} else {
-			printf("NOT FOR ME!!\n");
-		}
+		if (compare_ip_addr_structs(curr_packet->dst_addr, interfaces[i].ip_addr) == 1) {
+			return i; // Can return immediately bc IP addresses are unique 
+		} 
 	}
+
+	// curr_packet not for any of my interfaces
+	return -1;
+}
+
+/*
+ * 
+ */
+int compare_ip_addr_structs(struct ip_address addr1, struct ip_address addr2) {
+	
+	if (addr1.part1 != addr2.part1) {
+		return 0;
+	}
+	if (addr1.part2 != addr2.part2) {
+		return 0;
+	}
+	if (addr1.part3 != addr2.part3) {
+		return 0;
+	}
+	if (addr1.part4 != addr2.part4) {
+		return 0;
+	}
+
+	return 1;
 }
