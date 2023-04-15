@@ -36,6 +36,8 @@ int main(int argc, char *argv[])
 	uint8_t given_version;
 	uint8_t given_ihl;
 	int ip_dst_addr_results;
+	int new_ttl;
+	int needs_routing = 0;
 
 	// Variables for our collection of interfaces 
 	struct interface *interfaces;
@@ -106,7 +108,7 @@ int main(int argc, char *argv[])
 			// THIS IS CURRENTLY ONLY CHECKING IF FRAME WAS FOR ME (NOT BROADCAST)
 			
 			if (ether_dst_addr_results == 1) {
-				printf("\tUNWRAPPING ETHERNET FRAME FOR ME\n"); 
+				// printf("\tUNWRAPPING ETHERNET FRAME FOR ME\n"); 
 				
 				// Interpret data as IPv4
 				curr_packet = (struct ip_header *) (frame + sizeof(struct ether_header));
@@ -158,14 +160,18 @@ int main(int argc, char *argv[])
 						is_valid = 0;
 					}
 				}
-				
+			
+
+				// Get ip destination and check if it has a valid TTL accordingly 
 				if (is_valid) {
-					
+					// Check ip destination 
 					ip_dst_addr_results = check_ip_dst(curr_packet, interfaces, num_interfaces);
-				
+					new_ttl = curr_packet->ttl - 1;
+
 					// curr_packet destined for one of my interfaces
 					if (ip_dst_addr_results != -1) {
-						printf("received packet from %u.%u.%u.%u for %u.%u.%u.%u (interface %d)", 
+						// SHOULD I STILL CHECK THE TTL HERE TO MAKE SURE IT'S NOT LOWER THAN ZERO?
+						printf("received packet from %u.%u.%u.%u for %u.%u.%u.%u (interface %d)\n", 
 																	curr_packet->src_addr.part1,
 																	curr_packet->src_addr.part2,
                                                                     curr_packet->src_addr.part3,
@@ -174,12 +180,42 @@ int main(int argc, char *argv[])
 																	interfaces[ip_dst_addr_results].ip_addr.part2,
 																	interfaces[ip_dst_addr_results].ip_addr.part3,
 																	interfaces[ip_dst_addr_results].ip_addr.part4, 
-																	ip_dst_addr_results);
+																	ip_dst_addr_results); 
+
+					// curr_packet not for one of my interfaces (needs routing) 
+					} else {
+						// TTL exceeded since it needs routing 
+						if (new_ttl <= 0) {
+							printf("dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (TTL exceeded)\n", 
+																				curr_packet->src_addr.part1, 
+																				curr_packet->src_addr.part2, 
+																				curr_packet->src_addr.part3, 
+																				curr_packet->src_addr.part4, 
+																				curr_packet->dst_addr.part1, 
+																				curr_packet->dst_addr.part2, 
+																				curr_packet->dst_addr.part3, 
+																				curr_packet->dst_addr.part4);
+							is_valid = 0;
+						// TTL is valid 
+						} else {
+							needs_routing = 1;
+						}
 					}
 				}
 
+				if (is_valid && needs_routing) {
+					printf("NEED TO ROUTE!!!\n");
+					printf(" from %u.%u.%u.%u to %u.%u.%u.%u\n", curr_packet->src_addr.part1,
+																 curr_packet->src_addr.part2,
+																 curr_packet->src_addr.part3,
+																 curr_packet->src_addr.part4,
+																 curr_packet->dst_addr.part1,
+															  	 curr_packet->dst_addr.part2,
+																 curr_packet->dst_addr.part3,
+																 curr_packet->dst_addr.part4);
+				}
 
-				// Check ip dst 
+
 				// if dst is already here ... 
 				// if needs to hop elsewhere ... 
 				// DON'T FORGET ABOUT TTL 
@@ -335,8 +371,8 @@ int check_ether_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, uin
 	
 	// Check if frame is for the receiving interface 
 	} else if (memcmp(curr_frame->dst, interfaces[receiving_interface].ether_addr, 6) == 0) {
-		printf("received %lu-byte frame for me from %s", frame_len, binary_to_hex(curr_frame->src, 6)); 
-		printf("\tframe dest: %s\tinterface MAC: %s", binary_to_hex(curr_frame->dst, 6), binary_to_hex(interfaces[receiving_interface].ether_addr, 6));
+		printf("DEBUGGING: received %lu-byte frame for me from %s", frame_len, binary_to_hex(curr_frame->src, 6)); 
+		//printf("\tframe dest: %s\tinterface MAC: %s", binary_to_hex(curr_frame->dst, 6), binary_to_hex(interfaces[receiving_interface].ether_addr, 6));
 		// Can return immediately since MAC addresses unique
 		return 1; 
 	}
@@ -346,8 +382,8 @@ int check_ether_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, uin
 	for (int i = 0; i < num_interfaces; i++) {
 		// Check if frame is for one of my interfaces 
 		if (memcmp(curr_frame->dst, interfaces[i].ether_addr, 6) == 0) {
-			printf("received %lu-byte frame for me from %s", frame_len, binary_to_hex(curr_frame->src, 6)); 
-			printf("\tframe dest: %s\tinterface MAC: %s", binary_to_hex(curr_frame->dst, 6), binary_to_hex(interfaces[i].ether_addr, 6));
+			//printf("received %lu-byte frame for me from %s", frame_len, binary_to_hex(curr_frame->src, 6)); 
+			//printf("\tframe dest: %s\tinterface MAC: %s", binary_to_hex(curr_frame->dst, 6), binary_to_hex(interfaces[i].ether_addr, 6));
 			// Can return immediately since MAC addresses unique
 			return 1; 
 		}
