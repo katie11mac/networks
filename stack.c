@@ -216,8 +216,6 @@ int main(int argc, char *argv[])
 				}
 
 
-				// if dst is already here ... 
-				// if needs to hop elsewhere ... 
 				// DON'T FORGET ABOUT TTL 
 			}
 		}
@@ -225,6 +223,10 @@ int main(int argc, char *argv[])
 		free(data_as_hex);
 		printf("\n");
 	}
+
+	free(interfaces);
+	free(arp_cache);
+	free(routing_table);
 
     if(frame_len < 0) {
         perror("read");
@@ -334,6 +336,13 @@ int is_valid_frame_length(ssize_t frame_len)
 }
 
 
+
+/*
+ * Check if initial fcs in Ethernet frame is correct by recalculating it. 
+ *
+ * Return 1 if fcs is correct
+ * Return 0 otherwise 
+ */
 int is_valid_fcs (uint8_t (*frame)[1600], size_t frame_len, ssize_t data_len, uint32_t fcs) 
 {
 	uint32_t calculated_fcs;
@@ -395,16 +404,20 @@ int check_ether_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, uin
 }
 
 
+
 /*
+ * Check IP destination of IP packet. Determine whether IP packet is for one of interfaces.
+ *
  * Return index of interface it was destined for
- * Return -1 otherwise 
+ * Return -1 otherwise (meaning IP packet not destined for one of interfaces) 
  */
 int check_ip_dst(struct ip_header *curr_packet, struct interface *interfaces, uint8_t num_interfaces) {
 	
 	for (int i = 0; i < num_interfaces; i++) {
 		// Check if packet is for one of my interfaces 
 		if (compare_ip_addr_structs(curr_packet->dst_addr, interfaces[i].ip_addr) == 1) {
-			return i; // Can return immediately bc IP addresses are unique 
+			// Can return immediately since IP addresses are unique
+			return i; 
 		} 
 	}
 
@@ -412,8 +425,13 @@ int check_ip_dst(struct ip_header *curr_packet, struct interface *interfaces, ui
 	return -1;
 }
 
+
+
 /*
- * 
+ * Compare two ip address structs. 
+ *
+ * Return 1 if all four parts of the ip address are the same 
+ * Return 0 otherwise
  */
 int compare_ip_addr_structs(struct ip_address addr1, struct ip_address addr2) {
 	
