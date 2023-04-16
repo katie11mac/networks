@@ -32,9 +32,7 @@ int main(int argc, char *argv[])
 	// Variables for processing IP frame
 	int ether_dst_addr_results;
 	struct ip_header *curr_packet;
-	uint16_t given_checksum;
 	uint8_t given_version;
-	uint8_t given_ihl;
 	int ip_dst_addr_results;
 	int new_ttl;
 	int needs_routing = 0;
@@ -109,12 +107,10 @@ int main(int argc, char *argv[])
 			// THIS IS CURRENTLY ONLY CHECKING IF FRAME WAS FOR ME (NOT BROADCAST)
 			
 			if (ether_dst_addr_results == 1) {
-				// printf("\tUNWRAPPING ETHERNET FRAME FOR ME\n"); 
 				
 				// Interpret data as IPv4
 				curr_packet = (struct ip_header *) (frame + sizeof(struct ether_header));
 				
-				// ---------------------------- MAKE THIS A FUNCTION ??? --------------------------------------
 				// Check if total length is correct 
 				if (((uint8_t *)fcs_ptr - (uint8_t *)curr_packet) != ntohs(curr_packet->total_length)) {
 					printf("dropping packet from %u.%u.%u.%u (wrong length)\n", curr_packet->src_addr.part1, 
@@ -127,29 +123,12 @@ int main(int argc, char *argv[])
 							
 				// Check if the header checksum is correct 
 				if (is_valid) {
-					
-					// Get given IHL 
-					given_ihl = curr_packet->version_and_ihl & 0x0f; // low nibble
-
-					// Get given ip checksum 
-					given_checksum = curr_packet->header_checksum;
-					
-					// Reset the header checksum to recalculate it correctly
-					curr_packet->header_checksum = 0;
-				
-					if (given_checksum != ip_checksum(curr_packet, (given_ihl * 32) / 8)) {
-						printf("dropping packet from %u.%u.%u.%u (bad IP header checksum)\n", curr_packet->src_addr.part1, 
-																				curr_packet->src_addr.part2, 
-																				curr_packet->src_addr.part3, 
-																				curr_packet->src_addr.part4);
-						is_valid = 0;
-					}
+					is_valid = is_valid_ip_checksum(curr_packet);
 				}
-				// --------------------------------------------------------------------------------------------
 
 				// Check if provided recognized IP version (only IPv4)
 				if (is_valid) {
-				
+					
 					// Get given version
 					given_version = (curr_packet->version_and_ihl & 0xf0) >> 4; // high nibble
 
@@ -160,6 +139,7 @@ int main(int argc, char *argv[])
 																				curr_packet->src_addr.part4);
 						is_valid = 0;
 					}
+
 				}
 			
 
@@ -429,6 +409,40 @@ int check_ether_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, uin
 	printf("ignoring %lu-byte frame (not for me)\n", frame_len); 
 	return 0;
 }
+
+
+/*
+ * Check if inital checksum in IP header is correct by recalculating it.
+ *
+ * Return 1 if checksum is correct
+ * Return 0 otherwise
+ */
+int is_valid_ip_checksum(struct ip_header *curr_packet)
+{
+	uint16_t given_checksum;
+	uint8_t given_ihl;
+
+	// Get given IHL 
+	given_ihl = curr_packet->version_and_ihl & 0x0f; // low nibble
+
+	// Get given ip checksum 
+	given_checksum = curr_packet->header_checksum;
+	
+	// Reset the header checksum to recalculate it correctly
+	curr_packet->header_checksum = 0;
+
+	if (given_checksum != ip_checksum(curr_packet, (given_ihl * 32) / 8)) {
+		printf("dropping packet from %u.%u.%u.%u (bad IP header checksum)\n", curr_packet->src_addr.part1, 
+																curr_packet->src_addr.part2, 
+																curr_packet->src_addr.part3, 
+																curr_packet->src_addr.part4);
+		return 0;
+	}
+
+	return 1;
+
+}
+
 
 
 

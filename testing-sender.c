@@ -354,7 +354,10 @@ int main(int argc, char *argv[])
 	// ---------------------------------------------------------------------------------------
 
 
+	
 
+
+	// NEED TO TEST WHEN THERE ARE MULTIPLE ROUTES WITH THE GENMASK LENGTH
 
 	// TEST 12: Send Ethernet frame with IPv4 packet ------------------------------------------ 
 	//			- Ether DST: single receiving interface on router

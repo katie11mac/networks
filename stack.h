@@ -67,6 +67,7 @@ void init_arp_cache(struct arp_entry **arp_entries, uint8_t num_arp_entries);
 int is_valid_frame_length(ssize_t frame_len);
 int is_valid_fcs (uint8_t (*frame)[1600], size_t frame_len, ssize_t data_len, uint32_t fcs);
 int check_ether_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, uint8_t broadcast_addr[6], struct interface *interfaces, uint8_t num_interfaces);
+int is_valid_ip_checksum(struct ip_header *curr_packet);
 int check_ip_dst(struct ip_header *curr_packet, struct interface *interfaces, uint8_t num_interfaces);
 int compare_ip_addr_structs(struct ip_address addr1, struct ip_address addr2);
 uint32_t convert_ip_addr_struct(struct ip_address ip);
