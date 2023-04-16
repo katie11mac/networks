@@ -316,7 +316,6 @@ int main(int argc, char *argv[])
 
 	// TEST 11: Send Ethernet frame with IPv4 packet ------------------------------------------ 
 	//			- Ether DST: single receiving interface on router
-	//			- valid FCS
 	//			- Valid length, checksum, version and TTL
 	//			- NO ROUTE IN ROUTING TABLE
 	// Ethernet Frame 

@@ -38,11 +38,10 @@ struct arp_entry {
 };
 
 struct route {
-	// need something to signify which interface it would be for
-	int num_interface;
+	int num_interface; // number interface on route
 	struct ip_address dst;
-	struct ip_address genmask; // unsure of the data type 
-	// gateway -- i dont think you need it, since we have the num_interface and can determine the ip address through there 
+	struct ip_address gateway;
+	struct ip_address genmask;
 };
 
 struct ip_header {

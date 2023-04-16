@@ -38,7 +38,7 @@ int main(int argc, char *argv[])
 	int ip_dst_addr_results;
 	int new_ttl;
 	int needs_routing = 0;
-	int interface_for_routing = -1;
+	int route_entry = -1;
 
 	// Variables for our collection of interfaces 
 	struct interface *interfaces;
@@ -214,9 +214,10 @@ int main(int argc, char *argv[])
 																						 curr_packet->dst_addr.part2,
 																						 curr_packet->dst_addr.part3,
 																						 curr_packet->dst_addr.part4);
-					interface_for_routing = determine_route(curr_packet, interfaces, num_interfaces, routing_table, num_routes); 
+					route_entry = determine_route(curr_packet, interfaces, num_interfaces, routing_table, num_routes); 
 
-					if (interface_for_routing == -1) {
+					// No corresponding entry in routing table for IP packet
+					if (route_entry == -1) {
 						printf("dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (no route)\n",
 																		curr_packet->src_addr.part1,
 																		curr_packet->src_addr.part2,
@@ -227,7 +228,12 @@ int main(int argc, char *argv[])
 																		curr_packet->dst_addr.part3,
 																		curr_packet->dst_addr.part4);
 						// SHOULD I SET is_valid or needs_routing HERE??? 
+					// Found corresponding entry in routing table for IP packet
+					} else {
+						printf("FINDING MAC ADDRESS FOR NEXT HOP\n");
+						//find_mac_addr();
 					}
+
 				}
 
 
@@ -289,26 +295,33 @@ void init_routing_table(struct route **routing_table, uint8_t num_routes) {
 		printf("malloc failed\n");
 		return;
 	}
-
-	// Route 0
+	
+	// Route 0 (interface 0)
 	(*routing_table)[0].num_interface = 0;
 	memcpy(&(*routing_table)[0].dst, "\x01\x02\x03\x00", 4);
+	memcpy(&(*routing_table)[0].gateway, "\x00\x00\x00\x00", 4);
 	memcpy(&(*routing_table)[0].genmask, "\xff\xff\xff\x00", 4);
 
-	// Route 1
+	// Route 1 (interface 1)
 	(*routing_table)[1].num_interface = 1;
-	memcpy(&(*routing_table)[1].dst, "\x05\x06\x07\x00", 4);
+	memcpy(&(*routing_table)[1].dst, "\x05\x06\x07\x00", 4);	
+	memcpy(&(*routing_table)[1].gateway, "\x00\x00\x00\x00", 4);
 	memcpy(&(*routing_table)[1].genmask, "\xff\xff\xff\x00", 4);
 	
-	// Route 2
+	// Route 2 (interface 2)
 	(*routing_table)[2].num_interface = 2;
 	memcpy(&(*routing_table)[2].dst, "\x09\x0a\x0b\x00", 4);
+	memcpy(&(*routing_table)[2].gateway, "\x00\x00\x00\x00", 4);
 	memcpy(&(*routing_table)[2].genmask, "\xff\xff\xff\x00", 4);
 
-	// Route 3
+	// Route 3 (interface 3)
 	(*routing_table)[3].num_interface = 3;
 	memcpy(&(*routing_table)[3].dst, "\x0d\x0e\x0f\x00", 4);
+	memcpy(&(*routing_table)[3].gateway, "\x00\x00\x00\x00", 4);
 	memcpy(&(*routing_table)[3].genmask, "\xff\xff\xff\x00", 4);
+	
+	// SHOULD I INCLUDE ONE FOR ANOTHER ROUTER ON A DIFFERENT NETWORK? 
+
 }
 
 /*
@@ -497,22 +510,27 @@ int determine_route(struct ip_header *curr_packet, struct interface *interfaces,
 {	
 
 	uint32_t given_ip_dst_addr = convert_ip_addr_struct(curr_packet->dst_addr);
+	
+	uint32_t genmask_results = 0;
+	int route_entry_results = -1;
+
 	uint32_t curr_genmask;
 	uint32_t curr_dst;
 
 
-	// THIS IS ASSUMING THERE IS ONLY ONE APPLICABLE ROUTE
 	for (int i = 0; i < num_routes; i++) {
 				
 		curr_genmask = convert_ip_addr_struct(routing_table[i].genmask);
 		curr_dst = convert_ip_addr_struct(routing_table[i].dst);
 		
 		if ((given_ip_dst_addr & curr_genmask) == curr_dst) {
-			return i;
+			if (curr_genmask > genmask_results) {
+				genmask_results = curr_genmask;
+				route_entry_results = i;
+			}
 		}
 
 	}
 
-	// No route for curr_packet
-	return -1;
+	return route_entry_results;
 }
