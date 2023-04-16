@@ -38,6 +38,7 @@ int main(int argc, char *argv[])
 	int ip_dst_addr_results;
 	int new_ttl;
 	int needs_routing = 0;
+	int interface_for_routing = -1;
 
 	// Variables for our collection of interfaces 
 	struct interface *interfaces;
@@ -203,16 +204,30 @@ int main(int argc, char *argv[])
 					}
 				}
 
+				// If have route for packet in routing table, route to appropriate location and get MAC address
 				if (is_valid && needs_routing) {
-					printf("NEED TO ROUTE!!!\n");
-					printf(" from %u.%u.%u.%u to %u.%u.%u.%u\n", curr_packet->src_addr.part1,
-																 curr_packet->src_addr.part2,
-																 curr_packet->src_addr.part3,
-																 curr_packet->src_addr.part4,
-																 curr_packet->dst_addr.part1,
-															  	 curr_packet->dst_addr.part2,
-																 curr_packet->dst_addr.part3,
-																 curr_packet->dst_addr.part4);
+					printf("DEBUGGING: NEED TO ROUTE FROM %u.%u.%u.%u to %u.%u.%u.%u\n", curr_packet->src_addr.part1,
+																						 curr_packet->src_addr.part2,
+																						 curr_packet->src_addr.part3,
+																						 curr_packet->src_addr.part4,
+																						 curr_packet->dst_addr.part1,
+																						 curr_packet->dst_addr.part2,
+																						 curr_packet->dst_addr.part3,
+																						 curr_packet->dst_addr.part4);
+					interface_for_routing = determine_route(curr_packet, interfaces, num_interfaces, routing_table, num_routes); 
+
+					if (interface_for_routing == -1) {
+						printf("dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (no route)\n",
+																		curr_packet->src_addr.part1,
+																		curr_packet->src_addr.part2,
+																		curr_packet->src_addr.part3,
+																		curr_packet->src_addr.part4,
+																		curr_packet->dst_addr.part1,
+																		curr_packet->dst_addr.part2,
+																		curr_packet->dst_addr.part3,
+																		curr_packet->dst_addr.part4);
+						// SHOULD I SET is_valid or needs_routing HERE??? 
+					}
 				}
 
 
@@ -235,7 +250,6 @@ int main(int argc, char *argv[])
 
     return 0;
 
-	// CHECK WHERE WE NEED TO FREE INTERFACES, ROUTING TABLE, and CACHE !!!!!!!!!!!!
 }
 
 /*
@@ -380,7 +394,7 @@ int check_ether_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, uin
 	
 	// Check if frame is for the receiving interface 
 	} else if (memcmp(curr_frame->dst, interfaces[receiving_interface].ether_addr, 6) == 0) {
-		printf("DEBUGGING: received %lu-byte frame for me from %s", frame_len, binary_to_hex(curr_frame->src, 6)); 
+		//printf("DEBUGGING: received %lu-byte frame for me from %s", frame_len, binary_to_hex(curr_frame->src, 6)); 
 		//printf("\tframe dest: %s\tinterface MAC: %s", binary_to_hex(curr_frame->dst, 6), binary_to_hex(interfaces[receiving_interface].ether_addr, 6));
 		// Can return immediately since MAC addresses unique
 		return 1; 
@@ -411,7 +425,8 @@ int check_ether_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, uin
  * Return index of interface it was destined for
  * Return -1 otherwise (meaning IP packet not destined for one of interfaces) 
  */
-int check_ip_dst(struct ip_header *curr_packet, struct interface *interfaces, uint8_t num_interfaces) {
+int check_ip_dst(struct ip_header *curr_packet, struct interface *interfaces, uint8_t num_interfaces) 
+{
 	
 	for (int i = 0; i < num_interfaces; i++) {
 		// Check if packet is for one of my interfaces 
@@ -433,7 +448,8 @@ int check_ip_dst(struct ip_header *curr_packet, struct interface *interfaces, ui
  * Return 1 if all four parts of the ip address are the same 
  * Return 0 otherwise
  */
-int compare_ip_addr_structs(struct ip_address addr1, struct ip_address addr2) {
+int compare_ip_addr_structs(struct ip_address addr1, struct ip_address addr2) 
+{
 	
 	if (addr1.part1 != addr2.part1) {
 		return 0;
@@ -449,4 +465,54 @@ int compare_ip_addr_structs(struct ip_address addr1, struct ip_address addr2) {
 	}
 
 	return 1;
+}
+
+
+/*
+ * Convert ip_struct to a uint32_t for bit comparison purposes.
+ * Return the converted value. 
+ */
+uint32_t convert_ip_addr_struct(struct ip_address ip) 
+{
+
+	uint32_t result = 0; 
+
+	result = result | ((uint32_t)ip.part1 << 24);
+	result = result | ((uint32_t)ip.part2 << 16);
+	result = result | ((uint32_t)ip.part3 << 8);
+	result = result | (uint32_t)ip.part4;
+
+	return result;
+
+}
+
+
+/*
+ * Determine the route the curr_packet should take. 
+ * 
+ * Return index of interface the curr_packet should follow 
+ * Return -1 if no interface has a matching route 
+ */
+int determine_route(struct ip_header *curr_packet, struct interface *interfaces, uint8_t num_interfaces, struct route *routing_table, uint8_t num_routes) 
+{	
+
+	uint32_t given_ip_dst_addr = convert_ip_addr_struct(curr_packet->dst_addr);
+	uint32_t curr_genmask;
+	uint32_t curr_dst;
+
+
+	// THIS IS ASSUMING THERE IS ONLY ONE APPLICABLE ROUTE
+	for (int i = 0; i < num_routes; i++) {
+				
+		curr_genmask = convert_ip_addr_struct(routing_table[i].genmask);
+		curr_dst = convert_ip_addr_struct(routing_table[i].dst);
+		
+		if ((given_ip_dst_addr & curr_genmask) == curr_dst) {
+			return i;
+		}
+
+	}
+
+	// No route for curr_packet
+	return -1;
 }
