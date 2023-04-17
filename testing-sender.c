@@ -12,7 +12,7 @@ int main(int argc, char *argv[])
     ssize_t frame_len;
 
     int connect_to_remote_switch = 0;
-    char *local_vde_cmd[] = { "vde_plug", NULL };
+    char *local_vde_cmd[] = { "vde_plug", "/tmp/net1.vde", NULL };
     char *remote_vde_cmd[] = { "ssh", "pjohnson@weathertop.cs.middlebury.edu",
                                       "/home/pjohnson/cs431/bin/vde_plug",
                                       NULL };
