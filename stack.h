@@ -58,6 +58,20 @@ struct ip_header {
 	// OPTIONS WITH VARIABLE LENGTH 
 };
 
+struct arp_packet {
+	uint16_t hardware_type;
+	uint16_t protocol_type;
+	uint8_t hardware_size;
+	uint8_t protocol_size;
+	uint16_t opcode;
+	uint8_t sender_mac_addr[6];
+	struct ip_address sender_ip_addr;
+	uint8_t target_mac_addr[6];
+	struct ip_address target_ip_addr;
+};
+
+
+
 uint32_t crc32(uint32_t crc, const void *buf, size_t size);
 uint16_t ip_checksum (void *addr, uint32_t count);
 
