@@ -353,13 +353,96 @@ int main(int argc, char *argv[])
     send_ethernet_frame(fds[1], frame, frame_len);
 	// ---------------------------------------------------------------------------------------
 
+	// TEST 12: Send Ethernet frame with IPv4 packet ------------------------------------------ 
+    //          - Ether DST: single receiving interface on router
+    //          - valid FCS
+    //          - IP DST: device one hop away on network directly connected to
+    //          - Valid length, checksum, version and TTL 
+	//          - NO ARP ENTRY
+    // Ethernet Frame 
+    memcpy(test.dst, "\x01\x02\x03\x04\xff\xff", 6);
+    memcpy(test.src, "\x11\x22\x33\x00\xff\xff", 6);
+    memcpy(test.type, "\x08\x00", 2);
+    memcpy(frame, &test, sizeof(struct ether_header));
 
-	
+    // IP Packet
+    memcpy(&ip_test.version_and_ihl, "\x45", 1);
+    ip_test.ttl = 10;
+    ip_test.protocol = 4;
+    memcpy(&ip_test.src_addr, "\x01\x02\x03\x00", 4);
+    memcpy(&ip_test.dst_addr, "\x0d\x0e\x0f\x04", 4);
+
+    // Set data inside of the IP packet
+    data_len = 64;
+    memset(frame + sizeof(struct ether_header) + sizeof(struct ip_header), '\xff', data_len);
+
+    // Set ip header values that depend on the data
+    ip_test.total_length = htons(sizeof(struct ip_header) + data_len);
+    ip_test.header_checksum = 0;
+    ip_test.header_checksum = ip_checksum(&ip_test, 20); // DON'T KNOW IF I SHOULD HARD CODE THAT
+
+    // Copy all ip_header to ip_test for sending 
+    memcpy(frame + sizeof(struct ether_header), &ip_test, sizeof(struct ip_header));
+
+
+    // rest of Ethernet 
+    frame_len = sizeof(struct ether_header) + sizeof(struct ip_header) + data_len;
+    fcs = crc32(0, frame, frame_len);
+    memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
+    frame_len += sizeof(uint32_t);
+    printf("sending frame, length %ld\n", frame_len);
+    send_ethernet_frame(fds[1], frame, frame_len);
+    // ---------------------------------------------------------------------------------------
+
+
+
+	// TEST 13: Send Ethernet frame with IPv4 packet ------------------------------------------ 
+    //          - Ether DST: single receiving interface on router
+    //          - valid FCS
+    //          - IP DST: device one hop away on network directly connected to
+    //          - Valid length, checksum, version and TTL 
+    //          - NO ARP ENTRY
+    // Ethernet Frame 
+    memcpy(test.dst, "\x01\x02\x03\x04\xff\xff", 6);
+    memcpy(test.src, "\x11\x22\x33\x00\xff\xff", 6);
+    memcpy(test.type, "\x08\x00", 2);
+    memcpy(frame, &test, sizeof(struct ether_header));
+
+    // IP Packet
+    memcpy(&ip_test.version_and_ihl, "\x45", 1);
+    ip_test.ttl = 10;
+    ip_test.protocol = 4;
+    memcpy(&ip_test.src_addr, "\x01\x02\x03\x00", 4);
+    memcpy(&ip_test.dst_addr, "\x0b\x0b\x0d\x0e", 4);
+
+    // Set data inside of the IP packet
+    data_len = 64;
+    memset(frame + sizeof(struct ether_header) + sizeof(struct ip_header), '\xff', data_len);
+
+    // Set ip header values that depend on the data
+    ip_test.total_length = htons(sizeof(struct ip_header) + data_len);
+    ip_test.header_checksum = 0;
+    ip_test.header_checksum = ip_checksum(&ip_test, 20); // DON'T KNOW IF I SHOULD HARD CODE THAT
+
+    // Copy all ip_header to ip_test for sending 
+    memcpy(frame + sizeof(struct ether_header), &ip_test, sizeof(struct ip_header));
+
+
+    // rest of Ethernet 
+    frame_len = sizeof(struct ether_header) + sizeof(struct ip_header) + data_len;
+    fcs = crc32(0, frame, frame_len);
+    memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
+    frame_len += sizeof(uint32_t);
+    printf("sending frame, length %ld\n", frame_len);
+    send_ethernet_frame(fds[1], frame, frame_len);
+    // ---------------------------------------------------------------------------------------
+
+
 
 
 	// NEED TO TEST WHEN THERE ARE MULTIPLE ROUTES WITH THE GENMASK LENGTH
 
-	// TEST 12: Send Ethernet frame with IPv4 packet ------------------------------------------ 
+	// TEST 14: Send Ethernet frame with IPv4 packet ------------------------------------------ 
 	//			- Ether DST: single receiving interface on router
 	//			- valid FCS
 	//			- IP DST: device one hop away 
