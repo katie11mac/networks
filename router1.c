@@ -10,7 +10,7 @@ int main(int argc, char *argv[])
 
 	// Variables for vde_switch
     int connect_to_remote_switch = 0;
-    char *local_vde_cmd[] = { "vde_plug", "/tmp/net1.vde", NULL };
+    char *local_vde_cmd[] = { "vde_plug", "/tmp/net2.vde", NULL };
 	char *remote_vde_cmd[] = { "ssh", "pjohnson@weathertop.cs.middlebury.edu",
                                       "/home/pjohnson/cs431/bin/vde_plug",
                                       NULL };
@@ -44,7 +44,7 @@ int main(int argc, char *argv[])
 
 	// Variables for our collection of interfaces 
 	struct interface *interfaces;
-	uint8_t num_interfaces = 4;
+	uint8_t num_interfaces = 2;
 
 	// Variables for ARP cache 
 	struct arp_entry *arp_cache;
@@ -52,7 +52,7 @@ int main(int argc, char *argv[])
 
 	// Variables for routing table 
 	struct route *routing_table;
-	uint8_t num_routes = 6;
+	uint8_t num_routes = 3;
 
 	// Set broadcast address 
 	memcpy(broadcast_addr, "\xff\xff\xff\xff\xff\xff", 6);
@@ -333,20 +333,12 @@ void init_interfaces(struct interface **interfaces, uint8_t num_interfaces)
 	}
 
     // Interface 0 - WILL BE RECIEVING IN PART I
-    memcpy((*interfaces)[0].ether_addr, "\x01\x02\x03\x04\xff\xff", 6);
-    memcpy(&(*interfaces)[0].ip_addr, "\x01\x02\x03\x04", 4);
+    memcpy((*interfaces)[0].ether_addr, "\x0d\x0e\x0f\x11\xff\xff", 6);
+    memcpy(&(*interfaces)[0].ip_addr, "\x0d\x0e\x0f\x11", 4);
 
     // Interface 1
-    memcpy((*interfaces)[1].ether_addr, "\x05\x06\x07\x08\xff\xff", 6);
-    memcpy(&(*interfaces)[1].ip_addr, "\x05\x06\x07\x08", 4);
-
-    // Interface 2
-    memcpy((*interfaces)[2].ether_addr, "\x09\x0a\x0b\x0c\xff\xff", 6);
-    memcpy(&(*interfaces)[2].ip_addr, "\x09\x0a\x0b\x0c", 4);
-
-    // Interface 3
-    memcpy((*interfaces)[3].ether_addr, "\x0d\x0e\x0f\x10\xff\xff", 6);
-    memcpy(&(*interfaces)[3].ip_addr, "\x0d\x0e\x0f\x10", 4);
+    memcpy((*interfaces)[1].ether_addr, "\x11\x12\x13\x15\xff\xff", 6);
+    memcpy(&(*interfaces)[1].ip_addr, "\x11\x12\x13\x15", 4);
 
 }
 
@@ -360,41 +352,24 @@ void init_routing_table(struct route **routing_table, uint8_t num_routes)
 		return;
 	}
 	
-	// Route 0 (interface 0)
+	// Route 0 (interface 4)
 	(*routing_table)[0].num_interface = 0;
-	memcpy(&(*routing_table)[0].dst, "\x01\x02\x03\x00", 4);
+	memcpy(&(*routing_table)[0].dst, "\x0d\x0e\x0f\x00", 4);
 	memcpy(&(*routing_table)[0].gateway, "\x00\x00\x00\x00", 4);
 	memcpy(&(*routing_table)[0].genmask, "\xff\xff\xff\x00", 4);
 
-	// Route 1 (interface 1)
+	// Route 1 (interface 5)
 	(*routing_table)[1].num_interface = 1;
-	memcpy(&(*routing_table)[1].dst, "\x05\x06\x07\x00", 4);	
+	memcpy(&(*routing_table)[1].dst, "\x11\x12\x13\x00", 4);	
 	memcpy(&(*routing_table)[1].gateway, "\x00\x00\x00\x00", 4);
 	memcpy(&(*routing_table)[1].genmask, "\xff\xff\xff\x00", 4);
 	
-	// Route 2 (interface 2)
-	(*routing_table)[2].num_interface = 2;
-	memcpy(&(*routing_table)[2].dst, "\x09\x0a\x0b\x00", 4);
-	memcpy(&(*routing_table)[2].gateway, "\x00\x00\x00\x00", 4);
+	// Route 2 (to another router through interface 4, which is at index 0)
+	(*routing_table)[2].num_interface = 0;
+	memcpy(&(*routing_table)[2].dst, "\x01\x02\x03\x00", 4);
+	memcpy(&(*routing_table)[2].gateway, "\x0d\x0e\x0f\x10", 4);
 	memcpy(&(*routing_table)[2].genmask, "\xff\xff\xff\x00", 4);
 
-	// Route 3 (interface 3)
-	(*routing_table)[3].num_interface = 3;
-	memcpy(&(*routing_table)[3].dst, "\x0d\x0e\x0f\x00", 4);
-	memcpy(&(*routing_table)[3].gateway, "\x00\x00\x00\x00", 4);
-	memcpy(&(*routing_table)[3].genmask, "\xff\xff\xff\x00", 4);
-	
-	// Route 4 (to another router through interface 3)
-	(*routing_table)[4].num_interface = 3;
-	memcpy(&(*routing_table)[4].dst, "\x11\x12\x13\x00", 4);
-	memcpy(&(*routing_table)[4].gateway, "\x0d\x0e\x0f\x11", 4);
-	memcpy(&(*routing_table)[4].genmask, "\xff\xff\xff\x00", 4);
-
-	// Route 5 (to another router through interface 2)
-	(*routing_table)[5].num_interface = 2;
-    memcpy(&(*routing_table)[5].dst, "\x0b\x0b\x00\x00", 4);
-    memcpy(&(*routing_table)[5].gateway, "\x09\x0a\x0b\x0d", 4);
-    memcpy(&(*routing_table)[5].genmask, "\xff\xff\x00\x00", 4);	
 }
 
 /*
@@ -407,18 +382,17 @@ void init_arp_cache(struct arp_entry **arp_cache, uint8_t num_arp_entries)
 		return;
 	}
 	
-	// Device A
-	memcpy((*arp_cache)[0].ether_addr, "\x11\x22\x33\x00\xff\xff", 6);
-	memcpy(&(*arp_cache)[0].ip_addr, "\x01\x02\x03\x00", 4);
+	// Device B
+	memcpy((*arp_cache)[0].ether_addr, "\x11\x12\x13\x14\xff\xff", 6);
+	memcpy(&(*arp_cache)[0].ip_addr, "\x11\x12\x13\x14", 4);
 
 	// Device H
 	memcpy((*arp_cache)[1].ether_addr, "\xdd\xee\xff\x00\xff\xff", 6);
-	memcpy(&(*arp_cache)[1].ip_addr, "\x0d\x0e\x0f\x00", 4);
+    memcpy(&(*arp_cache)[1].ip_addr, "\x0d\x0e\x0f\x00", 4);
 
-	// Router 1 (connected to I3) 
-	memcpy((*arp_cache)[2].ether_addr, "\xdd\xee\xff\x11\xff\xff", 6);
-	memcpy(&(*arp_cache)[2].ip_addr, "\x0d\x0e\x0f\x11", 4);
-
+	// I3 (on stack.c)
+	memcpy((*arp_cache)[2].ether_addr, "\x0d\x0e\x0f\x10\xff\xff", 6);
+    memcpy(&(*arp_cache)[2].ip_addr, "\x0d\x0e\x0f\x10", 4);	
 }
 
 /*
