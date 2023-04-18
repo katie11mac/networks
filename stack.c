@@ -230,7 +230,8 @@ int main(int argc, char *argv[])
 						printf("FINDING MAC ADDRESS FOR NEXT HOP\n");
 						
 						route_to_take = routing_table[route_entry_num];
-
+						
+						// Get MAC dst
 						// If gateway of route is 0.0.0.0 (meaning destination device is in one of networks router is connected to)
 						// then we can send the ethernet frame directly to the device 
 						if (compare_ip_addr_structs(route_to_take.gateway, direct_network_gateway) == 1) {
@@ -276,6 +277,26 @@ int main(int argc, char *argv[])
 						}
 
 					}
+					
+					// INSIDE THE is_valid && needs_routing conditional
+
+					if((route_entry_num != -1) && (found_mac_addr == 1)) {
+						printf("NEED TO AND CAN FORWARD THIS PACKET TO NEXT HOP or FINAL DESTINATION\n");
+						
+						memcpy(curr_frame->src, curr_frame->dst, 6);
+						memcpy(curr_frame->dst, mac_dst, 6);
+
+						curr_packet->ttl = new_ttl;
+						// Need to double check this calculation of ip_checksum
+						curr_packet->header_checksum = ip_checksum(&(*curr_packet), ((curr_packet->version_and_ihl & 0x0f) * 32) / 8);
+						
+						// Recalculate FCS 
+						// CAN WE MAKE THESE ASSUMPTIONS?????????? WE DIDN'T TOUCH ANY DATA
+						*fcs_ptr = crc32(0, frame, frame_len - sizeof(*fcs_ptr));
+						
+						send_ethernet_frame(fds[1], frame, frame_len);	
+					}
+
 
 				}
 
