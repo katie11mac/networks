@@ -1,6 +1,6 @@
 CFLAGS=-Wall -pedantic -g -o
 
-testvde: testing-sender stack router1
+testvde: testing-sender stack
 
 stack: stack.c util.o cs431vde.o crc32.o ip_checksum.o
 	gcc $(CFLAGS) $@ $^
@@ -11,7 +11,7 @@ testing-sender: testing-sender.c util.o cs431vde.o crc32.o ip_checksum.o
 receiver: receiver.c util.o cs431vde.o
 	gcc $(CFLAGS) $@ $^
 
-router1: router1.c util.o cs431vde.o crc32.o ip_checksum.o
+sender: sender.c util.o cs431vde.o
 	gcc $(CFLAGS) $@ $^
 
 
