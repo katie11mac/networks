@@ -6,9 +6,21 @@
 
 int main(int argc, char *argv[])
 {
-    int fds[4][2]; // CHANGE THIS
+	// Variables for our collection of interfaces 
+	struct interface *interfaces;
+	uint8_t num_interfaces = 4;
+
+	// Variables for ARP cache 
+	struct arp_entry *arp_cache;
+	uint8_t num_arp_entries = 3;
+
+	// Variables for routing table 
+	struct route *routing_table;
+	uint8_t num_routes = 6;
+
 
 	// Variables for vde_switch
+    int fds[num_interfaces][2]; // CHANGE THIS
     int connect_to_remote_switch = 0;
     char *local_vde_cmd[] = { "vde_plug", NULL, NULL };
 	char *remote_vde_cmd[] = { "ssh", "pjohnson@weathertop.cs.middlebury.edu",
@@ -42,18 +54,6 @@ int main(int argc, char *argv[])
 	struct ip_address direct_network_gateway;
 	uint8_t mac_dst[6];
 	int found_mac_addr = 0;
-
-	// Variables for our collection of interfaces 
-	struct interface *interfaces;
-	uint8_t num_interfaces = 4;
-
-	// Variables for ARP cache 
-	struct arp_entry *arp_cache;
-	uint8_t num_arp_entries = 3;
-
-	// Variables for routing table 
-	struct route *routing_table;
-	uint8_t num_routes = 6;
 
 	// Set broadcast address 
 	memcpy(broadcast_addr, "\xff\xff\xff\xff\xff\xff", 6);
@@ -99,7 +99,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-	// Connecting to vde virtual switch for interface 0
+	// Connecting to vde virtual switch for interface 3
 	local_vde_cmd[1] = "/tmp/net3.vde";
 	vde_cmd = connect_to_remote_switch ? remote_vde_cmd : local_vde_cmd;
 	
@@ -330,8 +330,9 @@ int main(int argc, char *argv[])
 
 					if ((route_entry_num != -1) && (found_mac_addr == 1)) {
 						printf("NEED TO AND CAN FORWARD THIS PACKET TO NEXT HOP or FINAL DESTINATION\n");
-						
-						memcpy(curr_frame->src, curr_frame->dst, 6);
+						printf("FORWARDING TO INTERFACE %d\n", route_to_take.num_interface);
+
+						memcpy(curr_frame->src, curr_frame->dst, 6); // CHANGE THISSSSSS THE SOURCE SHOULD BE FROM OUTGOING INTERFACE:
 						memcpy(curr_frame->dst, mac_dst, 6);
 
 						curr_packet->ttl = new_ttl;
@@ -342,14 +343,11 @@ int main(int argc, char *argv[])
 						// CAN WE MAKE THESE ASSUMPTIONS?????????? WE DIDN'T TOUCH ANY DATA
 						*fcs_ptr = crc32(0, frame, frame_len - sizeof(*fcs_ptr));
 						
-						send_ethernet_frame(fds[3][1], frame, frame_len);	
+						send_ethernet_frame(fds[route_to_take.num_interface][1], frame, frame_len);	
 					}
 
 
 				}
-
-
-				// DON'T FORGET ABOUT TTL 
 			}
 		}
 

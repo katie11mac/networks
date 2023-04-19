@@ -12,7 +12,7 @@ int main(int argc, char *argv[])
     ssize_t frame_len;
 
     int connect_to_remote_switch = 0;
-    char *local_vde_cmd[] = { "vde_plug", "/tmp/net1.vde", NULL };
+    char *local_vde_cmd[] = { "vde_plug", "/tmp/net0.vde", NULL };
     char *remote_vde_cmd[] = { "ssh", "pjohnson@weathertop.cs.middlebury.edu",
                                       "/home/pjohnson/cs431/bin/vde_plug",
                                       NULL };
@@ -444,7 +444,7 @@ int main(int argc, char *argv[])
 	// TEST 14: Send Ethernet frame with IPv4 packet ------------------------------------------ 
 	//			- Ether DST: single receiving interface on router
 	//			- valid FCS
-	//			- IP DST: device one hop away 
+	//			- IP DST: device one hop away on directly connected network (should be going to I3)
 	//			- Valid length, checksum, version and TTL 
 	// Ethernet Frame 
 	memcpy(test.dst, "\x01\x02\x03\x04\xff\xff", 6);
@@ -489,8 +489,8 @@ int main(int argc, char *argv[])
     //          - valid FCS
     //          - IP DST: device one hop away 
     //          - Valid length, checksum, version and TTL
-	//
-	//          WILL BE GOING TO ANOTHER ROUTER
+	//			** SHOULD BE SENT TO INTERFACE 3 ** 
+	//          WILL BE GOING TO ANOTHER ROUTER SINCE DEVICE ON NOT DIRECTLY CONNECTED NETWORK
     // Ethernet Frame 
     memcpy(test.dst, "\x01\x02\x03\x04\xff\xff", 6);
     memcpy(test.src, "\x11\x22\x33\x00\xff\xff", 6);
