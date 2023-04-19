@@ -455,7 +455,7 @@ int main(int argc, char *argv[])
 	 * IP packet 
 	 *	- Valid length, checksum, version, and TTL 
 	 *	- dst: device on network I3 connected to (one hop away) 	
-	 *	- No arp entry for device
+	 *	- No arp entry for device (which is a router) 
 	 *
 	 * Notes 
 	 *		- Look at drawing
