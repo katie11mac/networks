@@ -6,11 +6,11 @@
 
 int main(int argc, char *argv[])
 {
-    int fds[2]; // CHANGE THIS
+    int fds[4][2]; // CHANGE THIS
 
 	// Variables for vde_switch
     int connect_to_remote_switch = 0;
-    char *local_vde_cmd[] = { "vde_plug", "/tmp/net1.vde", NULL };
+    char *local_vde_cmd[] = { "vde_plug", NULL, NULL };
 	char *remote_vde_cmd[] = { "ssh", "pjohnson@weathertop.cs.middlebury.edu",
                                       "/home/pjohnson/cs431/bin/vde_plug",
                                       NULL };
@@ -62,21 +62,58 @@ int main(int argc, char *argv[])
 	memcpy(&direct_network_gateway, "\x00\x00\x00\x00", 4);
 	
 
+	// ------------------------------MAKE THIS A LOOP??? ------------------------------
 	// Initialize interfaces, arp cache, and routing table
 	init_interfaces(&interfaces, num_interfaces);
 	init_routing_table(&routing_table, num_routes);
 	init_arp_cache(&arp_cache, num_arp_entries); 
 
+	
+	// Connecting to vde virtual switch for interface 0
+	local_vde_cmd[1] = "/tmp/net0.vde";
+	vde_cmd = connect_to_remote_switch ? remote_vde_cmd : local_vde_cmd;
+	
 	// Connecting to vde virtual switch
-    if (connect_to_vde_switch(fds, vde_cmd) < 0) {
+    if (connect_to_vde_switch(fds[0], vde_cmd) < 0) {
         printf("Could not connect to switch, exiting.\n");
         exit(1);
     }
 
+	// Connecting to vde virtual switch for interface 1
+	local_vde_cmd[1] = "/tmp/net1.vde";
+	vde_cmd = connect_to_remote_switch ? remote_vde_cmd : local_vde_cmd;
+	
+	// Connecting to vde virtual switch
+    if (connect_to_vde_switch(fds[1], vde_cmd) < 0) {
+        printf("Could not connect to switch, exiting.\n");
+        exit(1);
+    }
+
+	// Connecting to vde virtual switch for interface 2
+	local_vde_cmd[1] = "/tmp/net2.vde";
+	vde_cmd = connect_to_remote_switch ? remote_vde_cmd : local_vde_cmd;
+	
+	// Connecting to vde virtual switch
+    if (connect_to_vde_switch(fds[2], vde_cmd) < 0) {
+        printf("Could not connect to switch, exiting.\n");
+        exit(1);
+    }
+
+	// Connecting to vde virtual switch for interface 0
+	local_vde_cmd[1] = "/tmp/net3.vde";
+	vde_cmd = connect_to_remote_switch ? remote_vde_cmd : local_vde_cmd;
+	
+	// Connecting to vde virtual switch
+    if (connect_to_vde_switch(fds[3], vde_cmd) < 0) {
+        printf("Could not connect to switch, exiting.\n");
+        exit(1);
+    }
+	// ---------------------------------------------------------------------------
+
 	// Process frames until user terminates with Control-C
 	// NEED TO CHANGE THIS TOO 
 	// LISTENING INTERFACE
-    while ((frame_len = receive_ethernet_frame(fds[0], frame)) > 0) {
+    while ((frame_len = receive_ethernet_frame(fds[0][0], frame)) > 0) {
         data_as_hex = binary_to_hex(frame, frame_len);
 
 		// Verify length of frame 
@@ -305,7 +342,7 @@ int main(int argc, char *argv[])
 						// CAN WE MAKE THESE ASSUMPTIONS?????????? WE DIDN'T TOUCH ANY DATA
 						*fcs_ptr = crc32(0, frame, frame_len - sizeof(*fcs_ptr));
 						
-						send_ethernet_frame(fds[1], frame, frame_len);	
+						send_ethernet_frame(fds[3][1], frame, frame_len);	
 					}
 
 
