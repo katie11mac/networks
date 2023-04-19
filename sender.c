@@ -1,10 +1,10 @@
 /*
- * receiver.c
+ * sender.c
  */
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 #include <stdint.h>
 
 #include "util.h"
@@ -17,7 +17,6 @@ main(int argc, char *argv[])
 
     uint8_t frame[1600];
     ssize_t frame_len;
-    char *data_as_hex;
 
     int connect_to_remote_switch = 0;
     char *local_vde_cmd[] = { "vde_plug", "/tmp/net2.vde", NULL };
@@ -31,18 +30,22 @@ main(int argc, char *argv[])
         exit(1);
     }
 
-    while((frame_len = receive_ethernet_frame(fds[0], frame)) > 0) {
-        data_as_hex = binary_to_hex(frame, frame_len);
-        printf("received frame, length %ld:\n", frame_len);
-        puts(data_as_hex);
-        free(data_as_hex);
-    }
+    memset(frame, '\xff', 64);
+    frame_len = 64;
 
-    if(frame_len < 0) {
-        perror("read");
-        exit(1);
-    }
+    printf("sending frame, length %ld\n", frame_len);
+    send_ethernet_frame(fds[1], frame, frame_len);
+
+    /* If the program exits immediately after sending its frames, there is a
+     * possibility the frames won't actually be delivered.  If, for example,
+     * the "remote_vde_cmd" above is used, the user might not even finish
+     * typing their password (which is accepted by a child process) before
+     * this process terminates, which would result in send frames not actually
+     * arriving.  Therefore, we pause and let the user manually end this
+     * process. */
+
+    printf("Press Control-C to terminate sender.\n");
+    pause();
 
     return 0;
 }
-
