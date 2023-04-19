@@ -6,7 +6,7 @@
 
 int main(int argc, char *argv[])
 {
-    int fds[2];
+    int fds[2]; // CHANGE THIS
 
 	// Variables for vde_switch
     int connect_to_remote_switch = 0;
@@ -28,6 +28,7 @@ int main(int argc, char *argv[])
 	ssize_t data_len;
 	uint32_t *fcs_ptr;
 	int is_ipv4 = 0;
+	int is_arp = 0;
 
 	// Variables for processing IP frame
 	int ether_dst_addr_results;
@@ -67,13 +68,15 @@ int main(int argc, char *argv[])
 	init_arp_cache(&arp_cache, num_arp_entries); 
 
 	// Connecting to vde virtual switch
-    if(connect_to_vde_switch(fds, vde_cmd) < 0) {
+    if (connect_to_vde_switch(fds, vde_cmd) < 0) {
         printf("Could not connect to switch, exiting.\n");
         exit(1);
     }
 
 	// Process frames until user terminates with Control-C
-    while((frame_len = receive_ethernet_frame(fds[0], frame)) > 0) {
+	// NEED TO CHANGE THIS TOO 
+	// LISTENING INTERFACE
+    while ((frame_len = receive_ethernet_frame(fds[0], frame)) > 0) {
         data_as_hex = binary_to_hex(frame, frame_len);
 
 		// Verify length of frame 
@@ -99,6 +102,9 @@ int main(int argc, char *argv[])
 			// Ethernet is IPv4
 			if (memcmp(curr_frame->type, "\x08\x00", 2) == 0) {
 				is_ipv4 = 1;
+			// Ethernet is ARP 
+			} else if (memcmp(curr_frame->type, "\x08\x06", 2) == 0) {
+				is_arp = 1;
 			// Otherwise unrecognized type 
 			} else {
 				printf("ignoring %lu-byte frame (unrecognized type)\n", frame_len); 
@@ -106,6 +112,11 @@ int main(int argc, char *argv[])
 			}
 		}
 		
+		if (is_valid && is_arp) {
+			
+			printf("RECIEVED ARP REQUEST\n");
+
+		}
 
 		// -------------------------- IP PACKETS -----------------------------------------
 		// If valid frame and IPv4, check if destination is my receiving interface (PART I) 
@@ -280,7 +291,7 @@ int main(int argc, char *argv[])
 					
 					// INSIDE THE is_valid && needs_routing conditional
 
-					if((route_entry_num != -1) && (found_mac_addr == 1)) {
+					if ((route_entry_num != -1) && (found_mac_addr == 1)) {
 						printf("NEED TO AND CAN FORWARD THIS PACKET TO NEXT HOP or FINAL DESTINATION\n");
 						
 						memcpy(curr_frame->src, curr_frame->dst, 6);
@@ -313,7 +324,7 @@ int main(int argc, char *argv[])
 	free(arp_cache);
 	free(routing_table);
 
-    if(frame_len < 0) {
+    if (frame_len < 0) {
         perror("read");
         exit(1);
     }
