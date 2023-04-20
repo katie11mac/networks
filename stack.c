@@ -35,7 +35,6 @@ int main(int argc, char *argv[])
 	
 	// Variables for processing recieved frames
 	int is_valid = 1; // Whether it is corrupted and has valid values
-	uint8_t broadcast_addr[6];
 	struct ether_header *curr_frame;
 	ssize_t data_len;
 	uint32_t *fcs_ptr;
@@ -58,9 +57,6 @@ int main(int argc, char *argv[])
 	// Variables for processing ARP types
 	struct arp_packet curr_arp_packet;
 
-	// Set broadcast address 
-	memcpy(broadcast_addr, "\xff\xff\xff\xff\xff\xff", 6);
-	
 	// Set direct network gateway value
 	memcpy(&direct_network_gateway, "\x00\x00\x00\x00", 4);
 	
@@ -122,7 +118,7 @@ int main(int argc, char *argv[])
 		
 		// Acknowledge broadcasts and set ether_dst_addr_results
 		if (is_valid) {
-			ether_dst_addr_results = check_ether_dst_addr(curr_frame, frame_len, broadcast_addr, interfaces, num_interfaces);
+			ether_dst_addr_results = check_ether_dst_addr(curr_frame, frame_len, interfaces, num_interfaces);
 		}
 		
 		if (is_valid && is_arp) {
@@ -500,12 +496,12 @@ int is_valid_fcs (uint8_t (*frame)[1600], size_t frame_len, ssize_t data_len, ui
  * Return 1 if frame was for me (i.e. interfaces' MAC address)
  * Return -1 if frame was not for me 
  */
-int check_ether_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, uint8_t broadcast_addr[6], struct interface *interfaces, uint8_t num_interfaces) 
+int check_ether_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, struct interface *interfaces, uint8_t num_interfaces) 
 {
 	int receiving_interface = 0;
 
 	// Check if frame is a broadcast 
-	if (memcmp(curr_frame->dst, broadcast_addr, 6) == 0) {
+	if (memcmp(curr_frame->dst, BROADCAST_ADDR, 6) == 0) {
 		printf("received %lu-byte broadcast frame from %s", frame_len, binary_to_hex(curr_frame->src, 6)); 
 		return 0;
 	
