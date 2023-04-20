@@ -44,7 +44,6 @@ int main(int argc, char *argv[])
 	// Variables for processing IP frame
 	int ether_dst_addr_results;
 	struct ip_header *curr_packet;
-	uint8_t given_version;
 	int ip_dst_addr_results;
 	int new_ttl;
 	int needs_routing = 0;
@@ -238,48 +237,26 @@ int main(int argc, char *argv[])
 				// Interpret data as IPv4
 				curr_packet = (struct ip_header *) (frame + sizeof(struct ether_header));
 				
-
-				// Check if total length is correct 
-				if (((uint8_t *)fcs_ptr - (uint8_t *)curr_packet) != ntohs(curr_packet->total_length)) {
-					printf("dropping packet from %u.%u.%u.%u (wrong length)\n", curr_packet->src_addr.part1, 
-																				curr_packet->src_addr.part2, 
-																				curr_packet->src_addr.part3, 
-																				curr_packet->src_addr.part4);
-					is_valid = 0;
-				}
 				
+				// Check if total length is correct 
+				if (is_valid) {
+					is_valid = is_valid_total_length(fcs_ptr, curr_packet);
+				}
 
 				// Check if the header checksum is correct 
-				if (is_valid) {
+				if (is_valid) {	
 					is_valid = is_valid_ip_checksum(curr_packet);
 				}
 				
-				// Check IHL and whether it is greater than 5
+				// Check IHL 
 				if (is_valid) {
-				
-					if ((curr_packet->version_and_ihl & 0x0f) < 5) {
-						printf("dropping packet from %u.%u.%u.%u (invalid IHL)\n", curr_packet->src_addr.part1, 
-																				   curr_packet->src_addr.part2, 
-																				   curr_packet->src_addr.part3, 
-																				   curr_packet->src_addr.part4);
-						is_valid = 0; 
-					}
+					is_valid = is_valid_ihl(curr_packet);
 				}
 				
 
 				// Check if provided recognized IP version (only IPv4)
 				if (is_valid) {
-					
-					// Get given version
-					given_version = (curr_packet->version_and_ihl & 0xf0) >> 4; // high nibble
-
-					if (given_version != 4) {
-						printf("dropping packet from %u.%u.%u.%u (unrecognized IP version)\n", curr_packet->src_addr.part1, 
-																							   curr_packet->src_addr.part2, 
-																							   curr_packet->src_addr.part3, 
-																							   curr_packet->src_addr.part4);
-						is_valid = 0;
-					}
+					is_valid = is_valid_ip_version(curr_packet);
 				}
 			
 
@@ -542,6 +519,8 @@ void init_arp_cache(struct arp_entry **arp_cache, uint8_t num_arp_entries)
 
 }
 
+
+
 /*
  * Return 1 if the frame has a valid length and 0 otherwise 
  */
@@ -627,6 +606,27 @@ int check_ether_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, str
 
 
 /*
+ * Check if total length is correct
+ *
+ * Return 1 if total length is correct 
+ * Return 0 otherwise
+ */
+int is_valid_total_length(uint32_t *fcs_ptr, struct ip_header *curr_packet) 
+{
+	// Check if total length is correct 
+	if (((uint8_t *)fcs_ptr - (uint8_t *)curr_packet) != ntohs(curr_packet->total_length)) {
+		printf("dropping packet from %u.%u.%u.%u (wrong length)\n", curr_packet->src_addr.part1,
+																	curr_packet->src_addr.part2,
+																	curr_packet->src_addr.part3,
+																	curr_packet->src_addr.part4);
+		return 0;
+	}
+
+	return 1;
+}
+
+
+/*
  * Check if inital checksum in IP header is correct by recalculating it.
  *
  * Return 1 if checksum is correct
@@ -658,7 +658,46 @@ int is_valid_ip_checksum(struct ip_header *curr_packet)
 
 }
 
+/*
+ * Check if given IHL is valid (greater than 5)
+ *
+ * Return 1 if IHL is greater than 5
+ * Return 0 otherwise
+ */
+int is_valid_ihl(struct ip_header *curr_packet) 
+{
+	if ((curr_packet->version_and_ihl & 0x0f) < 5) {
+		printf("dropping packet from %u.%u.%u.%u (invalid IHL)\n", curr_packet->src_addr.part1,
+																   curr_packet->src_addr.part2,
+																   curr_packet->src_addr.part3,
+																   curr_packet->src_addr.part4);
+		return 0;
+	}
 
+	return 1;
+}
+
+/*
+ * Check if given IP version is valid (is IPv4)
+ *
+ * Return 1 if IP version is 4
+ * Return 0 otherwise
+ */
+int is_valid_ip_version(struct ip_header *curr_packet) 
+{
+	// Get given version (high nibble)
+//	given_version = (curr_packet->version_and_ihl & 0xf0) >> 4; // high nibble
+
+	if (((curr_packet->version_and_ihl & 0xf0) >> 4) != 4) {
+		printf("dropping packet from %u.%u.%u.%u (unrecognized IP version)\n", curr_packet->src_addr.part1, 
+																			   curr_packet->src_addr.part2, 
+																			   curr_packet->src_addr.part3, 
+																			   curr_packet->src_addr.part4);
+		return 0;
+	}
+
+	return 1;
+}
 
 
 /*
