@@ -20,6 +20,7 @@ int main(int argc, char *argv[])
 
 	// Variables for vde_switch (one for each interface)
     int fds[num_interfaces][2];
+	char vde_path[20];
     int connect_to_remote_switch = 0;
     char *local_vde_cmd[] = { "vde_plug", NULL, NULL };
 	char *remote_vde_cmd[] = { "ssh", "pjohnson@weathertop.cs.middlebury.edu",
@@ -54,6 +55,9 @@ int main(int argc, char *argv[])
 	uint8_t mac_dst[6];
 	int found_mac_addr = 0;
 
+	// Variables for processing ARP types
+	struct arp_packet curr_arp_packet;
+
 	// Set broadcast address 
 	memcpy(broadcast_addr, "\xff\xff\xff\xff\xff\xff", 6);
 	
@@ -68,6 +72,23 @@ int main(int argc, char *argv[])
 
 	
 	// ------------------------------MAKE THIS A LOOP??? ------------------------------
+
+	
+	for (int i = 0; i < num_interfaces; i++) {
+		
+		sprintf(vde_path, "/tmp/net%d.vde", i);
+		local_vde_cmd[1] = vde_path;
+		//sprintf(local_vde_cmd[1], "/tmp/net%d.vde", i);
+		vde_cmd = connect_to_remote_switch ? remote_vde_cmd : local_vde_cmd;
+	
+		// Connecting to vde virtual switch
+		if (connect_to_vde_switch(fds[i], vde_cmd) < 0) {
+			printf("Could not connect to switch, exiting.\n");
+			exit(1);
+		}
+	}
+	
+/*	
 	// Connecting to vde virtual switch for interface 0
 	local_vde_cmd[1] = "/tmp/net0.vde";
 	vde_cmd = connect_to_remote_switch ? remote_vde_cmd : local_vde_cmd;
@@ -107,21 +128,20 @@ int main(int argc, char *argv[])
         printf("Could not connect to switch, exiting.\n");
         exit(1);
     }
+*/
+
 	// ---------------------------------------------------------------------------
 
 	// Process frames until user terminates with Control-C
-	// (Assignment 3 Part I: Only listening on interface 0
+	// (Assignment 3 Part I: Only listening on interface 0)
     while ((frame_len = receive_ethernet_frame(fds[0][0], frame)) > 0) {
         data_as_hex = binary_to_hex(frame, frame_len);
 
+		// Set header information
+		curr_frame = (struct ether_header *) frame;
+
 		// Verify length of frame 
 		is_valid = is_valid_frame_length(frame_len); 	
-
-		// If valid frame, interpret bits as ethernet frame 
-		if (is_valid) {
-			// Set header information
-			curr_frame = (struct ether_header *) frame;
-		}
 
 		// Verify fcs
 		if (is_valid) { 
@@ -147,9 +167,15 @@ int main(int argc, char *argv[])
 			}
 		}
 		
+		// Acknowledge broadcasts and set ether_dst_addr_results
+		if (is_valid) {
+			ether_dst_addr_results = check_ether_dst_addr(curr_frame, frame_len, broadcast_addr, interfaces, num_interfaces);
+		}
+		
 		if (is_valid && is_arp) {
 			
-			printf("RECIEVED ARP REQUEST\n");
+			
+			printf("RECEIVED ARP REQUEST\n");
 
 		}
 
@@ -157,7 +183,6 @@ int main(int argc, char *argv[])
 		// If valid frame and IPv4, check if destination is my receiving interface (PART I) 
 		if (is_valid && is_ipv4) {
 			
-			ether_dst_addr_results = check_ether_dst_addr(curr_frame, frame_len, broadcast_addr, interfaces, num_interfaces);
 
 			// THIS IS CURRENTLY ONLY CHECKING IF FRAME WAS FOR ME (NOT BROADCAST)
 			
@@ -182,7 +207,20 @@ int main(int argc, char *argv[])
 				if (is_valid) {
 					is_valid = is_valid_ip_checksum(curr_packet);
 				}
-
+				
+				// CHECK THIS!!!!!  
+				// Check IHL and whether it is greater than 5
+				if (is_valid) {
+				
+					if ((curr_packet->version_and_ihl & 0x0f) < 5) {
+						printf("dropping packet from %u.%u.%u.%u (invalid IHL)\n", curr_packet->src_addr.part1, 
+																				   curr_packet->src_addr.part2, 
+																				   curr_packet->src_addr.part3, 
+																				   curr_packet->src_addr.part4);
+						is_valid = 0; 
+					}
+				}
+				
 
 				// Check if provided recognized IP version (only IPv4)
 				if (is_valid) {
@@ -192,9 +230,9 @@ int main(int argc, char *argv[])
 
 					if (given_version != 4) {
 						printf("dropping packet from %u.%u.%u.%u (unrecognized IP version)\n", curr_packet->src_addr.part1, 
-																				curr_packet->src_addr.part2, 
-																				curr_packet->src_addr.part3, 
-																				curr_packet->src_addr.part4);
+																							   curr_packet->src_addr.part2, 
+																							   curr_packet->src_addr.part3, 
+																							   curr_packet->src_addr.part4);
 						is_valid = 0;
 					}
 				}
