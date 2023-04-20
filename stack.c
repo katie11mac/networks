@@ -56,6 +56,7 @@ int main(int argc, char *argv[])
 
 	// Variables for processing ARP types
 	struct arp_packet *curr_arp_packet;
+	uint16_t given_opcode;
 
 	// Set direct network gateway value
 	memcpy(&direct_network_gateway, "\x00\x00\x00\x00", 4);
@@ -83,7 +84,7 @@ int main(int argc, char *argv[])
 
 	// Process frames until user terminates with Control-C
 	// (Assignment 3 Part I: Only listening on interface 0)
-    while ((frame_len = receive_ethernet_frame(fds[0][0], frame)) > 0) {
+    while ((frame_len = receive_ethernet_frame(fds[RECEIVING_INTERFACE][0], frame)) > 0) {
 		
 		// Reset variables
 		is_ipv4 = 0;
@@ -172,8 +173,52 @@ int main(int argc, char *argv[])
                     printf("ignoring arp packet with incompatible protocol type from %s", binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
                     is_valid = 0;
                 }
-
             }
+			
+			// Respond to requests 
+			if (is_valid) {
+				given_opcode = ntohs(curr_arp_packet->opcode);
+
+				if (given_opcode == 1) {
+					// Only respond to ARP requests that corresponds to my listening interface
+					printf("received arp request\n");
+					if (compare_ip_addr_structs(curr_arp_packet->target_ip_addr, interfaces[RECEIVING_INTERFACE].ip_addr) == 1) {
+						
+						printf("FOR MY RECEIVING INTERFACE NEED TO SEND A REPLY\n");
+						
+						// Rewrite ethernet frame
+						memcpy(curr_frame->dst, curr_frame->src, 6);
+						memcpy(curr_frame->src, interfaces[RECEIVING_INTERFACE].ether_addr, 6);
+						
+						// Set opcode to reply
+						curr_arp_packet->opcode = htons(0x0002);
+						
+						// Set target as the given sender
+						memcpy(curr_arp_packet->target_mac_addr, curr_arp_packet->sender_mac_addr, 6);
+						memcpy(&curr_arp_packet->target_ip_addr, &curr_arp_packet->sender_ip_addr, 4);
+						
+						// Set sender as the interface
+						memcpy(curr_arp_packet->sender_mac_addr, interfaces[RECEIVING_INTERFACE].ether_addr, 6);
+                        memcpy(&curr_arp_packet->sender_ip_addr, &interfaces[RECEIVING_INTERFACE].ip_addr, 4);
+						
+						// Recalculate FCS since changed data in frame
+						*fcs_ptr = crc32(0, frame, frame_len - sizeof(*fcs_ptr));
+
+						// Send to corresponding fd for vde switch connected to that interface 
+						send_ethernet_frame(fds[RECEIVING_INTERFACE][1], frame, frame_len);
+					
+
+					}
+				} else {
+					printf("ignoring arp packet (only receiving requests)\n");
+					is_valid = 0;
+				}
+
+			}
+
+			// Check opcode (if it is a request continue, if it is a reply print a message) 
+			// If router receivers ARP request on the listening interface that correspons to that interface, it MUST respond ...
+			// ANY OTHER ARP REQUEST MUST BE IGNORED >>> GONNA HAVE TO CHECK THE TARGET IP
 
 		}
 
@@ -548,17 +593,14 @@ int is_valid_fcs (uint8_t (*frame)[1600], size_t frame_len, ssize_t data_len, ui
  */
 int check_ether_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, struct interface *interfaces, uint8_t num_interfaces) 
 {
-	int receiving_interface = 0;
-
 	// Check if frame is a broadcast 
 	if (memcmp(curr_frame->dst, BROADCAST_ADDR, 6) == 0) {
 		printf("received %lu-byte broadcast frame from %s", frame_len, binary_to_hex(curr_frame->src, 6)); 
 		return 0;
 	
 	// Check if frame is for the receiving interface 
-	} else if (memcmp(curr_frame->dst, interfaces[receiving_interface].ether_addr, 6) == 0) {
+	} else if (memcmp(curr_frame->dst, interfaces[RECEIVING_INTERFACE].ether_addr, 6) == 0) {
 		//printf("DEBUGGING: received %lu-byte frame for me from %s", frame_len, binary_to_hex(curr_frame->src, 6)); 
-		//printf("\tframe dest: %s\tinterface MAC: %s", binary_to_hex(curr_frame->dst, 6), binary_to_hex(interfaces[receiving_interface].ether_addr, 6));
 		// Can return immediately since MAC addresses unique
 		return 1; 
 	}

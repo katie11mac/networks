@@ -14,6 +14,7 @@
 #define MIN_DATA_SIZE 46 
 #define MAX_DATA_SIZE 1500
 #define BROADCAST_ADDR "\xff\xff\xff\xff\xff\xff"
+#define RECEIVING_INTERFACE 0
 
 struct ether_header {
     uint8_t dst[6];
