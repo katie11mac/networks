@@ -70,15 +70,11 @@ int main(int argc, char *argv[])
 	init_routing_table(&routing_table, num_routes);
 	init_arp_cache(&arp_cache, num_arp_entries); 
 
-	
-	// ------------------------------MAKE THIS A LOOP??? ------------------------------
-
-	
+	// Connect to vde virtual switches for all interfaces	
 	for (int i = 0; i < num_interfaces; i++) {
 		
 		sprintf(vde_path, "/tmp/net%d.vde", i);
 		local_vde_cmd[1] = vde_path;
-		//sprintf(local_vde_cmd[1], "/tmp/net%d.vde", i);
 		vde_cmd = connect_to_remote_switch ? remote_vde_cmd : local_vde_cmd;
 	
 		// Connecting to vde virtual switch
@@ -88,49 +84,6 @@ int main(int argc, char *argv[])
 		}
 	}
 	
-/*	
-	// Connecting to vde virtual switch for interface 0
-	local_vde_cmd[1] = "/tmp/net0.vde";
-	vde_cmd = connect_to_remote_switch ? remote_vde_cmd : local_vde_cmd;
-	
-	// Connecting to vde virtual switch
-    if (connect_to_vde_switch(fds[0], vde_cmd) < 0) {
-        printf("Could not connect to switch, exiting.\n");
-        exit(1);
-    }
-
-	// Connecting to vde virtual switch for interface 1
-	local_vde_cmd[1] = "/tmp/net1.vde";
-	vde_cmd = connect_to_remote_switch ? remote_vde_cmd : local_vde_cmd;
-	
-	// Connecting to vde virtual switch
-    if (connect_to_vde_switch(fds[1], vde_cmd) < 0) {
-        printf("Could not connect to switch, exiting.\n");
-        exit(1);
-    }
-
-	// Connecting to vde virtual switch for interface 2
-	local_vde_cmd[1] = "/tmp/net2.vde";
-	vde_cmd = connect_to_remote_switch ? remote_vde_cmd : local_vde_cmd;
-	
-	// Connecting to vde virtual switch
-    if (connect_to_vde_switch(fds[2], vde_cmd) < 0) {
-        printf("Could not connect to switch, exiting.\n");
-        exit(1);
-    }
-
-	// Connecting to vde virtual switch for interface 3
-	local_vde_cmd[1] = "/tmp/net3.vde";
-	vde_cmd = connect_to_remote_switch ? remote_vde_cmd : local_vde_cmd;
-	
-	// Connecting to vde virtual switch
-    if (connect_to_vde_switch(fds[3], vde_cmd) < 0) {
-        printf("Could not connect to switch, exiting.\n");
-        exit(1);
-    }
-*/
-
-	// ---------------------------------------------------------------------------
 
 	// Process frames until user terminates with Control-C
 	// (Assignment 3 Part I: Only listening on interface 0)
@@ -208,7 +161,6 @@ int main(int argc, char *argv[])
 					is_valid = is_valid_ip_checksum(curr_packet);
 				}
 				
-				// CHECK THIS!!!!!  
 				// Check IHL and whether it is greater than 5
 				if (is_valid) {
 				
@@ -240,6 +192,7 @@ int main(int argc, char *argv[])
 
 				// Get ip destination and check if it has a valid TTL accordingly 
 				if (is_valid) {
+					
 					// Check ip destination 
 					ip_dst_addr_results = check_ip_dst(curr_packet, interfaces, num_interfaces);
 					new_ttl = curr_packet->ttl - 1;
@@ -260,6 +213,7 @@ int main(int argc, char *argv[])
 
 					// curr_packet not for one of my interfaces (needs routing) 
 					} else {
+						
 						// TTL exceeded since it needs routing 
 						if (new_ttl <= 0) {
 							printf("dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (TTL exceeded)\n", 
@@ -321,32 +275,17 @@ int main(int argc, char *argv[])
 						// then we can send the ethernet frame directly to the device 
 						if (compare_ip_addr_structs(route_to_take.gateway, direct_network_gateway) == 1) {
 							//printf("ROUTE IS DIRECTLY CONNECTED MEANING WE CAN SEND THE PACKET TO ITS FINAL DESTINATION\n");
-
-							//determine_mac_from_ip(mac_dst, *(curr_packet->dst_addr), arp_cache, num_arp_entries);
 							
 							// Find dst mac address to the current packets ip dest in arp cache 
-							for (int i = 0; i < num_arp_entries; i++) {
-								if (compare_ip_addr_structs(curr_packet->dst_addr, arp_cache[i].ip_addr) == 1) {
-									memcpy(mac_dst, arp_cache[i].ether_addr, 6);
-									found_mac_addr = 1;
-									//printf("FOUND MATCHING DEVICE\n");
-								}
-							}
-							
-
+							found_mac_addr = determine_mac_from_ip(mac_dst, curr_packet->dst_addr, arp_cache, num_arp_entries);
+						
 						// If gateway of route is not 0.0.0.0, then we have to send packet to another router 
 						} else {
 							//printf("ROUTE IS NOT DIRECTLY CONNECTED MEANING WE HAVE TO SEND IT TO ANOTHER ROUTER\n");	
 							
-							// Find dst mac address to the gateway in arp cache
-							for (int i = 0; i < num_arp_entries; i++) {
-                                if (compare_ip_addr_structs(route_to_take.gateway, arp_cache[i].ip_addr) == 1) {
-                                    memcpy(mac_dst, arp_cache[i].ether_addr, 6);
-                                    found_mac_addr = 1;
-									//printf("FOUND MATCHING DEVICE\n");
-                                }
-                            }
-
+							// Find dst mac address to the current packets ip dest in arp cache 
+							found_mac_addr = determine_mac_from_ip(mac_dst, route_to_take.gateway, arp_cache, num_arp_entries);
+							
 						}
 
 						// Could not find corresponding mac address for route
@@ -742,17 +681,22 @@ int determine_route(struct ip_header *curr_packet, struct interface *interfaces,
  * Returns 1 if it found a 
  * Returns 0 if it could not find a route
  */
-int determine_mac_from_ip(uint8_t *mac_dst, struct ip_address *ip_addr, struct arp_entry *arp_cache, uint8_t num_arp_entries)
+int determine_mac_from_ip(uint8_t *mac_dst, struct ip_address ip_addr, struct arp_entry *arp_cache, uint8_t num_arp_entries)
 {
+
 	for (int i = 0; i < num_arp_entries; i++) {
+		
 		// Found matching IP address
-		if (compare_ip_addr_structs(*ip_addr, arp_cache[i].ip_addr) == 1) {
+		if (compare_ip_addr_structs(ip_addr, arp_cache[i].ip_addr) == 1) {
 			memcpy(mac_dst, arp_cache[i].ether_addr, 6);
 			printf("FOUND MATCHING DEVICE\n");
 			return 1;
 		}
+	
 	}
+	
 	return 0;
+
 }
 
 
