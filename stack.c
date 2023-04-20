@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
 	int found_mac_addr = 0;
 
 	// Variables for processing ARP types
-	struct arp_packet curr_arp_packet;
+	struct arp_packet *curr_arp_packet;
 
 	// Set direct network gateway value
 	memcpy(&direct_network_gateway, "\x00\x00\x00\x00", 4);
@@ -84,7 +84,16 @@ int main(int argc, char *argv[])
 	// Process frames until user terminates with Control-C
 	// (Assignment 3 Part I: Only listening on interface 0)
     while ((frame_len = receive_ethernet_frame(fds[0][0], frame)) > 0) {
-        data_as_hex = binary_to_hex(frame, frame_len);
+		
+		// Reset variables
+		is_ipv4 = 0;
+		is_arp = 0;
+		needs_routing = 0;
+		route_entry_num = -1;
+		found_mac_addr = 0;
+		
+		// Save data received
+		data_as_hex = binary_to_hex(frame, frame_len);
 
 		// Set header information
 		curr_frame = (struct ether_header *) frame;
@@ -123,8 +132,48 @@ int main(int argc, char *argv[])
 		
 		if (is_valid && is_arp) {
 			
+			printf("RECEIVED ARP PACKET\n");
+			curr_arp_packet = (struct arp_packet *) (frame + sizeof(struct ether_header));
 			
-			printf("RECEIVED ARP REQUEST\n");
+			// Verify hardware type and size (only handling ethernet hardware) 
+			if (is_valid) {
+			
+				// WANT TO DOUBLE CHECK IF THIS IS THE BEHAVIOR WE WANT!!!!! 
+				// Only want to handle ethernet hardware type
+				if (memcmp(curr_arp_packet->hardware_type, "\x00\x01", 2) == 0) {
+					
+					// Verify the hardware size for ethernet type
+					if (memcmp(&curr_arp_packet->hardware_size, "\x06", 1) != 0) {
+						printf("ignoring arp packet with bad hardware size from %s", binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
+						is_valid = 0;
+					}
+
+				} else {
+					printf("ignoring arp packet with incompatible hardware type from %s", binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
+					is_valid = 0;
+				}
+
+			}
+
+			// Verify protocol type and size (only handling IPv4) 
+            if (is_valid) {
+            
+                // WANT TO DOUBLE CHECK IF THIS IS THE BEHAVIOR WE WANT!!!!! 
+                // Only want to handle IPv4 protocol type
+                if (memcmp(curr_arp_packet->protocol_type, "\x08\x00", 2) == 0) {
+                    
+                    // Verify the hardware size for ethernet type
+                    if (memcmp(&curr_arp_packet->protocol_size, "\x04", 1) != 0) {
+                        printf("ignoring arp packet with bad protocol size from %s", binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
+                        is_valid = 0;
+                    }
+
+                } else {
+                    printf("ignoring arp packet with incompatible protocol type from %s", binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
+                    is_valid = 0;
+                }
+
+            }
 
 		}
 
@@ -327,7 +376,8 @@ int main(int argc, char *argv[])
 				}
 			}
 		}
-
+		
+		// NEED TO RESET A HANDFUL OF BOOLEAN VARIABLES
 		free(data_as_hex);
 		printf("\n");
 	}
