@@ -888,7 +888,7 @@ int main(int argc, char *argv[])
 
 
 	/*
-     * TEST 22: IP (A3 PI - receiving on I0)
+     * TEST 2: IP (A3 PI - receiving on I0)
      *
      * Ethernet frame 
      *  - Valid
