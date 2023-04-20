@@ -799,10 +799,96 @@ int main(int argc, char *argv[])
     frame_len += sizeof(uint32_t);
     printf("sending frame, length %ld\n", frame_len);
     send_ethernet_frame(fds[1], frame, frame_len);
+	
+	/*
+     * TEST 21: IP (A3 PI - receiving on I0)
+     *
+     * Ethernet frame 
+     *  - Valid
+     *
+     * ARP  
+     *  - Compatible hardware type and good hardware size
+     *  - Compatible protocol type and good protocol size
+	 *  - Not a request
+	 *
+	 *	From device A, looking for I0
+     *
+     * EXPECTED RESULTS: message saying that it's only receiving
+     */
+    // Ethernet Frame 
+    memcpy(test.dst, "\xff\xff\xff\xff\xff\xff", 6);
+    memcpy(test.src, "\x11\x22\x33\x00\xff\xff", 6);
+    memcpy(test.type, "\x08\x06", 2);
+    memcpy(frame, &test, sizeof(struct ether_header));
+
+    // ARP
+    memcpy(arp_test.hardware_type, "\x00\x01", 2);
+    memcpy(arp_test.protocol_type, "\x08\x00", 2);
+    arp_test.hardware_size = 0x06;
+    arp_test.protocol_size = 0x04;
+    arp_test.opcode = htons(0x0003);
+    memcpy(&arp_test.target_ip_addr, "\x01\x02\x03\x04", 4);
+	memcpy(arp_test.target_mac_addr, "\x00\x00\x00\x00\x00\x00", 6);
+	memcpy(&arp_test.sender_ip_addr, "\x01\x02\x03\x00", 4);
+	memcpy(arp_test.sender_mac_addr, "\x11\x22\x33\x00\xff\xff", 6);
+
+    memcpy(frame + sizeof(struct ether_header), &arp_test, sizeof(struct arp_packet));
+
+    // rest of Ethernet 
+    frame_len = sizeof(struct ether_header) + sizeof(struct arp_packet) + data_len;
+    fcs = crc32(0, frame, frame_len);
+    memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
+    frame_len += sizeof(uint32_t);
+    printf("sending frame, length %ld\n", frame_len);
+    send_ethernet_frame(fds[1], frame, frame_len);
+	
+	
+	/*
+     * TEST 22: IP (A3 PI - receiving on I0)
+     *
+     * Ethernet frame 
+     *  - Valid
+     *
+     * ARP request 
+     *  - Compatible hardware type and good hardware size
+     *  - Compatible protocol type and good protocol size
+	 *  - Request
+	 *  - Target IP is not the receiving interface
+	 *
+	 *	From device A, looking for something that is not I0
+     *
+     * EXPECTED RESULTS: nothing
+     */
+    // Ethernet Frame 
+    memcpy(test.dst, "\xff\xff\xff\xff\xff\xff", 6);
+    memcpy(test.src, "\x11\x22\x33\x00\xff\xff", 6);
+    memcpy(test.type, "\x08\x06", 2);
+    memcpy(frame, &test, sizeof(struct ether_header));
+
+    // ARP
+    memcpy(arp_test.hardware_type, "\x00\x01", 2);
+    memcpy(arp_test.protocol_type, "\x08\x00", 2);
+    arp_test.hardware_size = 0x06;
+    arp_test.protocol_size = 0x04;
+    arp_test.opcode = htons(0x0001);
+    memcpy(&arp_test.target_ip_addr, "\x01\x02\x03\x07", 4);
+	memcpy(arp_test.target_mac_addr, "\x00\x00\x00\x00\x00\x00", 6);
+	memcpy(&arp_test.sender_ip_addr, "\x01\x02\x03\x00", 4);
+	memcpy(arp_test.sender_mac_addr, "\x11\x22\x33\x00\xff\xff", 6);
+
+    memcpy(frame + sizeof(struct ether_header), &arp_test, sizeof(struct arp_packet));
+
+    // rest of Ethernet 
+    frame_len = sizeof(struct ether_header) + sizeof(struct arp_packet) + data_len;
+    fcs = crc32(0, frame, frame_len);
+    memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
+    frame_len += sizeof(uint32_t);
+    printf("sending frame, length %ld\n", frame_len);
+    send_ethernet_frame(fds[1], frame, frame_len);
 
 
 	/*
-     * TEST 21: IP (A3 PI - receiving on I0)
+     * TEST 22: IP (A3 PI - receiving on I0)
      *
      * Ethernet frame 
      *  - Valid

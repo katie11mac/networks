@@ -178,10 +178,14 @@ int main(int argc, char *argv[])
 			// Respond to requests 
 			if (is_valid) {
 				given_opcode = ntohs(curr_arp_packet->opcode);
-
+				
+				// Verify the opcode is a request
 				if (given_opcode == 1) {
-					// Only respond to ARP requests that corresponds to my listening interface
 					printf("received arp request\n");
+
+					// DO WE HAVE TO VERIFY ANYTHING ABOUT THE TARGET OR SOURCE IP ADDRS? 
+
+					// Only respond to ARP requests that corresponds to my listening interface
 					if (compare_ip_addr_structs(curr_arp_packet->target_ip_addr, interfaces[RECEIVING_INTERFACE].ip_addr) == 1) {
 						
 						printf("FOR MY RECEIVING INTERFACE NEED TO SEND A REPLY\n");
@@ -207,8 +211,8 @@ int main(int argc, char *argv[])
 						// Send to corresponding fd for vde switch connected to that interface 
 						send_ethernet_frame(fds[RECEIVING_INTERFACE][1], frame, frame_len);
 					
-
 					}
+
 				} else {
 					printf("ignoring arp packet (only receiving requests)\n");
 					is_valid = 0;
@@ -216,7 +220,6 @@ int main(int argc, char *argv[])
 
 			}
 
-			// Check opcode (if it is a request continue, if it is a reply print a message) 
 			// If router receivers ARP request on the listening interface that correspons to that interface, it MUST respond ...
 			// ANY OTHER ARP REQUEST MUST BE IGNORED >>> GONNA HAVE TO CHECK THE TARGET IP
 
