@@ -136,7 +136,7 @@ int main(int argc, char *argv[])
 		
 		if (is_valid && is_arp) {
 			
-			printf("RECEIVED ARP PACKET\n");
+			//printf("RECEIVED ARP PACKET\n");
 			curr_arp_packet = (struct arp_packet *) (frame + sizeof(struct ether_header));
 			
 			// Verify hardware type and size (only handling ethernet hardware) 
@@ -184,14 +184,14 @@ int main(int argc, char *argv[])
 				
 				// Verify the opcode is a request
 				if (given_opcode == 1) {
-					printf("received arp request\n");
+					//printf("received arp request\n");
 
 					// DO WE HAVE TO VERIFY ANYTHING ABOUT THE TARGET OR SOURCE IP ADDRS? 
 
 					// Only respond to ARP requests that corresponds to my listening interface
 					if (compare_ip_addr_structs(curr_arp_packet->target_ip_addr, interfaces[RECEIVING_INTERFACE].ip_addr) == 1) {
 						
-						printf("FOR MY RECEIVING INTERFACE NEED TO SEND A REPLY\n");
+						//printf("FOR MY RECEIVING INTERFACE NEED TO SEND A REPLY\n");
 						
 						// Rewrite ethernet frame
 						memcpy(curr_frame->dst, curr_frame->src, 6);
@@ -299,7 +299,48 @@ int main(int argc, char *argv[])
 																				curr_packet->dst_addr.part2, 
 																				curr_packet->dst_addr.part3, 
 																				curr_packet->dst_addr.part4);
-							is_valid = 0;
+							
+							// ------------------------- ???? FUNCTION ???? --------------------------	
+							// Start overwriting the current frame to send an ICMP message 
+							
+							// Rewrite ethernet header 
+							memcpy(curr_frame->dst, curr_frame->src, 6);
+							memcpy(curr_frame->src, interfaces[RECEIVING_INTERFACE].ether_addr, 6);
+							
+							// Write to ICMP before rewriting IP header since we need that information 
+							memcpy(&new_icmp.type, "\x0b", 1);
+							memcpy(&new_icmp.code, "\x00", 1);
+							memcpy(&new_icmp.original_ip_header, curr_packet, sizeof(struct ip_header));
+							memcpy(&new_icmp.original_data, (uint8_t *)curr_packet + sizeof(struct ip_header), sizeof(new_icmp.original_data));
+							new_icmp.checksum = 0;
+							new_icmp.checksum = checksum(&new_icmp, sizeof(struct icmp_header)); // does this need to be converted from hton
+							memcpy(frame + sizeof(struct ether_header) + sizeof(struct ip_header), &new_icmp, sizeof(struct icmp_header));
+							
+							// Rewrite IP header
+							memcpy(&curr_packet->dst_addr, &curr_packet->src_addr, 4);
+							memcpy(&curr_packet->src_addr, &interfaces[RECEIVING_INTERFACE], 4);
+							curr_packet->total_length = htons(sizeof(struct ip_header) + sizeof(struct icmp_header)); // CHECK THIS
+							curr_packet->ttl = new_ttl; // SINCE TTL EXCEEDED SHOULD THIS STILL BE new_ttl OR SHOULD IT RESET??? 
+							curr_packet->protocol = 1;
+							curr_packet->header_checksum = 0; // Reset for accurate recalculation
+							curr_packet->header_checksum = checksum(&(*curr_packet), ((curr_packet->version_and_ihl & 0x0f) * 32) / 8);
+							// IDENTIFICATION????
+							
+							// Recalculate FCS
+							frame_len = sizeof(struct ether_header) + sizeof(struct ip_header) + sizeof(struct icmp_header) + sizeof(icmp_fcs);
+							icmp_fcs = crc32(0, frame, frame_len - sizeof(icmp_fcs));
+							memcpy(frame + frame_len - sizeof(icmp_fcs), &icmp_fcs, sizeof(icmp_fcs));
+
+							// Send to corresponding fd for vde switch connected to that interface
+							send_ethernet_frame(fds[RECEIVING_INTERFACE][1], frame, frame_len);
+							
+							// Reset new_icmp so that data is not accidentally transfered 
+							memset(&new_icmp, '\x00', sizeof(struct icmp_header));
+							
+							// -----------------------------------------------------------------------------------------
+
+
+							is_valid = 0; // IS THIS NECESSARY??? 
 						
 						// TTL is valid 
 						} else {
@@ -327,6 +368,7 @@ int main(int argc, char *argv[])
 																		curr_packet->dst_addr.part3,
 																		curr_packet->dst_addr.part4);
 						
+						// ------------------------- ???? FUNCTION ???? --------------------------	
 						// Start overwriting the current frame to send an ICMP message 
 						
 						// Rewrite ethernet header 
@@ -362,12 +404,13 @@ int main(int argc, char *argv[])
 						
 						// Reset new_icmp so that data is not accidentally transfered 
 						memset(&new_icmp, '\x00', sizeof(struct icmp_header));
+						
+						// -----------------------------------------------------------------------------------------
 
-						is_valid = 0;
+						is_valid = 0; // IS THIS NECCESSARY? 
 
-					// Found corresponding entry in routing table for IP packet
+					// Found corresponding entry in routing table for IP packet, now find MAC address for next hop
 					} else {
-						//printf("FINDING MAC ADDRESS FOR NEXT HOP\n");
 						
 						route_to_take = routing_table[route_entry_num];
 						
@@ -375,14 +418,12 @@ int main(int argc, char *argv[])
 						// If gateway of route is 0.0.0.0 (meaning destination device is in one of networks router is connected to)
 						// then we can send the ethernet frame directly to the device 
 						if (compare_ip_addr_structs(route_to_take.gateway, direct_network_gateway) == 1) {
-							//printf("ROUTE IS DIRECTLY CONNECTED MEANING WE CAN SEND THE PACKET TO ITS FINAL DESTINATION\n");
 							
 							// Find dst mac address to the current packets ip dest in arp cache 
 							found_mac_addr = determine_mac_from_ip(mac_dst, curr_packet->dst_addr, arp_cache, num_arp_entries);
 						
 						// If gateway of route is not 0.0.0.0, then we have to send packet to another router 
 						} else {
-							//printf("ROUTE IS NOT DIRECTLY CONNECTED MEANING WE HAVE TO SEND IT TO ANOTHER ROUTER\n");	
 							
 							// Find dst mac address to the current packets ip dest in arp cache 
 							found_mac_addr = determine_mac_from_ip(mac_dst, route_to_take.gateway, arp_cache, num_arp_entries);
@@ -400,6 +441,47 @@ int main(int argc, char *argv[])
                                                                         curr_packet->dst_addr.part2,
                                                                         curr_packet->dst_addr.part3,
                                                                         curr_packet->dst_addr.part4);
+						
+							// ------------------------- ???? FUNCTION ???? --------------------------	
+							// Start overwriting the current frame to send an ICMP message 
+							
+							// Rewrite ethernet header 
+							memcpy(curr_frame->dst, curr_frame->src, 6);
+							memcpy(curr_frame->src, interfaces[RECEIVING_INTERFACE].ether_addr, 6);
+							
+							// Write to ICMP before rewriting IP header since we need that information 
+							memcpy(&new_icmp.type, "\x03", 1);
+							memcpy(&new_icmp.code, "\x01", 1);
+							memcpy(&new_icmp.original_ip_header, curr_packet, sizeof(struct ip_header));
+							memcpy(&new_icmp.original_data, (uint8_t *)curr_packet + sizeof(struct ip_header), sizeof(new_icmp.original_data));
+							new_icmp.checksum = 0;
+							new_icmp.checksum = checksum(&new_icmp, sizeof(struct icmp_header)); // does this need to be converted from hton
+							memcpy(frame + sizeof(struct ether_header) + sizeof(struct ip_header), &new_icmp, sizeof(struct icmp_header));
+							
+							// Rewrite IP header
+							memcpy(&curr_packet->dst_addr, &curr_packet->src_addr, 4);
+							memcpy(&curr_packet->src_addr, &interfaces[RECEIVING_INTERFACE], 4);
+							curr_packet->total_length = htons(sizeof(struct ip_header) + sizeof(struct icmp_header)); // CHECK THIS
+							curr_packet->ttl = new_ttl;
+							curr_packet->protocol = 1;
+							curr_packet->header_checksum = 0; // Reset for accurate recalculation
+							curr_packet->header_checksum = checksum(&(*curr_packet), ((curr_packet->version_and_ihl & 0x0f) * 32) / 8);
+							// IDENTIFICATION????
+							
+							// Recalculate FCS
+							frame_len = sizeof(struct ether_header) + sizeof(struct ip_header) + sizeof(struct icmp_header) + sizeof(icmp_fcs);
+							icmp_fcs = crc32(0, frame, frame_len - sizeof(icmp_fcs));
+							memcpy(frame + frame_len - sizeof(icmp_fcs), &icmp_fcs, sizeof(icmp_fcs));
+
+							// Send to corresponding fd for vde switch connected to that interface
+							send_ethernet_frame(fds[RECEIVING_INTERFACE][1], frame, frame_len);
+							
+							// Reset new_icmp so that data is not accidentally transfered 
+							memset(&new_icmp, '\x00', sizeof(struct icmp_header));
+							
+							// -----------------------------------------------------------------------------------------
+
+
 						}
 
 					}
@@ -408,8 +490,6 @@ int main(int argc, char *argv[])
 					// Rewrite the frame and forward it to next hop 
 					//		Note: Rewriting over received frame since we want to keep the IP packet in tact
 					if ((route_entry_num != -1) && (found_mac_addr == 1)) {
-						//printf("NEED TO AND CAN FORWARD THIS PACKET TO NEXT HOP or FINAL DESTINATION\n");
-						//printf("FORWARDING TO INTERFACE %d\n", route_to_take.num_interface);
 						
 						// Set frame src to corresponding leaving interface
 						memcpy(curr_frame->src, interfaces[route_to_take.num_interface].ether_addr, 6); 
@@ -434,9 +514,8 @@ int main(int argc, char *argv[])
 			}
 		}
 		
-		// NEED TO RESET A HANDFUL OF BOOLEAN VARIABLES
 		free(data_as_hex);
-		printf("\n");
+		//printf("\n");
 	}
 
 	free(interfaces);
@@ -854,7 +933,7 @@ int determine_mac_from_ip(uint8_t *mac_dst, struct ip_address ip_addr, struct ar
 		// Found matching IP address
 		if (compare_ip_addr_structs(ip_addr, arp_cache[i].ip_addr) == 1) {
 			memcpy(mac_dst, arp_cache[i].ether_addr, 6);
-			printf("FOUND MATCHING DEVICE\n");
+			//printf("FOUND MATCHING DEVICE\n");
 			return 1;
 		}
 	
