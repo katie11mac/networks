@@ -72,7 +72,14 @@ struct arp_packet {
 	struct ip_address target_ip_addr;
 };
 
-
+struct icmp_header {
+	uint8_t type;
+	uint8_t code;
+	uint16_t checksum;
+	uint32_t unused;
+	struct ip_header original_ip_header;
+	uint8_t original_data[64];
+};
 
 uint32_t crc32(uint32_t crc, const void *buf, size_t size);
 uint16_t ip_checksum (void *addr, uint32_t count);

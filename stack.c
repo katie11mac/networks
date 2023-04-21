@@ -56,10 +56,14 @@ int main(int argc, char *argv[])
 	// Variables for processing ARP types
 	struct arp_packet *curr_arp_packet;
 	uint16_t given_opcode;
+	uint32_t icmp_fcs;
+
+	// Variables for sending ICMP 
+	struct icmp_header new_icmp;
+	
 
 	// Set direct network gateway value
 	memcpy(&direct_network_gateway, "\x00\x00\x00\x00", 4);
-	
 
 	// Initialize interfaces, arp cache, and routing table
 	init_interfaces(&interfaces, num_interfaces);
@@ -331,7 +335,43 @@ int main(int argc, char *argv[])
 																		curr_packet->dst_addr.part2,
 																		curr_packet->dst_addr.part3,
 																		curr_packet->dst_addr.part4);
-						// SHOULD I SET is_valid or needs_routing HERE??? 
+						
+						// Start overwriting the current frame to send an ICMP message 
+						
+						// Rewrite ethernet header 
+						memcpy(curr_frame->dst, curr_frame->src, 6);
+						memcpy(curr_frame->src, interfaces[RECEIVING_INTERFACE].ether_addr, 6);
+						
+						// Write to ICMP before rewriting IP header since we need that information 
+						memcpy(&new_icmp.type, "\x03", 1);
+						memcpy(&new_icmp.code, "\x00", 1);
+						memcpy(&new_icmp.original_ip_header, curr_packet, sizeof(struct ip_header));
+						memcpy(&new_icmp.original_data, (uint8_t *)curr_packet + sizeof(struct ip_header), sizeof(new_icmp.original_data));
+						new_icmp.checksum = 0;
+						new_icmp.checksum = ip_checksum(&new_icmp, sizeof(struct icmp_header)); // does this need to be converted from hton
+						memcpy(frame + sizeof(struct ether_header) + sizeof(struct ip_header), &new_icmp, sizeof(struct icmp_header));
+						
+						// Rewrite IP header
+						memcpy(&curr_packet->dst_addr, &curr_packet->src_addr, 4);
+						memcpy(&curr_packet->src_addr, &interfaces[RECEIVING_INTERFACE], 4);
+						curr_packet->total_length = htons(sizeof(struct ip_header) + sizeof(struct icmp_header)); // CHECK THIS
+						curr_packet->ttl = new_ttl;
+						curr_packet->protocol = 1;
+						curr_packet->header_checksum = 0; // Reset for accurate recalculation
+						curr_packet->header_checksum = ip_checksum(&(*curr_packet), ((curr_packet->version_and_ihl & 0x0f) * 32) / 8);
+						// IDENTIFICATION????
+						
+						// Recalculate FCS
+						frame_len = sizeof(struct ether_header) + sizeof(struct ip_header) + sizeof(struct icmp_header) + sizeof(icmp_fcs);
+						icmp_fcs = crc32(0, frame, frame_len - sizeof(icmp_fcs));
+						memcpy(frame + frame_len - sizeof(icmp_fcs), &icmp_fcs, sizeof(icmp_fcs));
+
+						// Send to corresponding fd for vde switch connected to that interface
+						send_ethernet_frame(fds[RECEIVING_INTERFACE][1], frame, frame_len);
+						
+						// Reset new_icmp so that data is not accidentally transfered 
+						memset(&new_icmp, '\x00', sizeof(struct icmp_header));
+
 						is_valid = 0;
 
 					// Found corresponding entry in routing table for IP packet
@@ -390,6 +430,7 @@ int main(int argc, char *argv[])
 						curr_packet->ttl = new_ttl;
 
 						// Recalculate IP header checksum since changed TTL
+						curr_packet->header_checksum = 0;
 						curr_packet->header_checksum = ip_checksum(&(*curr_packet), ((curr_packet->version_and_ihl & 0x0f) * 32) / 8);
 						
 						// Recalculate FCS since changed data in frame 
@@ -654,6 +695,9 @@ int is_valid_ip_checksum(struct ip_header *curr_packet)
 		return 0;
 	}
 
+	// Reset the header chucksum back (mainly needed for ICMP) 
+	curr_packet->header_checksum = given_checksum;
+
 	return 1;
 
 }
@@ -828,7 +872,6 @@ int determine_mac_from_ip(uint8_t *mac_dst, struct ip_address ip_addr, struct ar
 	return 0;
 
 }
-
 
 
 
