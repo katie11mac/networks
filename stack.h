@@ -82,7 +82,7 @@ struct icmp_header {
 };
 
 uint32_t crc32(uint32_t crc, const void *buf, size_t size);
-uint16_t ip_checksum (void *addr, uint32_t count);
+uint16_t checksum (void *addr, uint32_t count);
 
 
 void init_interfaces(struct interface **interfaces, uint8_t num_interfaces);

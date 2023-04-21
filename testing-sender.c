@@ -168,7 +168,7 @@ int main(int argc, char *argv[])
 	
 	// Set ip header values that depend on the data
 	ip_test.total_length = htons(60);
-	ip_test.header_checksum = ip_checksum(&ip_test, 20); // DON'T KNOW IF I SHOULD HARD CODE THAT
+	ip_test.header_checksum = checksum(&ip_test, 20); // DON'T KNOW IF I SHOULD HARD CODE THAT
 	
 	// Copy all ip_header to ip_test for sending 
 	memcpy(frame + sizeof(struct ether_header), &ip_test, sizeof(struct ip_header)); 
@@ -247,7 +247,7 @@ int main(int argc, char *argv[])
 	// Set ip header values that depend on the data
 	ip_test.total_length = htons(sizeof(struct ip_header) + data_len);
 	ip_test.header_checksum = 0;
-	ip_test.header_checksum = ip_checksum(&ip_test, 20); // DON'T KNOW IF I SHOULD HARD CODE THAT
+	ip_test.header_checksum = checksum(&ip_test, 20); // DON'T KNOW IF I SHOULD HARD CODE THAT
 	
 	// Copy all ip_header to ip_test for sending 
 	memcpy(frame + sizeof(struct ether_header), &ip_test, sizeof(struct ip_header)); 
@@ -287,7 +287,7 @@ int main(int argc, char *argv[])
 	// Set ip header values that depend on the data
 	ip_test.total_length = htons(sizeof(struct ip_header) + data_len);
 	ip_test.header_checksum = 0;
-	ip_test.header_checksum = ip_checksum(&ip_test, 20); // DON'T KNOW IF I SHOULD HARD CODE THAT
+	ip_test.header_checksum = checksum(&ip_test, 20); // DON'T KNOW IF I SHOULD HARD CODE THAT
 	
 	// Copy all ip_header to ip_test for sending 
 	memcpy(frame + sizeof(struct ether_header), &ip_test, sizeof(struct ip_header)); 
@@ -337,7 +337,7 @@ int main(int argc, char *argv[])
 	// Set ip header values that depend on the data
 	ip_test.total_length = htons(sizeof(struct ip_header) + data_len);
 	ip_test.header_checksum = 0;
-	ip_test.header_checksum = ip_checksum(&ip_test, 20); // DON'T KNOW IF I SHOULD HARD CODE THAT
+	ip_test.header_checksum = checksum(&ip_test, 20); // DON'T KNOW IF I SHOULD HARD CODE THAT
 	
 	// Copy all ip_header to ip_test for sending 
 	memcpy(frame + sizeof(struct ether_header), &ip_test, sizeof(struct ip_header)); 
@@ -385,7 +385,7 @@ int main(int argc, char *argv[])
 	// Set ip header values that depend on the data
 	ip_test.total_length = htons(sizeof(struct ip_header) + data_len);
 	ip_test.header_checksum = 0;
-	ip_test.header_checksum = ip_checksum(&ip_test, 20); // DON'T KNOW IF I SHOULD HARD CODE THAT
+	ip_test.header_checksum = checksum(&ip_test, 20); // DON'T KNOW IF I SHOULD HARD CODE THAT
 	
 	// Copy all ip_header to ip_test for sending 
 	memcpy(frame + sizeof(struct ether_header), &ip_test, sizeof(struct ip_header)); 
@@ -433,7 +433,7 @@ int main(int argc, char *argv[])
     // Set ip header values that depend on the data
     ip_test.total_length = htons(sizeof(struct ip_header) + data_len);
     ip_test.header_checksum = 0;
-    ip_test.header_checksum = ip_checksum(&ip_test, 20); // DON'T KNOW IF I SHOULD HARD CODE THAT
+    ip_test.header_checksum = checksum(&ip_test, 20); // DON'T KNOW IF I SHOULD HARD CODE THAT
 
     // Copy all ip_header to ip_test for sending 
     memcpy(frame + sizeof(struct ether_header), &ip_test, sizeof(struct ip_header));
@@ -483,7 +483,7 @@ int main(int argc, char *argv[])
     // Set ip header values that depend on the data
     ip_test.total_length = htons(sizeof(struct ip_header) + data_len);
     ip_test.header_checksum = 0;
-    ip_test.header_checksum = ip_checksum(&ip_test, 20); // DON'T KNOW IF I SHOULD HARD CODE THAT
+    ip_test.header_checksum = checksum(&ip_test, 20); // DON'T KNOW IF I SHOULD HARD CODE THAT
 
     // Copy all ip_header to ip_test for sending 
     memcpy(frame + sizeof(struct ether_header), &ip_test, sizeof(struct ip_header));
@@ -530,7 +530,7 @@ int main(int argc, char *argv[])
 	// Set ip header values that depend on the data
 	ip_test.total_length = htons(sizeof(struct ip_header) + data_len);
 	ip_test.header_checksum = 0;
-	ip_test.header_checksum = ip_checksum(&ip_test, 20); // DON'T KNOW IF I SHOULD HARD CODE THAT
+	ip_test.header_checksum = checksum(&ip_test, 20); // DON'T KNOW IF I SHOULD HARD CODE THAT
 	
 	// Copy all ip_header to ip_test for sending 
 	memcpy(frame + sizeof(struct ether_header), &ip_test, sizeof(struct ip_header)); 
@@ -578,7 +578,7 @@ int main(int argc, char *argv[])
     // Set ip header values that depend on the data
     ip_test.total_length = htons(sizeof(struct ip_header) + data_len);
     ip_test.header_checksum = 0;
-    ip_test.header_checksum = ip_checksum(&ip_test, 20); // DON'T KNOW IF I SHOULD HARD CODE THAT
+    ip_test.header_checksum = checksum(&ip_test, 20); // DON'T KNOW IF I SHOULD HARD CODE THAT
 
     // Copy all ip_header to ip_test for sending 
     memcpy(frame + sizeof(struct ether_header), &ip_test, sizeof(struct ip_header));
@@ -627,7 +627,7 @@ int main(int argc, char *argv[])
     // Set ip header values that depend on the data
     ip_test.total_length = htons(sizeof(struct ip_header) + data_len);
     ip_test.header_checksum = 0;
-    ip_test.header_checksum = ip_checksum(&ip_test, (ip_test.version_and_ihl & 0x0f) * 32 / 8); // DON'T KNOW IF I SHOULD HARD CODE THAT
+    ip_test.header_checksum = checksum(&ip_test, (ip_test.version_and_ihl & 0x0f) * 32 / 8); // DON'T KNOW IF I SHOULD HARD CODE THAT
 
     // Copy all ip_header to ip_test for sending 
     memcpy(frame + sizeof(struct ether_header), &ip_test, sizeof(struct ip_header));
@@ -651,7 +651,7 @@ int main(int argc, char *argv[])
      * ARP request 
      *  - Incompatible hardware type
 	 *
-     * EXPECTED RESULTS: bad IHL
+     * EXPECTED RESULTS: incompatible hardware type
 	 */
     // Ethernet Frame 
     memcpy(test.dst, "\xff\xff\xff\xff\xff\xff", 6);
@@ -691,7 +691,7 @@ int main(int argc, char *argv[])
      *  - Compatible hardware type
 	 *  - Bad hardware size
 	 *
-     * EXPECTED RESULTS: bad hardware length
+     * EXPECTED RESULTS: bad hardware size
 	 */
     // Ethernet Frame 
     memcpy(test.dst, "\xff\xff\xff\xff\xff\xff", 6);

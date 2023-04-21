@@ -311,16 +311,7 @@ int main(int argc, char *argv[])
 
 				// Check whether have route for packet in routing table
 				if (is_valid && needs_routing) {
-					/*
-					printf("DEBUGGING: NEED TO ROUTE FROM %u.%u.%u.%u to %u.%u.%u.%u\n", curr_packet->src_addr.part1,
-																						 curr_packet->src_addr.part2,
-																						 curr_packet->src_addr.part3,
-																						 curr_packet->src_addr.part4,
-																						 curr_packet->dst_addr.part1,
-																						 curr_packet->dst_addr.part2,
-																						 curr_packet->dst_addr.part3,
-																						 curr_packet->dst_addr.part4);
-					*/
+					
 					// Determine whether there is a valid route in routing table
 					route_entry_num = determine_route(curr_packet, interfaces, num_interfaces, routing_table, num_routes); 
 
@@ -348,7 +339,7 @@ int main(int argc, char *argv[])
 						memcpy(&new_icmp.original_ip_header, curr_packet, sizeof(struct ip_header));
 						memcpy(&new_icmp.original_data, (uint8_t *)curr_packet + sizeof(struct ip_header), sizeof(new_icmp.original_data));
 						new_icmp.checksum = 0;
-						new_icmp.checksum = ip_checksum(&new_icmp, sizeof(struct icmp_header)); // does this need to be converted from hton
+						new_icmp.checksum = checksum(&new_icmp, sizeof(struct icmp_header)); // does this need to be converted from hton
 						memcpy(frame + sizeof(struct ether_header) + sizeof(struct ip_header), &new_icmp, sizeof(struct icmp_header));
 						
 						// Rewrite IP header
@@ -358,7 +349,7 @@ int main(int argc, char *argv[])
 						curr_packet->ttl = new_ttl;
 						curr_packet->protocol = 1;
 						curr_packet->header_checksum = 0; // Reset for accurate recalculation
-						curr_packet->header_checksum = ip_checksum(&(*curr_packet), ((curr_packet->version_and_ihl & 0x0f) * 32) / 8);
+						curr_packet->header_checksum = checksum(&(*curr_packet), ((curr_packet->version_and_ihl & 0x0f) * 32) / 8);
 						// IDENTIFICATION????
 						
 						// Recalculate FCS
@@ -431,7 +422,7 @@ int main(int argc, char *argv[])
 
 						// Recalculate IP header checksum since changed TTL
 						curr_packet->header_checksum = 0;
-						curr_packet->header_checksum = ip_checksum(&(*curr_packet), ((curr_packet->version_and_ihl & 0x0f) * 32) / 8);
+						curr_packet->header_checksum = checksum(&(*curr_packet), ((curr_packet->version_and_ihl & 0x0f) * 32) / 8);
 						
 						// Recalculate FCS since changed data in frame 
 						*fcs_ptr = crc32(0, frame, frame_len - sizeof(*fcs_ptr));
@@ -687,7 +678,7 @@ int is_valid_ip_checksum(struct ip_header *curr_packet)
 	// Reset the header checksum to recalculate it correctly
 	curr_packet->header_checksum = 0;
 
-	if (given_checksum != ip_checksum(curr_packet, (given_ihl * 32) / 8)) {
+	if (given_checksum != checksum(curr_packet, (given_ihl * 32) / 8)) {
 		printf("dropping packet from %u.%u.%u.%u (bad IP header checksum)\n", curr_packet->src_addr.part1, 
 																curr_packet->src_addr.part2, 
 																curr_packet->src_addr.part3, 
