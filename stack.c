@@ -6,20 +6,13 @@
 
 int main(int argc, char *argv[])
 {
-	// Variables for our collection of interfaces 
+	// Variables for hardcoded interfaces, arp cache, and routing table
 	struct interface *interfaces;
-	uint8_t num_interfaces = 4;
-
-	// Variables for ARP cache 
 	struct arp_entry *arp_cache;
-	uint8_t num_arp_entries = 3;
-
-	// Variables for routing table 
 	struct route *routing_table;
-	uint8_t num_routes = 6;
 
 	// Variables for vde_switch (one for each interface)
-    int fds[num_interfaces][2];
+	int fds[NUM_INTERFACES][2];
 	char vde_path[20];
     int connect_to_remote_switch = 0;
     char *local_vde_cmd[] = { "vde_plug", NULL, NULL };
@@ -57,17 +50,16 @@ int main(int argc, char *argv[])
 	struct arp_packet *curr_arp_packet;
 	uint16_t given_opcode;
 
-
 	// Set direct network gateway value
 	memcpy(&direct_network_gateway, "\x00\x00\x00\x00", 4);
 
 	// Initialize interfaces, arp cache, and routing table
-	init_interfaces(&interfaces, num_interfaces);
-	init_routing_table(&routing_table, num_routes);
-	init_arp_cache(&arp_cache, num_arp_entries); 
+	init_interfaces(&interfaces);
+	init_routing_table(&routing_table);
+	init_arp_cache(&arp_cache); 
 
 	// Connect to vde virtual switches for all interfaces	
-	for (int i = 0; i < num_interfaces; i++) {
+	for (int i = 0; i < NUM_INTERFACES; i++) {
 		
 		sprintf(vde_path, "/tmp/net%d.vde", i);
 		local_vde_cmd[1] = vde_path;
@@ -141,8 +133,8 @@ int main(int argc, char *argv[])
 		// Acknowledge broadcasts and set ether_dst_addr_results
 		if (is_valid) {
 
-			ether_dst_addr_results = check_ether_dst_addr(curr_frame, frame_len, interfaces, num_interfaces);
-		
+			ether_dst_addr_results = check_ether_dst_addr(curr_frame, frame_len, interfaces);
+
 		}
 	
 		// Received ARP 
@@ -293,7 +285,8 @@ int main(int argc, char *argv[])
 				if (is_valid) {
 					
 					// Check ip destination 
-					ip_dst_addr_results = check_ip_dst(curr_packet, interfaces, num_interfaces);
+					ip_dst_addr_results = check_ip_dst(curr_packet, interfaces);
+
 					new_ttl = curr_packet->ttl - 1;
 
 					// curr_packet destined for one of my interfaces
@@ -345,7 +338,7 @@ int main(int argc, char *argv[])
 				if (is_valid && needs_routing) {
 					
 					// Determine whether there is a valid route in routing table
-					route_entry_num = determine_route(curr_packet, interfaces, num_interfaces, routing_table, num_routes); 
+					route_entry_num = determine_route(curr_packet, interfaces, routing_table); 
 
 					// No corresponding entry in routing table for IP packet
 					if (route_entry_num == -1) {
@@ -374,13 +367,13 @@ int main(int argc, char *argv[])
 						if (compare_ip_addr_structs(route_to_take.gateway, direct_network_gateway) == 1) {
 							
 							// Find dst mac address to the current packets ip dest in arp cache 
-							found_mac_addr = determine_mac_from_ip(mac_dst, curr_packet->dst_addr, arp_cache, num_arp_entries);
+							found_mac_addr = determine_mac_from_ip(mac_dst, curr_packet->dst_addr, arp_cache);
 						
 						// If gateway of route is not 0.0.0.0, then we have to send packet to another router 
 						} else {
 							
 							// Find dst mac address to the current packets ip dest in arp cache 
-							found_mac_addr = determine_mac_from_ip(mac_dst, route_to_take.gateway, arp_cache, num_arp_entries);
+							found_mac_addr = determine_mac_from_ip(mac_dst, route_to_take.gateway, arp_cache);
 							
 						}
 
@@ -457,10 +450,10 @@ int main(int argc, char *argv[])
 /*
  * Initialize interfaces with hardcoded values
  */
-void init_interfaces(struct interface **interfaces, uint8_t num_interfaces) 
+void init_interfaces(struct interface **interfaces) 
 {
 	
-	if ((*interfaces = (struct interface *) malloc(num_interfaces * sizeof(struct interface))) == NULL) {
+	if ((*interfaces = (struct interface *) malloc(NUM_INTERFACES * sizeof(struct interface))) == NULL) {
         printf("malloc failed\n");
 		return;
 	}
@@ -487,10 +480,10 @@ void init_interfaces(struct interface **interfaces, uint8_t num_interfaces)
 /*
  * Initialize routing table with hard coded routes 
  */
-void init_routing_table(struct route **routing_table, uint8_t num_routes) 
+void init_routing_table(struct route **routing_table) 
 {	
 	
-	if ((*routing_table = (struct route *) malloc(num_routes * sizeof(struct route))) == NULL) {
+	if ((*routing_table = (struct route *) malloc(NUM_ROUTES * sizeof(struct route))) == NULL) {
 		printf("malloc failed\n");
 		return;
 	}
@@ -537,10 +530,10 @@ void init_routing_table(struct route **routing_table, uint8_t num_routes)
 /*
  * Initialize arp cache with hard coded values 
  */
-void init_arp_cache(struct arp_entry **arp_cache, uint8_t num_arp_entries) 
+void init_arp_cache(struct arp_entry **arp_cache) 
 {	
 	
-	if ((*arp_cache = (struct arp_entry *) malloc(num_arp_entries * sizeof(struct arp_entry))) == NULL) {
+	if ((*arp_cache = (struct arp_entry *) malloc(NUM_ARP_ENTRIES * sizeof(struct arp_entry))) == NULL) {
 		printf("malloc failed\n");
 		return;
 	}
@@ -626,7 +619,7 @@ int is_valid_fcs (uint8_t (*frame)[1600], size_t frame_len, ssize_t data_len, ui
  * Return 1 if frame was for me (i.e. interfaces' MAC address)
  * Return -1 if frame was not for me 
  */
-int check_ether_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, struct interface *interfaces, uint8_t num_interfaces) 
+int check_ether_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, struct interface *interfaces) 
 {
 
 	// Check if frame is a broadcast 
@@ -785,10 +778,10 @@ int is_valid_ip_version(struct ip_header *curr_packet)
  * Return index of interface it was destined for
  * Return -1 otherwise (meaning IP packet not destined for one of interfaces) 
  */
-int check_ip_dst(struct ip_header *curr_packet, struct interface *interfaces, uint8_t num_interfaces) 
+int check_ip_dst(struct ip_header *curr_packet, struct interface *interfaces) 
 {
 	
-	for (int i = 0; i < num_interfaces; i++) {
+	for (int i = 0; i < NUM_INTERFACES; i++) {
 		
 		// Check if packet is for one of my interfaces 
 		if (compare_ip_addr_structs(curr_packet->dst_addr, interfaces[i].ip_addr) == 1) {
@@ -863,7 +856,7 @@ uint32_t convert_ip_addr_struct(struct ip_address ip)
  * Return index of interface the curr_packet should follow 
  * Return -1 if no interface has a matching route 
  */
-int determine_route(struct ip_header *curr_packet, struct interface *interfaces, uint8_t num_interfaces, struct route *routing_table, uint8_t num_routes) 
+int determine_route(struct ip_header *curr_packet, struct interface *interfaces, struct route *routing_table) 
 {	
 
 	uint32_t given_ip_dst_addr = convert_ip_addr_struct(curr_packet->dst_addr);
@@ -875,7 +868,7 @@ int determine_route(struct ip_header *curr_packet, struct interface *interfaces,
 	uint32_t curr_dst;
 
 
-	for (int i = 0; i < num_routes; i++) {
+	for (int i = 0; i < NUM_ROUTES; i++) {
 				
 		curr_genmask = convert_ip_addr_struct(routing_table[i].genmask);
 		curr_dst = convert_ip_addr_struct(routing_table[i].dst);
@@ -904,10 +897,10 @@ int determine_route(struct ip_header *curr_packet, struct interface *interfaces,
  * Returns 1 if it found a successful ip/mac match
  * Returns 0 if it could not find a match
  */
-int determine_mac_from_ip(uint8_t *mac_dst, struct ip_address ip_addr, struct arp_entry *arp_cache, uint8_t num_arp_entries)
+int determine_mac_from_ip(uint8_t *mac_dst, struct ip_address ip_addr, struct arp_entry *arp_cache)
 {
 
-	for (int i = 0; i < num_arp_entries; i++) {
+	for (int i = 0; i < NUM_ARP_ENTRIES; i++) {
 		
 		// Found matching IP address
 		if (compare_ip_addr_structs(ip_addr, arp_cache[i].ip_addr) == 1) {
@@ -924,7 +917,9 @@ int determine_mac_from_ip(uint8_t *mac_dst, struct ip_address ip_addr, struct ar
 
 }
 
-
+/*
+ * Send an ICMP message for TLL exceeded, network unreachable or host unreachable using the original frame. 
+ */
 void send_icmp_message(uint8_t frame[1600], ssize_t frame_len, uint8_t type, uint8_t code, int (*fds)[2], struct interface *interfaces)
 {
 	// Set ethernet header information
