@@ -10,6 +10,8 @@
 #include "util.h"
 #include "cs431vde.h"
 #include "stack-structs.h"
+#include "crc32.h"
+#include "checksum.h"
 
 #define METADATA_SIZE 18
 #define MIN_DATA_SIZE 46 
@@ -19,9 +21,6 @@
 #define NUM_INTERFACES 4
 #define NUM_ARP_ENTRIES 3
 #define NUM_ROUTES 6
-
-uint32_t crc32(uint32_t crc, const void *buf, size_t size);
-uint16_t checksum(void *addr, uint32_t count);
 
 void init_interfaces(struct interface **interfaces);
 void init_routing_table(struct route **routing_table);

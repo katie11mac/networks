@@ -1,6 +1,4 @@
-#include <stdint.h>
-
-uint16_t checksum(void *addr, uint32_t count);
+#include "checksum.h"
 
 /* 
  * Compute Internet Checksum for count bytes beginning at location addr.
