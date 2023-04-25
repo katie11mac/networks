@@ -58,7 +58,7 @@ struct icmp_header {
     uint8_t code;
     uint16_t checksum;
     uint32_t unused;
-    uint8_t original_ip_header[4];
+    struct ip_header original_ip_header;
     uint8_t original_data[64];
 };
 

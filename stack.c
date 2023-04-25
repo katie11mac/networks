@@ -727,9 +727,9 @@ int is_valid_ip_checksum(struct ip_header *curr_packet)
 	if (given_checksum != checksum(curr_packet, (given_ihl * 32) / 8)) {
 		
 		printf("    dropping packet from %u.%u.%u.%u (bad IP header checksum)\n", curr_packet->src_addr[0], 
-																			  curr_packet->src_addr[1], 
-																			  curr_packet->src_addr[2], 
-																			  curr_packet->src_addr[3]);
+																				  curr_packet->src_addr[1], 
+																				  curr_packet->src_addr[2], 
+																				  curr_packet->src_addr[3]);
 		
 		return 0;
 	
@@ -755,9 +755,9 @@ int is_valid_ihl(struct ip_header *curr_packet)
 	if ((curr_packet->version_and_ihl & 0x0f) < 5) {
 		
 		printf("    dropping packet from %u.%u.%u.%u (invalid IHL)\n", curr_packet->src_addr[0],
-																   curr_packet->src_addr[1],
-																   curr_packet->src_addr[2],
-																   curr_packet->src_addr[3]);
+																	   curr_packet->src_addr[1],
+																	   curr_packet->src_addr[2],
+																	   curr_packet->src_addr[3]);
 		return 0;
 	
 	}
@@ -780,9 +780,9 @@ int is_valid_ip_version(struct ip_header *curr_packet)
 	if (((curr_packet->version_and_ihl & 0xf0) >> 4) != 4) {
 		
 		printf("    dropping packet from %u.%u.%u.%u (unrecognized IP version)\n", curr_packet->src_addr[0], 
-																			   curr_packet->src_addr[1], 
-																			   curr_packet->src_addr[2], 
-																			   curr_packet->src_addr[3]);
+																				   curr_packet->src_addr[1], 
+																				   curr_packet->src_addr[2], 
+																				   curr_packet->src_addr[3]);
 		return 0;
 	
 	}
@@ -901,7 +901,7 @@ int determine_mac_from_ip(uint8_t *mac_dst, uint8_t *ip_addr, struct arp_entry *
 /*
  * Send an ICMP message for TLL exceeded, network unreachable or host unreachable using the original frame. 
  */
-void send_icmp_message(uint8_t frame[1600], ssize_t frame_len, uint8_t type, uint8_t code, int (*fds)[2], struct interface *interfaces)
+void old_send_icmp_message(uint8_t frame[1600], ssize_t frame_len, uint8_t type, uint8_t code, int (*fds)[2], struct interface *interfaces)
 {
 	// Set ethernet header information
 	struct ether_header *curr_frame = (struct ether_header *) frame;
