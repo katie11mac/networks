@@ -166,6 +166,7 @@ void init_arp_cache(struct arp_entry **arp_cache)
 
 int handle_ethernet_frame(struct interface *iface) 
 {
+	
 	// Variables for frame
 	uint8_t frame[1600];
     ssize_t frame_len;
@@ -179,17 +180,8 @@ int handle_ethernet_frame(struct interface *iface)
 	int payload_len;
 	int is_ipv4 = 0;
 	int is_arp = 0;
-
-	// Variables for processing IP frame
+	
 	int ether_dst_addr_results;
-	struct ip_header *curr_packet;
-	int ip_dst_addr_results;
-	int new_ttl;
-	int needs_routing = 0;
-	int route_entry_num = -1; // Number entry in routing_table to take
-	struct route route_to_take;
-	uint8_t mac_dst[6];
-	int found_mac_addr = 0;
 
 	// Variables for processing ARP types
 	struct arp_packet *curr_arp_packet;
@@ -226,7 +218,7 @@ int handle_ethernet_frame(struct interface *iface)
 
 	// Set payload 
 	payload = frame + sizeof(struct ether_header);
-	payload_len = frame_len - sizeof(struct ether_header);
+	payload_len = frame_len - sizeof(struct ether_header) - ETHER_FCS_SIZE;
 
 	
 	// Acknowledge broadcasts and set ether_dst_addr_results
@@ -238,7 +230,7 @@ int handle_ethernet_frame(struct interface *iface)
 		return -1;
 	
 	// Received ethernet frame for me 
-	} else if (ether_dst_addr_results == 1) {
+	} else {
 		
 		// Verify type 
 			
@@ -361,7 +353,7 @@ int handle_ethernet_frame(struct interface *iface)
 
 			} else {
 				
-				printf("ignoring arp packet (only receiving requests)\n");
+				printf("    ignoring arp packet (only receiving requests)\n");
 				is_valid = 0;
 			
 			}
@@ -374,188 +366,8 @@ int handle_ethernet_frame(struct interface *iface)
 	// If valid frame and IPv4, check if destination is my receiving interface (PART I) 
 	if (is_valid && is_ipv4) {
 		
+		handle_ip_packet(&interfaces[RECEIVING_INTERFACE], payload, payload_len);
 
-		// THIS IS CURRENTLY ONLY CHECKING IF FRAME WAS FOR ME (NOT BROADCAST)
-		
-		// Frame is for me 
-		if (ether_dst_addr_results == 1) {
-			
-			// Interpret data as IPv4
-			curr_packet = (struct ip_header *) (frame + sizeof(struct ether_header));
-			
-			// Check if total length is correct 
-			if (is_valid) {
-				
-				is_valid = is_valid_total_length(fcs_ptr, curr_packet);
-			
-			}
-
-			// Check if the header checksum is correct 
-			if (is_valid) {	
-				
-				is_valid = is_valid_ip_checksum(curr_packet);
-			
-			}
-			
-			// Check IHL 
-			if (is_valid) {
-				
-				is_valid = is_valid_ihl(curr_packet);
-			
-			}
-			
-
-			// Check if provided recognized IP version (only IPv4)
-			if (is_valid) {
-				
-				is_valid = is_valid_ip_version(curr_packet);
-			
-			}
-		
-
-			// Get ip destination and check if it has a valid TTL accordingly 
-			if (is_valid) {
-				
-				// Check ip destination 
-				ip_dst_addr_results = check_ip_dst(curr_packet, interfaces);
-
-				new_ttl = curr_packet->ttl - 1;
-
-				// curr_packet destined for one of my interfaces
-				if (ip_dst_addr_results != -1) {
-					
-					// SHOULD I STILL CHECK THE TTL HERE TO MAKE SURE IT'S NOT LOWER THAN ZERO?
-					printf("received packet from %u.%u.%u.%u for %u.%u.%u.%u (interface %d)\n", curr_packet->src_addr[0],
-																								curr_packet->src_addr[1],
-																								curr_packet->src_addr[2],
-																								curr_packet->src_addr[3], 
-																								interfaces[ip_dst_addr_results].ip_addr[0], 
-																								interfaces[ip_dst_addr_results].ip_addr[1],
-																								interfaces[ip_dst_addr_results].ip_addr[2],
-																								interfaces[ip_dst_addr_results].ip_addr[3], 
-																								ip_dst_addr_results); 
-
-				// curr_packet not for one of my interfaces (needs routing) 
-				} else {
-					
-					// TTL exceeded since it needs routing 
-					if (new_ttl <= 0) {
-
-						printf("    dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (TTL exceeded)\n", curr_packet->src_addr[0], 
-																								   curr_packet->src_addr[1], 
-																								   curr_packet->src_addr[2], 
-																								   curr_packet->src_addr[3], 
-																								   curr_packet->dst_addr[0], 
-																								   curr_packet->dst_addr[1], 
-																								   curr_packet->dst_addr[2], 
-																								   curr_packet->dst_addr[3]);
-						
-						send_icmp_message(frame, frame_len, 11, 0, fds, interfaces);
-
-						is_valid = 0; // IS THIS NECESSARY??? 
-					
-					// TTL is valid 
-					} else {
-						
-						needs_routing = 1;
-					
-					}
-				
-				}
-			
-			}
-
-
-			// Check whether have route for packet in routing table
-			if (is_valid && needs_routing) {
-				
-				// Determine whether there is a valid route in routing table
-				route_entry_num = determine_route(curr_packet, interfaces, routing_table); 
-
-				// No corresponding entry in routing table for IP packet
-				if (route_entry_num == -1) {
-					
-					printf("    dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (no route)\n", curr_packet->src_addr[0],
-																						   curr_packet->src_addr[1], 
-																						   curr_packet->src_addr[2], 
-																						   curr_packet->src_addr[3], 
-																						   curr_packet->dst_addr[0], 
-																						   curr_packet->dst_addr[1], 
-																						   curr_packet->dst_addr[2], 
-																						   curr_packet->dst_addr[3]);
-					
-					send_icmp_message(frame, frame_len, 3, 0, fds, interfaces);
-					
-					is_valid = 0; // IS THIS NECCESSARY? 
-
-				// Found corresponding entry in routing table for IP packet, now find MAC address for next hop
-				} else {
-					
-					route_to_take = routing_table[route_entry_num];
-					
-					// Get MAC dst
-					// If gateway of route is 0.0.0.0 (meaning destination device is in one of networks router is connected to)
-					// then we can send the ethernet frame directly to the device 
-					if (memcmp(route_to_take.gateway, DIRECT_NETWORK_GATEWAY, 4) == 0) {	
-						// Find dst mac address to the current packets ip dest in arp cache 
-						found_mac_addr = determine_mac_from_ip(mac_dst, curr_packet->dst_addr, arp_cache);
-					
-					// If gateway of route is not 0.0.0.0, then we have to send packet to another router 
-					} else {
-						
-						// Find dst mac address to the current packets ip dest in arp cache 
-						found_mac_addr = determine_mac_from_ip(mac_dst, route_to_take.gateway, arp_cache);
-						
-					}
-
-					// Could not find corresponding mac address for route
-					if (found_mac_addr == 0) {
-						
-						printf("    dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (no ARP)\n", curr_packet->src_addr[0],
-																							 curr_packet->src_addr[1], 
-																							 curr_packet->src_addr[2], 
-																							 curr_packet->src_addr[3], 
-																							 curr_packet->dst_addr[0], 
-																							 curr_packet->dst_addr[1], 
-																							 curr_packet->dst_addr[2], 
-																							 curr_packet->dst_addr[3]);
-						
-						send_icmp_message(frame, frame_len, 3, 1, fds, interfaces);
-
-					}
-
-				}
-				
-				// INSIDE THE is_valid && needs_routing conditional
-				// Rewrite the frame and forward it to next hop 
-				//		Note: Rewriting over received frame since we want to keep the IP packet in tact
-				if ((route_entry_num != -1) && (found_mac_addr == 1)) {
-					
-					// Set frame src to corresponding leaving interface
-					memcpy(curr_frame->src, interfaces[route_to_take.num_interface].ether_addr, 6); 
-					
-					// Set frame dst to mac address found in arp cache
-					memcpy(curr_frame->dst, mac_dst, 6);
-
-					// Update the TTL 
-					curr_packet->ttl = new_ttl;
-
-					// Recalculate IP header checksum since changed TTL
-					curr_packet->header_checksum = 0;
-					curr_packet->header_checksum = checksum(&(*curr_packet), ((curr_packet->version_and_ihl & 0x0f) * 32) / 8);
-					
-					// Recalculate FCS since changed data in frame 
-					*fcs_ptr = crc32(0, frame, frame_len - sizeof(*fcs_ptr));
-					
-					// Send to corresponding fd for vde switch connected to the interface
-					send_ethernet_frame(fds[route_to_take.num_interface][1], frame, frame_len);	
-				
-				}
-			
-			}
-		
-		}
-	
 	}
 	
 	printf("\n");
@@ -655,28 +467,219 @@ int check_ether_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, str
 
 }
 
+int compose_ether_frame(uint8_t *frame, struct ether_header *new_ether_header, uint8_t *data, size_t data_size) 
+{
+	uint32_t fcs; 
 
-/*
- * Check if total length is correct
- *
- * Return 1 if total length is correct 
- * Return 0 otherwise
- */
-int is_valid_total_length(uint32_t *fcs_ptr, struct ip_header *curr_packet) 
+	if (data_size > ETHER_MAX_DATA_SIZE) {
+		return -1;
+	}
+
+	memcpy(frame, new_ether_header, sizeof(*new_ether_header));
+	memcpy(frame + sizeof(*new_ether_header), data, data_size);
+
+	// pad with zeros 
+	
+	if (data_size < ETHER_MIN_DATA_SIZE) {
+		memset(frame + sizeof(*new_ether_header) + data_size, '\0', ETHER_MIN_DATA_SIZE - data_size);
+		data_size = ETHER_MIN_DATA_SIZE;
+	}
+
+	fcs = crc32(0, frame, sizeof(struct ether_header) + data_size);
+	memcpy(frame + sizeof(*new_ether_header) + data_size, &fcs, ETHER_FCS_SIZE);
+
+	return sizeof(*new_ether_header) + data_size + ETHER_FCS_SIZE;
+}
+
+
+
+int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_length)
 {
 
+	struct ip_header *curr_packet;
+	int ip_dst_addr_results;
+	int route_entry_num = -1; // Number entry in routing_table to take
+	struct route route_to_take;
+	uint8_t mac_dst[6];
+	int found_mac_addr = 0;
+
+	struct ether_header new_ether_header;
+
+	uint8_t frame[ETHER_MAX_FRAME_SIZE];
+	size_t frame_len;
+
+			
+	// Interpret data as IPv4
+	curr_packet = (struct ip_header *) packet;
+	
 	// Check if total length is correct 
-	if (((uint8_t *)fcs_ptr - (uint8_t *)curr_packet) != ntohs(curr_packet->total_length)) {
+	if (packet_length != ntohs(curr_packet->total_length)) {
 		
 		printf("    dropping packet from %u.%u.%u.%u (wrong length)\n", curr_packet->src_addr[0],
 																	curr_packet->src_addr[1],
 																	curr_packet->src_addr[2],
 																	curr_packet->src_addr[3]);
-		return 0;
+
+		return -1;
 	
 	}
 
-	return 1;
+	// Check if the header checksum is correct 
+	if (is_valid_ip_checksum(curr_packet) == 0) {	
+		
+		return -1;
+
+	}
+	
+	// Check IHL 
+	if (is_valid_ihl(curr_packet) == 0) {
+		
+		return -1;
+
+	}
+	
+
+	// Check if provided recognized IP version (only IPv4)
+	if (is_valid_ip_version(curr_packet) == 0) {
+		
+		return -1;
+
+	}
+
+	// Check if valid TTL 
+	if(curr_packet->ttl == 0) {
+		printf("    dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (TTL exceeded)\n", curr_packet->src_addr[0], 
+																					   curr_packet->src_addr[1], 
+																					   curr_packet->src_addr[2], 
+																					   curr_packet->src_addr[3], 
+																					   curr_packet->dst_addr[0], 
+																					   curr_packet->dst_addr[1], 
+																					   curr_packet->dst_addr[2], 
+																					   curr_packet->dst_addr[3]);
+
+		//send_icmp_message(frame, frame_len, 11, 0, fds, interfaces);
+
+		return -1;
+	}
+
+
+	// Get ip destination and check if it has a valid TTL accordingly 
+		
+	// Check ip destination 
+	ip_dst_addr_results = check_ip_dst(curr_packet, interfaces);
+
+
+	// curr_packet destined for one of my interfaces
+	if (ip_dst_addr_results != -1) {
+		
+		printf("  delivering locally: received packet from %u.%u.%u.%u for %u.%u.%u.%u (interface %d)\n", curr_packet->src_addr[0],
+																					curr_packet->src_addr[1],
+																					curr_packet->src_addr[2],
+																					curr_packet->src_addr[3], 
+																					interfaces[ip_dst_addr_results].ip_addr[0], 
+																					interfaces[ip_dst_addr_results].ip_addr[1],
+																					interfaces[ip_dst_addr_results].ip_addr[2],
+																					interfaces[ip_dst_addr_results].ip_addr[3], 
+																					ip_dst_addr_results); 
+		return 0;
+
+	}
+		
+	// curr_packet not for one of my interfaces (needs routing) 
+
+	
+	// Check whether have route for packet in routing table
+			
+	// Determine whether there is a valid route in routing table
+	route_entry_num = determine_route(curr_packet, interfaces, routing_table); 
+
+	// No corresponding entry in routing table for IP packet
+	if (route_entry_num == -1) {
+		
+		printf("    dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (no route)\n", curr_packet->src_addr[0],
+																			   curr_packet->src_addr[1], 
+																			   curr_packet->src_addr[2], 
+																			   curr_packet->src_addr[3], 
+																			   curr_packet->dst_addr[0], 
+																			   curr_packet->dst_addr[1], 
+																			   curr_packet->dst_addr[2], 
+																			   curr_packet->dst_addr[3]);
+		
+		//send_icmp_message(frame, frame_len, 3, 0, fds, interfaces);
+		
+		return -1;
+
+	// Found corresponding entry in routing table for IP packet, now find MAC address for next hop
+	}
+
+	route_to_take = routing_table[route_entry_num];
+	
+	// Get MAC dst
+	// If gateway of route is 0.0.0.0 (meaning destination device is in one of networks router is connected to)
+	// then we can send the ethernet frame directly to the device 
+	if (memcmp(route_to_take.gateway, DIRECT_NETWORK_GATEWAY, 4) == 0) {	
+		
+		printf("    destination host is on attached network\n");
+
+		// Find dst mac address to the current packets ip dest in arp cache 
+		found_mac_addr = determine_mac_from_ip(mac_dst, curr_packet->dst_addr, arp_cache);
+	
+	// If gateway of route is not 0.0.0.0, then we have to send packet to another router 
+	} else {
+		
+		printf("    packet must be routed\n");
+
+		// Find dst mac address to the current packets ip dest in arp cache 
+		found_mac_addr = determine_mac_from_ip(mac_dst, route_to_take.gateway, arp_cache);
+		
+	}
+
+	// Could not find corresponding mac address for route
+	if (found_mac_addr == 0) {
+		
+		printf("    dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (no ARP)\n", curr_packet->src_addr[0],
+																			 curr_packet->src_addr[1], 
+																			 curr_packet->src_addr[2], 
+																			 curr_packet->src_addr[3], 
+																			 curr_packet->dst_addr[0], 
+																			 curr_packet->dst_addr[1], 
+																			 curr_packet->dst_addr[2], 
+																			 curr_packet->dst_addr[3]);
+		
+		//send_icmp_message(frame, frame_len, 3, 1, fds, interfaces);
+		
+		return -1;
+
+	}
+
+	
+	// Rewrite the frame and forward it to next hop 
+	//		Note: Rewriting over received frame since we want to keep the IP packet in tact
+		
+	// Set frame src to corresponding leaving interface
+	memcpy(new_ether_header.src, interfaces[route_to_take.num_interface].ether_addr, 6); 
+	
+	// Set frame dst to mac address found in arp cache
+	memcpy(new_ether_header.dst, mac_dst, 6);
+
+	memcpy(new_ether_header.type, ETHER_TYPE_IP, 2);
+	
+
+	// Update the TTL 
+	curr_packet->ttl = curr_packet->ttl - 1;
+
+	// Recalculate IP header checksum since changed TTL
+	curr_packet->header_checksum = 0;
+	curr_packet->header_checksum = checksum(curr_packet, (curr_packet->version_and_ihl & 0x0f) * 4);
+	
+
+	frame_len = compose_ether_frame(frame, &new_ether_header, packet, packet_length);
+
+	// Send to corresponding fd for vde switch connected to the interface
+	send_ethernet_frame(fds[route_to_take.num_interface][1], frame, frame_len);	
+	
+	return 0;
+
 
 }
 

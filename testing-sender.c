@@ -325,7 +325,7 @@ int main(int argc, char *argv[])
 	
 	// IP Packet
 	memcpy(&ip_test.version_and_ihl, "\x45", 1);
-	ip_test.ttl = 1;
+	ip_test.ttl = 0;
 	ip_test.protocol = 4;
 	memcpy(&ip_test.src_addr, "\x01\x02\x03\x00", 4);
 	memcpy(&ip_test.dst_addr, "\x0d\x0e\x0f\x00", 4);
