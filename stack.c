@@ -4,15 +4,21 @@
 
 #include "stack.h"
 
+struct interface *interfaces;
+struct arp_entry *arp_cache;
+struct route *routing_table;
+int fds[NUM_INTERFACES][2];
+
+
 int main(int argc, char *argv[])
 {
 	// Variables for hardcoded interfaces, arp cache, and routing table
-	struct interface *interfaces;
-	struct arp_entry *arp_cache;
-	struct route *routing_table;
+	//struct interface *interfaces;
+	//struct arp_entry *arp_cache;
+	//struct route *routing_table;
 
 	// Variables for vde_switch (one for each interface)
-	int fds[NUM_INTERFACES][2];
+	//int fds[NUM_INTERFACES][2];
 	char vde_path[20];
     int connect_to_remote_switch = 0;
     char *local_vde_cmd[] = { "vde_plug", NULL, NULL };
@@ -111,12 +117,12 @@ int main(int argc, char *argv[])
 		if (is_valid) {
 			
 			// Ethernet is IPv4
-			if (memcmp(curr_frame->type, "\x08\x00", 2) == 0) {
+			if (memcmp(curr_frame->type, ETHER_TYPE_IP, 2) == 0) {
 				
 				is_ipv4 = 1;
 			
 			// Ethernet is ARP 
-			} else if (memcmp(curr_frame->type, "\x08\x06", 2) == 0) {
+			} else if (memcmp(curr_frame->type, ETHER_TYPE_ARP, 2) == 0) {
 				
 				is_arp = 1;
 			
@@ -430,6 +436,7 @@ int main(int argc, char *argv[])
 		//printf("\n");
 	
 	}
+	
 
 	free(interfaces);
 	free(arp_cache);
@@ -553,20 +560,21 @@ void init_arp_cache(struct arp_entry **arp_cache)
 
 
 
+
 /*
  * Return 1 if the frame has a valid length and 0 otherwise 
  */
 int is_valid_frame_length(ssize_t frame_len) 
 {
 	// Frame length too small
-	if (frame_len < MIN_DATA_SIZE + METADATA_SIZE) {
+	if (frame_len < ETHER_MIN_DATA_SIZE + sizeof(struct ether_header)) {
 		
 		printf("ignoring %lu-byte frame (short)\n", frame_len);
 		
 		return 0;
 	
 	// Frame length too large
-	} else if (frame_len > MAX_DATA_SIZE + METADATA_SIZE) {
+	} else if (frame_len > ETHER_MAX_DATA_SIZE + sizeof(struct ether_header)) {
 		
 		printf("ignoring %lu-byte frame (long)\n", frame_len);
 		
@@ -622,7 +630,7 @@ int check_ether_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, str
 {
 
 	// Check if frame is a broadcast 
-	if (memcmp(curr_frame->dst, BROADCAST_ADDR, 6) == 0) {
+	if (memcmp(curr_frame->dst, ETHER_BROADCAST_ADDR, 6) == 0) {
 		
 		printf("received %lu-byte broadcast frame from %s", frame_len, binary_to_hex(curr_frame->src, 6)); 
 		

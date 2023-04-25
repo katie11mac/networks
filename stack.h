@@ -13,10 +13,21 @@
 #include "crc32.h"
 #include "checksum.h"
 
-#define METADATA_SIZE 18
-#define MIN_DATA_SIZE 46 
-#define MAX_DATA_SIZE 1500
-#define BROADCAST_ADDR "\xff\xff\xff\xff\xff\xff"
+#define ETHER_MIN_DATA_SIZE 46 
+#define ETHER_MAX_DATA_SIZE 1500
+#define ETHER_FCS_LEN 4
+
+#define ETHER_MIN_FRAME_SIZE (sizeof(struct ether_header) + ETHER_MIN_DATA_SIZE + ETHER_FCS_LEN) // HAVEN'T USED
+#define ETHER_MAX_FRAME_SIZE (sizeof(struct ether_header) + ETH_MAX_DATA_LEN + ETHER_FCS_LEN) // HAVEN'T USED
+
+#define ETHER_BROADCAST_ADDR "\xff\xff\xff\xff\xff\xff"
+#define ETHER_TYPE_IP "\x08\x00"
+#define ETHER_TYPE_ARP "\x08\x06"
+
+#define IP_INITIAL_TTL 64
+
+
+
 #define RECEIVING_INTERFACE 0
 #define NUM_INTERFACES 4
 #define NUM_ARP_ENTRIES 3
@@ -25,6 +36,8 @@
 void init_interfaces(struct interface **interfaces);
 void init_routing_table(struct route **routing_table);
 void init_arp_cache(struct arp_entry **arp_entries);
+
+
 
 int is_valid_frame_length(ssize_t frame_len);
 
