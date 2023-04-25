@@ -33,11 +33,16 @@
 #define NUM_ARP_ENTRIES 3
 #define NUM_ROUTES 6
 
+
+
+#define DIRECT_NETWORK_GATEWAY "\x00\x00\x00\x00"
+
+
 void init_interfaces(struct interface **interfaces);
 void init_routing_table(struct route **routing_table);
 void init_arp_cache(struct arp_entry **arp_entries);
 
-
+int handle_ethernet_frame(struct interface *iface);
 
 int is_valid_frame_length(ssize_t frame_len);
 
