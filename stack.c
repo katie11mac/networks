@@ -9,7 +9,6 @@ struct arp_entry *arp_cache;
 struct route *routing_table;
 int fds[NUM_INTERFACES][2];
 
-
 int main(int argc, char *argv[])
 {
 	// Variables for vde_switch (one for each interface)
@@ -172,23 +171,13 @@ int handle_ethernet_frame(struct interface *iface)
     ssize_t frame_len;
 	
 	// Variables for processing recieved frames
-	int is_valid = 1; // Whether it is corrupted and has valid values
 	struct ether_header *curr_frame;
 	ssize_t data_len;
 	uint32_t *fcs_ptr;
 	uint8_t *payload;
 	int payload_len;
-	int is_ipv4 = 0;
-	int is_arp = 0;
 	
 	int ether_dst_addr_results;
-
-	// Variables for processing ARP types
-	struct arp_packet *curr_arp_packet;
-	uint16_t given_opcode;
-
-
-
 
 	// Read frame from interface !!!! NEED TO CHANGE THIS !!!! 
 	frame_len = receive_ethernet_frame(fds[RECEIVING_INTERFACE][0], frame);
@@ -215,11 +204,9 @@ int handle_ethernet_frame(struct interface *iface)
 
 	}
 
-
 	// Set payload 
 	payload = frame + sizeof(struct ether_header);
 	payload_len = frame_len - sizeof(struct ether_header) - ETHER_FCS_SIZE;
-
 	
 	// Acknowledge broadcasts and set ether_dst_addr_results
 	ether_dst_addr_results = check_ether_dst_addr(curr_frame, frame_len, interfaces[RECEIVING_INTERFACE]);
@@ -229,149 +216,31 @@ int handle_ethernet_frame(struct interface *iface)
 		
 		return -1;
 	
-	// Received ethernet frame for me 
-	} else {
-		
-		// Verify type 
-			
-		// Ethernet is IPv4
-		if (memcmp(curr_frame->type, ETHER_TYPE_IP, 2) == 0) {
-			
-			printf("  has type IP\n"); 	
-			is_ipv4 = 1;
-		
-		// Ethernet is ARP 
-		} else if (memcmp(curr_frame->type, ETHER_TYPE_ARP, 2) == 0) {
-			
-			printf("  has type ARP\n");
-			is_arp = 1;
-		
-		// Otherwise unrecognized type 
-		} else {
-		
-			printf("  ignoring %lu-byte frame (unrecognized type)\n", frame_len); 
-			return -1; 
-		
-		}
-		
-
 	}
 
-	
-	
-	
-
-	// Received ARP 
-	if (is_valid && is_arp) {
+	// Received ethernet frame for me
+	// Ethernet is IPv4
+	if (memcmp(curr_frame->type, ETHER_TYPE_IP, 2) == 0) {
 		
-		curr_arp_packet = (struct arp_packet *) (frame + sizeof(struct ether_header));
-		
-		// Verify hardware type and size (only handling ethernet hardware) 
-		if (is_valid) {
-		
-			// WANT TO DOUBLE CHECK IF THIS IS THE BEHAVIOR WE WANT!!!!! 
-			// Only want to handle ethernet hardware type
-			if (memcmp(curr_arp_packet->hardware_type, "\x00\x01", 2) == 0) {
-				
-				// Verify the hardware size for ethernet type
-				if (memcmp(&curr_arp_packet->hardware_size, "\x06", 1) != 0) {
-					
-					printf("    ignoring arp packet with bad hardware size from %s", binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
-					is_valid = 0;
-				
-				}
-
-			} else {
-				
-				printf("    ignoring arp packet with incompatible hardware type from %s", binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
-				is_valid = 0;
-			
-			}
-
-		}
-
-		// Verify protocol type and size (only handling IPv4) 
-		if (is_valid) {
-		
-			// WANT TO DOUBLE CHECK IF THIS IS THE BEHAVIOR WE WANT!!!!! 
-			// Only want to handle IPv4 protocol type
-			if (memcmp(curr_arp_packet->protocol_type, "\x08\x00", 2) == 0) {
-				
-				// Verify the protocol size for ethernet type
-				if (memcmp(&curr_arp_packet->protocol_size, "\x04", 1) != 0) {
-					
-					printf("    ignoring arp packet with bad protocol size from %s", binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
-					is_valid = 0;
-				
-				}
-
-			} else {
-				
-				printf("    ignoring arp packet with incompatible protocol type from %s", binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
-				is_valid = 0;
-			
-			}
-		
-		}
-		
-		// Respond to requests 
-		if (is_valid) {
-			given_opcode = ntohs(curr_arp_packet->opcode);
-			
-			// Verify the opcode is a request
-			if (given_opcode == 1) {
-
-				// DO WE HAVE TO VERIFY ANYTHING ABOUT THE TARGET OR SOURCE IP ADDRS? 
-
-				// Only respond to ARP requests that corresponds to my listening interface
-				if (memcmp(curr_arp_packet->target_ip_addr, interfaces[RECEIVING_INTERFACE].ip_addr, 4) == 0) {
-
-					//printf("FOR MY RECEIVING INTERFACE NEED TO SEND A REPLY\n");
-					
-					// Rewrite ethernet frame
-					memcpy(curr_frame->dst, curr_frame->src, 6);
-					memcpy(curr_frame->src, interfaces[RECEIVING_INTERFACE].ether_addr, 6);
-					
-					// Set opcode to reply
-					curr_arp_packet->opcode = htons(0x0002);
-					
-					// Set target as the given sender
-					memcpy(curr_arp_packet->target_mac_addr, curr_arp_packet->sender_mac_addr, 6);
-					memcpy(curr_arp_packet->target_ip_addr, curr_arp_packet->sender_ip_addr, 4);
-					
-					// Set sender as the interface
-					memcpy(curr_arp_packet->sender_mac_addr, interfaces[RECEIVING_INTERFACE].ether_addr, 6);
-					memcpy(curr_arp_packet->sender_ip_addr, interfaces[RECEIVING_INTERFACE].ip_addr, 4);
-					
-					// Recalculate FCS since changed data in frame
-					*fcs_ptr = crc32(0, frame, frame_len - sizeof(*fcs_ptr));
-
-					// Send to corresponding fd for vde switch connected to that interface 
-					send_ethernet_frame(fds[RECEIVING_INTERFACE][1], frame, frame_len);
-				
-				}
-
-			} else {
-				
-				printf("    ignoring arp packet (only receiving requests)\n");
-				is_valid = 0;
-			
-			}
-
-		}
-
-	}
-
-	// -------------------------- IP PACKETS -----------------------------------------
-	// If valid frame and IPv4, check if destination is my receiving interface (PART I) 
-	if (is_valid && is_ipv4) {
-		
+		printf("  has type IP\n"); 	
 		handle_ip_packet(&interfaces[RECEIVING_INTERFACE], payload, payload_len);
-
-	}
+		return 0;
 	
-	printf("\n");
-
+	// Ethernet is ARP 
+	} else if (memcmp(curr_frame->type, ETHER_TYPE_ARP, 2) == 0) {
+		
+		printf("  has type ARP\n");
+		handle_arp_packet(curr_frame->src, &interfaces[RECEIVING_INTERFACE], payload, payload_len);	
+		return 0;
+	
+	// Otherwise unrecognized type 
+	} else {
+	
+		printf("  ignoring %lu-byte frame (unrecognized type)\n", frame_len); 
+		return -1; 
+	
+	}
+		
 }
 
 
@@ -467,6 +336,8 @@ int check_ether_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, str
 
 }
 
+/*
+ */
 int compose_ether_frame(uint8_t *frame, struct ether_header *new_ether_header, uint8_t *data, size_t data_size) 
 {
 	uint32_t fcs; 
@@ -478,8 +349,7 @@ int compose_ether_frame(uint8_t *frame, struct ether_header *new_ether_header, u
 	memcpy(frame, new_ether_header, sizeof(*new_ether_header));
 	memcpy(frame + sizeof(*new_ether_header), data, data_size);
 
-	// pad with zeros 
-	
+	// Pad with zeros if data too short
 	if (data_size < ETHER_MIN_DATA_SIZE) {
 		memset(frame + sizeof(*new_ether_header) + data_size, '\0', ETHER_MIN_DATA_SIZE - data_size);
 		data_size = ETHER_MIN_DATA_SIZE;
@@ -491,8 +361,108 @@ int compose_ether_frame(uint8_t *frame, struct ether_header *new_ether_header, u
 	return sizeof(*new_ether_header) + data_size + ETHER_FCS_SIZE;
 }
 
+/*
+ */
+int handle_arp_packet(uint8_t *src, struct interface *iface, uint8_t *packet, int packet_length) 
+{
+	
+	// Variables for processing ARP types
+	struct arp_packet *curr_arp_packet;
+	uint16_t given_opcode;
+
+	struct ether_header new_ether_header;
+
+	uint8_t frame[ETHER_MAX_FRAME_SIZE];
+	size_t frame_len;
+
+	curr_arp_packet = (struct arp_packet *) packet;
+	
+	// Verify hardware type (only handling ethernet hardware) 
+	if (memcmp(curr_arp_packet->hardware_type, "\x00\x01", 2) == 0) {
+		
+		// Verify the hardware size for ethernet type
+		if (memcmp(&curr_arp_packet->hardware_size, "\x06", 1) != 0) {
+			
+			printf("    ignoring arp packet with bad hardware size from %s", binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
+			return -1;
+		
+		}
+
+	} else {
+		
+		printf("    ignoring arp packet with incompatible hardware type from %s", binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
+		return -1;
+	
+	}
 
 
+	// Verify protocol type (only handling IPv4) 
+	if (memcmp(curr_arp_packet->protocol_type, "\x08\x00", 2) == 0) {
+		
+		// Verify the protocol size for ethernet type
+		if (memcmp(&curr_arp_packet->protocol_size, "\x04", 1) != 0) {
+			
+			printf("    ignoring arp packet with bad protocol size from %s", binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
+			return -1;
+		
+		}
+
+	} else {
+		
+		printf("    ignoring arp packet with incompatible protocol type from %s", binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
+		return -1;
+	
+	}
+	
+	// Respond to requests 
+	given_opcode = ntohs(curr_arp_packet->opcode);
+	
+	// Verify the opcode is a request
+	if (given_opcode == 1) {
+
+		// DO WE HAVE TO VERIFY ANYTHING ABOUT THE TARGET OR SOURCE IP ADDRS? 
+
+		// Only respond to ARP requests that corresponds to my listening interface
+		if (memcmp(curr_arp_packet->target_ip_addr, interfaces[RECEIVING_INTERFACE].ip_addr, 4) == 0) {
+			
+			// Rewrite ethernet frame
+			memcpy(new_ether_header.dst, src, 6);
+			memcpy(new_ether_header.src, interfaces[RECEIVING_INTERFACE].ether_addr, 6);
+			memcpy(new_ether_header.type, ETHER_TYPE_ARP, 2);
+
+			// Set opcode to reply
+			curr_arp_packet->opcode = htons(0x0002);
+			
+			// Set target as the given sender
+			memcpy(curr_arp_packet->target_mac_addr, curr_arp_packet->sender_mac_addr, 6);
+			memcpy(curr_arp_packet->target_ip_addr, curr_arp_packet->sender_ip_addr, 4);
+			
+			// Set sender as the interface
+			memcpy(curr_arp_packet->sender_mac_addr, interfaces[RECEIVING_INTERFACE].ether_addr, 6);
+			memcpy(curr_arp_packet->sender_ip_addr, interfaces[RECEIVING_INTERFACE].ip_addr, 4);
+			
+			frame_len = compose_ether_frame(frame, &new_ether_header, packet, packet_length);
+
+			// Send to corresponding fd for vde switch connected to that interface 
+			send_ethernet_frame(fds[RECEIVING_INTERFACE][1], frame, frame_len);
+			
+			return 0;
+		
+		}
+
+	} else {
+		
+		printf("    ignoring arp packet (only receiving requests)\n");
+		return -1;
+	
+	}
+
+	return 0;
+
+}
+
+/*
+ */
 int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_length)
 {
 
@@ -586,7 +556,7 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_length
 	}
 		
 	// curr_packet not for one of my interfaces (needs routing) 
-
+	
 	
 	// Check whether have route for packet in routing table
 			
