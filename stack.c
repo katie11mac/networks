@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
 	int needs_routing = 0;
 	int route_entry_num = -1; // Number entry in routing_table to take
 	struct route route_to_take;
-	struct ip_address direct_network_gateway;
+	uint8_t direct_network_gateway[4];
 	uint8_t mac_dst[6];
 	int found_mac_addr = 0;
 
@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
 	uint16_t given_opcode;
 
 	// Set direct network gateway value
-	memcpy(&direct_network_gateway, "\x00\x00\x00\x00", 4);
+	memcpy(direct_network_gateway, "\x00\x00\x00\x00", 4);
 
 	// Initialize interfaces, arp cache, and routing table
 	init_interfaces(&interfaces);
@@ -200,8 +200,8 @@ int main(int argc, char *argv[])
 					// DO WE HAVE TO VERIFY ANYTHING ABOUT THE TARGET OR SOURCE IP ADDRS? 
 
 					// Only respond to ARP requests that corresponds to my listening interface
-					if (compare_ip_addr_structs(curr_arp_packet->target_ip_addr, interfaces[RECEIVING_INTERFACE].ip_addr) == 1) {
-						
+					if (memcmp(curr_arp_packet->target_ip_addr, interfaces[RECEIVING_INTERFACE].ip_addr, 4) == 0) {
+	
 						//printf("FOR MY RECEIVING INTERFACE NEED TO SEND A REPLY\n");
 						
 						// Rewrite ethernet frame
@@ -213,11 +213,11 @@ int main(int argc, char *argv[])
 						
 						// Set target as the given sender
 						memcpy(curr_arp_packet->target_mac_addr, curr_arp_packet->sender_mac_addr, 6);
-						memcpy(&curr_arp_packet->target_ip_addr, &curr_arp_packet->sender_ip_addr, 4);
+						memcpy(curr_arp_packet->target_ip_addr, curr_arp_packet->sender_ip_addr, 4);
 						
 						// Set sender as the interface
 						memcpy(curr_arp_packet->sender_mac_addr, interfaces[RECEIVING_INTERFACE].ether_addr, 6);
-                        memcpy(&curr_arp_packet->sender_ip_addr, &interfaces[RECEIVING_INTERFACE].ip_addr, 4);
+                        memcpy(curr_arp_packet->sender_ip_addr, interfaces[RECEIVING_INTERFACE].ip_addr, 4);
 						
 						// Recalculate FCS since changed data in frame
 						*fcs_ptr = crc32(0, frame, frame_len - sizeof(*fcs_ptr));
@@ -293,14 +293,14 @@ int main(int argc, char *argv[])
 					if (ip_dst_addr_results != -1) {
 						
 						// SHOULD I STILL CHECK THE TTL HERE TO MAKE SURE IT'S NOT LOWER THAN ZERO?
-						printf("received packet from %u.%u.%u.%u for %u.%u.%u.%u (interface %d)\n", curr_packet->src_addr.part1,
-																									curr_packet->src_addr.part2,
-																									curr_packet->src_addr.part3,
-																									curr_packet->src_addr.part4, 
-																									interfaces[ip_dst_addr_results].ip_addr.part1, 
-																									interfaces[ip_dst_addr_results].ip_addr.part2,
-																									interfaces[ip_dst_addr_results].ip_addr.part3,
-																									interfaces[ip_dst_addr_results].ip_addr.part4, 
+						printf("received packet from %u.%u.%u.%u for %u.%u.%u.%u (interface %d)\n", curr_packet->src_addr[0],
+																									curr_packet->src_addr[1],
+																									curr_packet->src_addr[2],
+																									curr_packet->src_addr[3], 
+																									interfaces[ip_dst_addr_results].ip_addr[0], 
+																									interfaces[ip_dst_addr_results].ip_addr[1],
+																									interfaces[ip_dst_addr_results].ip_addr[2],
+																									interfaces[ip_dst_addr_results].ip_addr[3], 
 																									ip_dst_addr_results); 
 
 					// curr_packet not for one of my interfaces (needs routing) 
@@ -309,14 +309,14 @@ int main(int argc, char *argv[])
 						// TTL exceeded since it needs routing 
 						if (new_ttl <= 0) {
 
-							printf("dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (TTL exceeded)\n", curr_packet->src_addr.part1, 
-																									   curr_packet->src_addr.part2, 
-																									   curr_packet->src_addr.part3, 
-																									   curr_packet->src_addr.part4, 
-																									   curr_packet->dst_addr.part1, 
-																									   curr_packet->dst_addr.part2, 
-																									   curr_packet->dst_addr.part3, 
-																									   curr_packet->dst_addr.part4);
+							printf("dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (TTL exceeded)\n", curr_packet->src_addr[0], 
+																									   curr_packet->src_addr[1], 
+																									   curr_packet->src_addr[2], 
+																									   curr_packet->src_addr[3], 
+																									   curr_packet->dst_addr[0], 
+																									   curr_packet->dst_addr[1], 
+																									   curr_packet->dst_addr[2], 
+																									   curr_packet->dst_addr[3]);
 							
 							send_icmp_message(frame, frame_len, 11, 0, fds, interfaces);
 
@@ -343,14 +343,14 @@ int main(int argc, char *argv[])
 					// No corresponding entry in routing table for IP packet
 					if (route_entry_num == -1) {
 						
-						printf("dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (no route)\n", curr_packet->src_addr.part1,
-																							   curr_packet->src_addr.part2,
-																							   curr_packet->src_addr.part3,
-																							   curr_packet->src_addr.part4,
-																							   curr_packet->dst_addr.part1,
-																							   curr_packet->dst_addr.part2,
-																							   curr_packet->dst_addr.part3,
-																							   curr_packet->dst_addr.part4);
+						printf("dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (no route)\n", curr_packet->src_addr[0],
+																							   curr_packet->src_addr[1], 
+																							   curr_packet->src_addr[2], 
+																							   curr_packet->src_addr[3], 
+																							   curr_packet->dst_addr[0], 
+																							   curr_packet->dst_addr[1], 
+																							   curr_packet->dst_addr[2], 
+																							   curr_packet->dst_addr[3]);
 						
 						send_icmp_message(frame, frame_len, 3, 0, fds, interfaces);
 						
@@ -364,8 +364,7 @@ int main(int argc, char *argv[])
 						// Get MAC dst
 						// If gateway of route is 0.0.0.0 (meaning destination device is in one of networks router is connected to)
 						// then we can send the ethernet frame directly to the device 
-						if (compare_ip_addr_structs(route_to_take.gateway, direct_network_gateway) == 1) {
-							
+						if (memcmp(route_to_take.gateway, direct_network_gateway, 4) == 0) {	
 							// Find dst mac address to the current packets ip dest in arp cache 
 							found_mac_addr = determine_mac_from_ip(mac_dst, curr_packet->dst_addr, arp_cache);
 						
@@ -380,14 +379,14 @@ int main(int argc, char *argv[])
 						// Could not find corresponding mac address for route
 						if (found_mac_addr == 0) {
 							
-							printf("dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (no ARP)\n", curr_packet->src_addr.part1,
-																								 curr_packet->src_addr.part2,
-																								 curr_packet->src_addr.part3,
-																								 curr_packet->src_addr.part4,
-																								 curr_packet->dst_addr.part1,
-																								 curr_packet->dst_addr.part2,
-																								 curr_packet->dst_addr.part3,
-																								 curr_packet->dst_addr.part4);
+							printf("dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (no ARP)\n", curr_packet->src_addr[0],
+																							     curr_packet->src_addr[1], 
+																							     curr_packet->src_addr[2], 
+																							     curr_packet->src_addr[3], 
+																							     curr_packet->dst_addr[0], 
+																							     curr_packet->dst_addr[1], 
+																							     curr_packet->dst_addr[2], 
+																							     curr_packet->dst_addr[3]);
 							
 							send_icmp_message(frame, frame_len, 3, 1, fds, interfaces);
 
@@ -460,19 +459,19 @@ void init_interfaces(struct interface **interfaces)
 
     // Interface 0 - WILL BE RECIEVING IN PART I
     memcpy((*interfaces)[0].ether_addr, "\x01\x02\x03\x04\xff\xff", 6);
-    memcpy(&(*interfaces)[0].ip_addr, "\x01\x02\x03\x04", 4);
+    memcpy((*interfaces)[0].ip_addr, "\x01\x02\x03\x04", 4);
 
     // Interface 1
     memcpy((*interfaces)[1].ether_addr, "\x05\x06\x07\x08\xff\xff", 6);
-    memcpy(&(*interfaces)[1].ip_addr, "\x05\x06\x07\x08", 4);
+    memcpy((*interfaces)[1].ip_addr, "\x05\x06\x07\x08", 4);
 
     // Interface 2
     memcpy((*interfaces)[2].ether_addr, "\x09\x0a\x0b\x0c\xff\xff", 6);
-    memcpy(&(*interfaces)[2].ip_addr, "\x09\x0a\x0b\x0c", 4);
+    memcpy((*interfaces)[2].ip_addr, "\x09\x0a\x0b\x0c", 4);
 
     // Interface 3
     memcpy((*interfaces)[3].ether_addr, "\x0d\x0e\x0f\x10\xff\xff", 6);
-    memcpy(&(*interfaces)[3].ip_addr, "\x0d\x0e\x0f\x10", 4);
+    memcpy((*interfaces)[3].ip_addr, "\x0d\x0e\x0f\x10", 4);
 
 }
 
@@ -490,39 +489,39 @@ void init_routing_table(struct route **routing_table)
 	
 	// Route 0 (interface 0)
 	(*routing_table)[0].num_interface = 0;
-	memcpy(&(*routing_table)[0].dst, "\x01\x02\x03\x00", 4);
-	memcpy(&(*routing_table)[0].gateway, "\x00\x00\x00\x00", 4);
-	memcpy(&(*routing_table)[0].genmask, "\xff\xff\xff\x00", 4);
+	memcpy((*routing_table)[0].dst, "\x01\x02\x03\x00", 4);
+	memcpy((*routing_table)[0].gateway, "\x00\x00\x00\x00", 4);
+	memcpy((*routing_table)[0].genmask, "\xff\xff\xff\x00", 4);
 
 	// Route 1 (interface 1)
 	(*routing_table)[1].num_interface = 1;
-	memcpy(&(*routing_table)[1].dst, "\x05\x06\x07\x00", 4);	
-	memcpy(&(*routing_table)[1].gateway, "\x00\x00\x00\x00", 4);
-	memcpy(&(*routing_table)[1].genmask, "\xff\xff\xff\x00", 4);
+	memcpy((*routing_table)[1].dst, "\x05\x06\x07\x00", 4);	
+	memcpy((*routing_table)[1].gateway, "\x00\x00\x00\x00", 4);
+	memcpy((*routing_table)[1].genmask, "\xff\xff\xff\x00", 4);
 	
 	// Route 2 (interface 2)
 	(*routing_table)[2].num_interface = 2;
-	memcpy(&(*routing_table)[2].dst, "\x09\x0a\x0b\x00", 4);
-	memcpy(&(*routing_table)[2].gateway, "\x00\x00\x00\x00", 4);
-	memcpy(&(*routing_table)[2].genmask, "\xff\xff\xff\x00", 4);
+	memcpy((*routing_table)[2].dst, "\x09\x0a\x0b\x00", 4);
+	memcpy((*routing_table)[2].gateway, "\x00\x00\x00\x00", 4);
+	memcpy((*routing_table)[2].genmask, "\xff\xff\xff\x00", 4);
 
 	// Route 3 (interface 3)
 	(*routing_table)[3].num_interface = 3;
-	memcpy(&(*routing_table)[3].dst, "\x0d\x0e\x0f\x00", 4);
-	memcpy(&(*routing_table)[3].gateway, "\x00\x00\x00\x00", 4);
-	memcpy(&(*routing_table)[3].genmask, "\xff\xff\xff\x00", 4);
+	memcpy((*routing_table)[3].dst, "\x0d\x0e\x0f\x00", 4);
+	memcpy((*routing_table)[3].gateway, "\x00\x00\x00\x00", 4);
+	memcpy((*routing_table)[3].genmask, "\xff\xff\xff\x00", 4);
 	
 	// Route 4 (to another router through interface 3)
 	(*routing_table)[4].num_interface = 3;
-	memcpy(&(*routing_table)[4].dst, "\x11\x12\x13\x00", 4);
-	memcpy(&(*routing_table)[4].gateway, "\x0d\x0e\x0f\x11", 4);
-	memcpy(&(*routing_table)[4].genmask, "\xff\xff\xff\x00", 4);
+	memcpy((*routing_table)[4].dst, "\x11\x12\x13\x00", 4);
+	memcpy((*routing_table)[4].gateway, "\x0d\x0e\x0f\x11", 4);
+	memcpy((*routing_table)[4].genmask, "\xff\xff\xff\x00", 4);
 
 	// Route 5 (to another router through interface 2)
 	(*routing_table)[5].num_interface = 2;
-    memcpy(&(*routing_table)[5].dst, "\x0b\x0b\x00\x00", 4);
-    memcpy(&(*routing_table)[5].gateway, "\x09\x0a\x0b\x0d", 4);
-    memcpy(&(*routing_table)[5].genmask, "\xff\xff\x00\x00", 4);	
+    memcpy((*routing_table)[5].dst, "\x0b\x0b\x00\x00", 4);
+    memcpy((*routing_table)[5].gateway, "\x09\x0a\x0b\x0d", 4);
+    memcpy((*routing_table)[5].genmask, "\xff\xff\x00\x00", 4);	
 
 }
 
@@ -540,15 +539,15 @@ void init_arp_cache(struct arp_entry **arp_cache)
 	
 	// Device A
 	memcpy((*arp_cache)[0].ether_addr, "\x11\x22\x33\x00\xff\xff", 6);
-	memcpy(&(*arp_cache)[0].ip_addr, "\x01\x02\x03\x00", 4);
+	memcpy((*arp_cache)[0].ip_addr, "\x01\x02\x03\x00", 4);
 
 	// Device H
 	memcpy((*arp_cache)[1].ether_addr, "\xdd\xee\xff\x00\xff\xff", 6);
-	memcpy(&(*arp_cache)[1].ip_addr, "\x0d\x0e\x0f\x00", 4);
+	memcpy((*arp_cache)[1].ip_addr, "\x0d\x0e\x0f\x00", 4);
 
 	// Router 1 (connected to I3) 
 	memcpy((*arp_cache)[2].ether_addr, "\xdd\xee\xff\x11\xff\xff", 6);
-	memcpy(&(*arp_cache)[2].ip_addr, "\x0d\x0e\x0f\x11", 4);
+	memcpy((*arp_cache)[2].ip_addr, "\x0d\x0e\x0f\x11", 4);
 
 }
 
@@ -670,10 +669,10 @@ int is_valid_total_length(uint32_t *fcs_ptr, struct ip_header *curr_packet)
 	// Check if total length is correct 
 	if (((uint8_t *)fcs_ptr - (uint8_t *)curr_packet) != ntohs(curr_packet->total_length)) {
 		
-		printf("dropping packet from %u.%u.%u.%u (wrong length)\n", curr_packet->src_addr.part1,
-																	curr_packet->src_addr.part2,
-																	curr_packet->src_addr.part3,
-																	curr_packet->src_addr.part4);
+		printf("dropping packet from %u.%u.%u.%u (wrong length)\n", curr_packet->src_addr[0],
+																	curr_packet->src_addr[1],
+																	curr_packet->src_addr[2],
+																	curr_packet->src_addr[3]);
 		return 0;
 	
 	}
@@ -706,10 +705,10 @@ int is_valid_ip_checksum(struct ip_header *curr_packet)
 
 	if (given_checksum != checksum(curr_packet, (given_ihl * 32) / 8)) {
 		
-		printf("dropping packet from %u.%u.%u.%u (bad IP header checksum)\n", curr_packet->src_addr.part1, 
-																			  curr_packet->src_addr.part2, 
-																			  curr_packet->src_addr.part3, 
-																			  curr_packet->src_addr.part4);
+		printf("dropping packet from %u.%u.%u.%u (bad IP header checksum)\n", curr_packet->src_addr[0], 
+																			  curr_packet->src_addr[1], 
+																			  curr_packet->src_addr[2], 
+																			  curr_packet->src_addr[3]);
 		
 		return 0;
 	
@@ -734,10 +733,10 @@ int is_valid_ihl(struct ip_header *curr_packet)
 
 	if ((curr_packet->version_and_ihl & 0x0f) < 5) {
 		
-		printf("dropping packet from %u.%u.%u.%u (invalid IHL)\n", curr_packet->src_addr.part1,
-																   curr_packet->src_addr.part2,
-																   curr_packet->src_addr.part3,
-																   curr_packet->src_addr.part4);
+		printf("dropping packet from %u.%u.%u.%u (invalid IHL)\n", curr_packet->src_addr[0],
+																   curr_packet->src_addr[1],
+																   curr_packet->src_addr[2],
+																   curr_packet->src_addr[3]);
 		return 0;
 	
 	}
@@ -759,10 +758,10 @@ int is_valid_ip_version(struct ip_header *curr_packet)
 	// Get given version (high nibble)
 	if (((curr_packet->version_and_ihl & 0xf0) >> 4) != 4) {
 		
-		printf("dropping packet from %u.%u.%u.%u (unrecognized IP version)\n", curr_packet->src_addr.part1, 
-																			   curr_packet->src_addr.part2, 
-																			   curr_packet->src_addr.part3, 
-																			   curr_packet->src_addr.part4);
+		printf("dropping packet from %u.%u.%u.%u (unrecognized IP version)\n", curr_packet->src_addr[0], 
+																			   curr_packet->src_addr[1], 
+																			   curr_packet->src_addr[2], 
+																			   curr_packet->src_addr[3]);
 		return 0;
 	
 	}
@@ -784,8 +783,8 @@ int check_ip_dst(struct ip_header *curr_packet, struct interface *interfaces)
 	for (int i = 0; i < NUM_INTERFACES; i++) {
 		
 		// Check if packet is for one of my interfaces 
-		if (compare_ip_addr_structs(curr_packet->dst_addr, interfaces[i].ip_addr) == 1) {
-			
+		if (memcmp(curr_packet->dst_addr, interfaces[i].ip_addr, 4) == 0) {
+	
 			// Can return immediately since IP addresses are unique
 			return i; 
 		
@@ -799,56 +798,17 @@ int check_ip_dst(struct ip_header *curr_packet, struct interface *interfaces)
 }
 
 
-
 /*
- * Compare two ip address structs. 
- *
- * Return 1 if all four parts of the ip address are the same 
- * Return 0 otherwise
- */
-int compare_ip_addr_structs(struct ip_address addr1, struct ip_address addr2) 
-{
-	
-	if (addr1.part1 != addr2.part1) {
-		return 0;
-	}
-
-	if (addr1.part2 != addr2.part2) {
-		return 0;
-	}
-
-	if (addr1.part3 != addr2.part3) {
-		return 0;
-	}
-
-	if (addr1.part4 != addr2.part4) {
-		return 0;
-	}
-
-	return 1;
-
-}
-
-
-
-/*
- * Convert ip_struct to a uint32_t for bit comparison purposes.
+ * Convert uint8_t array of 4 to a uint32_t for bit comparison purposes.
  * Return the converted value. 
  */
-uint32_t convert_ip_addr_struct(struct ip_address ip) 
+uint32_t array_to_uint32(uint8_t array[4]) 
 {
-
-	uint32_t result = 0; 
-
-	result = result | ((uint32_t)ip.part1 << 24);
-	result = result | ((uint32_t)ip.part2 << 16);
-	result = result | ((uint32_t)ip.part3 << 8);
-	result = result | (uint32_t)ip.part4;
-
+    
+	uint32_t result = ((uint32_t)array[0] << 24) | ((uint32_t)array[1] << 16) | ((uint32_t)array[2] << 8) | ((uint32_t)array[3]);
+    
 	return result;
-
 }
-
 
 /*
  * Determine the route the curr_packet should take. 
@@ -859,8 +819,8 @@ uint32_t convert_ip_addr_struct(struct ip_address ip)
 int determine_route(struct ip_header *curr_packet, struct interface *interfaces, struct route *routing_table) 
 {	
 
-	uint32_t given_ip_dst_addr = convert_ip_addr_struct(curr_packet->dst_addr);
-	
+	uint32_t given_ip_dst_addr = array_to_uint32(curr_packet->dst_addr);
+
 	uint32_t genmask_results = 0;
 	int route_entry_results = -1;
 
@@ -870,8 +830,8 @@ int determine_route(struct ip_header *curr_packet, struct interface *interfaces,
 
 	for (int i = 0; i < NUM_ROUTES; i++) {
 				
-		curr_genmask = convert_ip_addr_struct(routing_table[i].genmask);
-		curr_dst = convert_ip_addr_struct(routing_table[i].dst);
+		curr_genmask = array_to_uint32(routing_table[i].genmask);
+		curr_dst = array_to_uint32(routing_table[i].dst);
 		
 		if ((given_ip_dst_addr & curr_genmask) == curr_dst) {
 			
@@ -897,13 +857,13 @@ int determine_route(struct ip_header *curr_packet, struct interface *interfaces,
  * Returns 1 if it found a successful ip/mac match
  * Returns 0 if it could not find a match
  */
-int determine_mac_from_ip(uint8_t *mac_dst, struct ip_address ip_addr, struct arp_entry *arp_cache)
+int determine_mac_from_ip(uint8_t *mac_dst, uint8_t *ip_addr, struct arp_entry *arp_cache)
 {
 
 	for (int i = 0; i < NUM_ARP_ENTRIES; i++) {
 		
 		// Found matching IP address
-		if (compare_ip_addr_structs(ip_addr, arp_cache[i].ip_addr) == 1) {
+		if (memcmp(ip_addr, arp_cache[i].ip_addr, 4) == 0) {
 			
 			memcpy(mac_dst, arp_cache[i].ether_addr, 6);
 			
@@ -949,8 +909,8 @@ void send_icmp_message(uint8_t frame[1600], ssize_t frame_len, uint8_t type, uin
 	memcpy(frame + sizeof(struct ether_header) + sizeof(struct ip_header), &new_icmp, sizeof(struct icmp_header));
 	
 	// Rewrite IP header
-	memcpy(&curr_packet->dst_addr, &curr_packet->src_addr, 4);
-	memcpy(&curr_packet->src_addr, &interfaces[RECEIVING_INTERFACE], 4);
+	memcpy(curr_packet->dst_addr, curr_packet->src_addr, 4);
+	memcpy(curr_packet->src_addr, interfaces[RECEIVING_INTERFACE].ether_addr, 4);
 	curr_packet->total_length = htons(sizeof(struct ip_header) + sizeof(struct icmp_header)); // CHECK THIS
 	curr_packet->ttl = curr_packet->ttl - 1; // SINCE TTL EXCEEDED SHOULD THIS STILL BE new_ttl OR SHOULD IT RESET??? 
 	curr_packet->protocol = 1;

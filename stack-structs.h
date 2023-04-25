@@ -7,28 +7,21 @@ struct ether_header {
     uint8_t type[2];
 };
 
-struct ip_address {
-    uint8_t part1;
-    uint8_t part2;
-    uint8_t part3;
-    uint8_t part4;
-};
-
 struct interface {
     uint8_t ether_addr[6];
-    struct ip_address ip_addr;
+    uint8_t ip_addr[4];
 };
 
 struct arp_entry {
     uint8_t ether_addr[6];
-    struct ip_address ip_addr;
+    uint8_t ip_addr[4];
 };
 
 struct route {
     int num_interface; // number interface on route
-    struct ip_address dst;
-    struct ip_address gateway;
-    struct ip_address genmask;
+    uint8_t dst[4];
+    uint8_t gateway[4];
+    uint8_t genmask[4];
 };
 
 struct ip_header {
@@ -40,8 +33,8 @@ struct ip_header {
     uint8_t ttl;
     uint8_t protocol;
     uint16_t header_checksum;
-    struct ip_address src_addr;
-    struct ip_address dst_addr;
+    uint8_t src_addr[4];
+    uint8_t dst_addr[4];
     // OPTIONS WITH VARIABLE LENGTH
 };
 
@@ -52,9 +45,9 @@ struct arp_packet {
     uint8_t protocol_size;
     uint16_t opcode;
     uint8_t sender_mac_addr[6];
-    struct ip_address sender_ip_addr;
+    uint8_t sender_ip_addr[4];
     uint8_t target_mac_addr[6];
-    struct ip_address target_ip_addr;
+    uint8_t target_ip_addr[4];
 };
 
 struct icmp_header {
@@ -62,7 +55,7 @@ struct icmp_header {
     uint8_t code;
     uint16_t checksum;
     uint32_t unused;
-    struct ip_header original_ip_header;
+    uint8_t original_ip_header[4];
     uint8_t original_data[64];
 };
 
