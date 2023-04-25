@@ -169,13 +169,14 @@ int handle_ethernet_frame(struct interface *iface)
 	// Variables for frame
 	uint8_t frame[1600];
     ssize_t frame_len;
-    char *data_as_hex;
 	
 	// Variables for processing recieved frames
 	int is_valid = 1; // Whether it is corrupted and has valid values
 	struct ether_header *curr_frame;
 	ssize_t data_len;
 	uint32_t *fcs_ptr;
+	uint8_t *payload;
+	int payload_len;
 	int is_ipv4 = 0;
 	int is_arp = 0;
 
@@ -194,57 +195,79 @@ int handle_ethernet_frame(struct interface *iface)
 	struct arp_packet *curr_arp_packet;
 	uint16_t given_opcode;
 
+
+
+
+	// Read frame from interface !!!! NEED TO CHANGE THIS !!!! 
 	frame_len = receive_ethernet_frame(fds[RECEIVING_INTERFACE][0], frame);
-		
-	// Save data received
-	data_as_hex = binary_to_hex(frame, frame_len);
+	printf("received %ld-byte frame on interface 0\n", frame_len);
 
 	// Set header information
 	curr_frame = (struct ether_header *) frame;
 
 	// Verify length of frame 
-	is_valid = is_valid_frame_length(frame_len); 	
-
-	// Verify fcs
-	if (is_valid) { 
-		
-		// Get data length and set ptr to given fcs 
-		data_len = frame_len - sizeof(struct ether_header) - sizeof(*fcs_ptr); 
-		fcs_ptr = (uint32_t *)(frame + sizeof(struct ether_header) + data_len);
-
-		is_valid = is_valid_fcs(&frame, frame_len, data_len, *fcs_ptr);
+	if(is_valid_frame_length(frame_len) == 0) {
 	
+		return -1;
+
 	}
 
-	// Verify type 
-	if (is_valid) {
+	// Get data length and set ptr to given fcs 
+	data_len = frame_len - sizeof(struct ether_header) - sizeof(*fcs_ptr); 
+	fcs_ptr = (uint32_t *)(frame + sizeof(struct ether_header) + data_len);
+
+	// Verify fcs
+	if (is_valid_fcs(&frame, frame_len, data_len, *fcs_ptr) == 0) {
+	
+		return -1;
+
+	}
+
+
+	// Set payload 
+	payload = frame + sizeof(struct ether_header);
+	payload_len = frame_len - sizeof(struct ether_header);
+
+	
+	// Acknowledge broadcasts and set ether_dst_addr_results
+	ether_dst_addr_results = check_ether_dst_addr(curr_frame, frame_len, interfaces[RECEIVING_INTERFACE]);
+	
+	// Received ethernet frame not for me 
+	if (ether_dst_addr_results == -1) {
 		
+		return -1;
+	
+	// Received ethernet frame for me 
+	} else if (ether_dst_addr_results == 1) {
+		
+		// Verify type 
+			
 		// Ethernet is IPv4
 		if (memcmp(curr_frame->type, ETHER_TYPE_IP, 2) == 0) {
 			
+			printf("  has type IP\n"); 	
 			is_ipv4 = 1;
 		
 		// Ethernet is ARP 
 		} else if (memcmp(curr_frame->type, ETHER_TYPE_ARP, 2) == 0) {
 			
+			printf("  has type ARP\n");
 			is_arp = 1;
 		
 		// Otherwise unrecognized type 
 		} else {
 		
-			printf("ignoring %lu-byte frame (unrecognized type)\n", frame_len); 
-			is_valid = 0;
+			printf("  ignoring %lu-byte frame (unrecognized type)\n", frame_len); 
+			return -1; 
 		
 		}
-	
-	}
-	
-	// Acknowledge broadcasts and set ether_dst_addr_results
-	if (is_valid) {
-
-		ether_dst_addr_results = check_ether_dst_addr(curr_frame, frame_len, interfaces);
+		
 
 	}
+
+	
+	
+	
 
 	// Received ARP 
 	if (is_valid && is_arp) {
@@ -261,14 +284,14 @@ int handle_ethernet_frame(struct interface *iface)
 				// Verify the hardware size for ethernet type
 				if (memcmp(&curr_arp_packet->hardware_size, "\x06", 1) != 0) {
 					
-					printf("ignoring arp packet with bad hardware size from %s", binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
+					printf("    ignoring arp packet with bad hardware size from %s", binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
 					is_valid = 0;
 				
 				}
 
 			} else {
 				
-				printf("ignoring arp packet with incompatible hardware type from %s", binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
+				printf("    ignoring arp packet with incompatible hardware type from %s", binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
 				is_valid = 0;
 			
 			}
@@ -285,14 +308,14 @@ int handle_ethernet_frame(struct interface *iface)
 				// Verify the protocol size for ethernet type
 				if (memcmp(&curr_arp_packet->protocol_size, "\x04", 1) != 0) {
 					
-					printf("ignoring arp packet with bad protocol size from %s", binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
+					printf("    ignoring arp packet with bad protocol size from %s", binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
 					is_valid = 0;
 				
 				}
 
 			} else {
 				
-				printf("ignoring arp packet with incompatible protocol type from %s", binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
+				printf("    ignoring arp packet with incompatible protocol type from %s", binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
 				is_valid = 0;
 			
 			}
@@ -418,7 +441,7 @@ int handle_ethernet_frame(struct interface *iface)
 					// TTL exceeded since it needs routing 
 					if (new_ttl <= 0) {
 
-						printf("dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (TTL exceeded)\n", curr_packet->src_addr[0], 
+						printf("    dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (TTL exceeded)\n", curr_packet->src_addr[0], 
 																								   curr_packet->src_addr[1], 
 																								   curr_packet->src_addr[2], 
 																								   curr_packet->src_addr[3], 
@@ -452,7 +475,7 @@ int handle_ethernet_frame(struct interface *iface)
 				// No corresponding entry in routing table for IP packet
 				if (route_entry_num == -1) {
 					
-					printf("dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (no route)\n", curr_packet->src_addr[0],
+					printf("    dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (no route)\n", curr_packet->src_addr[0],
 																						   curr_packet->src_addr[1], 
 																						   curr_packet->src_addr[2], 
 																						   curr_packet->src_addr[3], 
@@ -488,7 +511,7 @@ int handle_ethernet_frame(struct interface *iface)
 					// Could not find corresponding mac address for route
 					if (found_mac_addr == 0) {
 						
-						printf("dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (no ARP)\n", curr_packet->src_addr[0],
+						printf("    dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (no ARP)\n", curr_packet->src_addr[0],
 																							 curr_packet->src_addr[1], 
 																							 curr_packet->src_addr[2], 
 																							 curr_packet->src_addr[3], 
@@ -535,9 +558,7 @@ int handle_ethernet_frame(struct interface *iface)
 	
 	}
 	
-	free(data_as_hex);
-	//printf("\n");
-
+	printf("\n");
 
 }
 
@@ -550,16 +571,16 @@ int handle_ethernet_frame(struct interface *iface)
 int is_valid_frame_length(ssize_t frame_len) 
 {
 	// Frame length too small
-	if (frame_len < ETHER_MIN_DATA_SIZE + sizeof(struct ether_header)) {
+	if (frame_len < ETHER_MIN_FRAME_SIZE) {
 		
-		printf("ignoring %lu-byte frame (short)\n", frame_len);
+		printf("  ignoring %lu-byte frame (short)\n", frame_len);
 		
 		return 0;
 	
 	// Frame length too large
-	} else if (frame_len > ETHER_MAX_DATA_SIZE + sizeof(struct ether_header)) {
+	} else if (frame_len > ETHER_MAX_FRAME_SIZE) {
 		
-		printf("ignoring %lu-byte frame (long)\n", frame_len);
+		printf("  ignoring %lu-byte frame (long)\n", frame_len);
 		
 		return 0;
 	
@@ -589,7 +610,7 @@ int is_valid_fcs (uint8_t (*frame)[1600], size_t frame_len, ssize_t data_len, ui
 		
 	if (calculated_fcs != fcs) {
 		
-		printf("ignoring %ld-byte frame (bad fcs: got 0x%08x, expected 0x%08x)\n", frame_len, fcs, calculated_fcs);
+		printf("  ignoring %ld-byte frame (bad fcs: got 0x%08x, expected 0x%08x)\n", frame_len, fcs, calculated_fcs);
 		
 		return 0;
 	
@@ -609,39 +630,26 @@ int is_valid_fcs (uint8_t (*frame)[1600], size_t frame_len, ssize_t data_len, ui
  * Return 1 if frame was for me (i.e. interfaces' MAC address)
  * Return -1 if frame was not for me 
  */
-int check_ether_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, struct interface *interfaces) 
+int check_ether_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, struct interface iface) 
 {
 
 	// Check if frame is a broadcast 
 	if (memcmp(curr_frame->dst, ETHER_BROADCAST_ADDR, 6) == 0) {
 		
-		printf("received %lu-byte broadcast frame from %s", frame_len, binary_to_hex(curr_frame->src, 6)); 
+		printf("  received %lu-byte broadcast frame from %s", frame_len, binary_to_hex(curr_frame->src, 6)); 
 		
 		return 0;
 	
 	// Check if frame is for the receiving interface 
-	} else if (memcmp(curr_frame->dst, interfaces[RECEIVING_INTERFACE].ether_addr, 6) == 0) {
+	} else if (memcmp(curr_frame->dst, iface.ether_addr, 6) == 0) {
 		
 		// Can return immediately since MAC addresses unique
 		return 1; 
 	
 	}
-
-	/* 
-	// THIS NEEDS TO CHANGE SO THAT WE CHECK THAT IT'S ONLY THE DEVICE THAT IS RECIEVING
-	for (int i = 0; i < num_interfaces; i++) {
-		// Check if frame is for one of my interfaces 
-		if (memcmp(curr_frame->dst, interfaces[i].ether_addr, 6) == 0) {
-			//printf("received %lu-byte frame for me from %s", frame_len, binary_to_hex(curr_frame->src, 6)); 
-			//printf("\tframe dest: %s\tinterface MAC: %s", binary_to_hex(curr_frame->dst, 6), binary_to_hex(interfaces[i].ether_addr, 6));
-			// Can return immediately since MAC addresses unique
-			return 1; 
-		}
-	}
-	*/
 	
 	// Frame is not for any of my interfaces
-	printf("ignoring %lu-byte frame (not for me)\n", frame_len); 
+	printf("  ignoring %lu-byte frame (not for me)\n", frame_len); 
 	
 	return -1;
 
@@ -660,7 +668,7 @@ int is_valid_total_length(uint32_t *fcs_ptr, struct ip_header *curr_packet)
 	// Check if total length is correct 
 	if (((uint8_t *)fcs_ptr - (uint8_t *)curr_packet) != ntohs(curr_packet->total_length)) {
 		
-		printf("dropping packet from %u.%u.%u.%u (wrong length)\n", curr_packet->src_addr[0],
+		printf("    dropping packet from %u.%u.%u.%u (wrong length)\n", curr_packet->src_addr[0],
 																	curr_packet->src_addr[1],
 																	curr_packet->src_addr[2],
 																	curr_packet->src_addr[3]);
@@ -696,7 +704,7 @@ int is_valid_ip_checksum(struct ip_header *curr_packet)
 
 	if (given_checksum != checksum(curr_packet, (given_ihl * 32) / 8)) {
 		
-		printf("dropping packet from %u.%u.%u.%u (bad IP header checksum)\n", curr_packet->src_addr[0], 
+		printf("    dropping packet from %u.%u.%u.%u (bad IP header checksum)\n", curr_packet->src_addr[0], 
 																			  curr_packet->src_addr[1], 
 																			  curr_packet->src_addr[2], 
 																			  curr_packet->src_addr[3]);
@@ -724,7 +732,7 @@ int is_valid_ihl(struct ip_header *curr_packet)
 
 	if ((curr_packet->version_and_ihl & 0x0f) < 5) {
 		
-		printf("dropping packet from %u.%u.%u.%u (invalid IHL)\n", curr_packet->src_addr[0],
+		printf("    dropping packet from %u.%u.%u.%u (invalid IHL)\n", curr_packet->src_addr[0],
 																   curr_packet->src_addr[1],
 																   curr_packet->src_addr[2],
 																   curr_packet->src_addr[3]);
@@ -749,7 +757,7 @@ int is_valid_ip_version(struct ip_header *curr_packet)
 	// Get given version (high nibble)
 	if (((curr_packet->version_and_ihl & 0xf0) >> 4) != 4) {
 		
-		printf("dropping packet from %u.%u.%u.%u (unrecognized IP version)\n", curr_packet->src_addr[0], 
+		printf("    dropping packet from %u.%u.%u.%u (unrecognized IP version)\n", curr_packet->src_addr[0], 
 																			   curr_packet->src_addr[1], 
 																			   curr_packet->src_addr[2], 
 																			   curr_packet->src_addr[3]);

@@ -76,9 +76,9 @@ int main(int argc, char *argv[])
 	/*
 	 * TEST 3: Ethernet (A2)
 	 * 
-	 * Unrecognized type (not IPv4), not for me, with valid FCS
+	 * Unrecognized type (not IPv4), for me, with valid FCS
 	 */
-	memcpy(test.dst, "\x11\x46\x6c\x7e\xff\x1a", 6);
+	memcpy(test.dst, "\x01\x02\x03\x04\xff\xff", 6);
     memcpy(test.src, "\x06\xdd\x79\xe0\x8b\x4d", 6);
     memcpy(test.type, "\x88\x80", 2);
     memcpy(frame, &test, sizeof(struct ether_header));

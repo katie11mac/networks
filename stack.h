@@ -15,10 +15,10 @@
 
 #define ETHER_MIN_DATA_SIZE 46 
 #define ETHER_MAX_DATA_SIZE 1500
-#define ETHER_FCS_LEN 4
+#define ETHER_FCS_SIZE 4
 
-#define ETHER_MIN_FRAME_SIZE (sizeof(struct ether_header) + ETHER_MIN_DATA_SIZE + ETHER_FCS_LEN) // HAVEN'T USED
-#define ETHER_MAX_FRAME_SIZE (sizeof(struct ether_header) + ETH_MAX_DATA_LEN + ETHER_FCS_LEN) // HAVEN'T USED
+#define ETHER_MIN_FRAME_SIZE (sizeof(struct ether_header) + ETHER_MIN_DATA_SIZE + ETHER_FCS_SIZE) // HAVEN'T USED
+#define ETHER_MAX_FRAME_SIZE (sizeof(struct ether_header) + ETHER_MAX_DATA_SIZE + ETHER_FCS_SIZE) // HAVEN'T USED
 
 #define ETHER_BROADCAST_ADDR "\xff\xff\xff\xff\xff\xff"
 #define ETHER_TYPE_IP "\x08\x00"
@@ -47,7 +47,7 @@ int handle_ethernet_frame(struct interface *iface);
 int is_valid_frame_length(ssize_t frame_len);
 
 int is_valid_fcs (uint8_t (*frame)[1600], size_t frame_len, ssize_t data_len, uint32_t fcs);
-int check_ether_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, struct interface *interfaces);
+int check_ether_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, struct interface iface);
 
 int is_valid_total_length(uint32_t *fcs_ptr, struct ip_header *curr_packet); 
 int is_valid_ip_checksum(struct ip_header *curr_packet);
