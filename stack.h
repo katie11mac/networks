@@ -55,6 +55,7 @@ int handle_arp_packet(uint8_t *src, struct interface *iface, uint8_t *packet, in
 
 // IP functions
 int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_len);
+int route_ip_packet(uint8_t *packet, size_t packet_length);
 int is_valid_ip_checksum(struct ip_header *curr_packet);
 int is_valid_ihl(struct ip_header *curr_packet);
 int is_valid_ip_version(struct ip_header *curr_packet);

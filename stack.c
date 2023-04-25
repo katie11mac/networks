@@ -468,16 +468,6 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_length
 
 	struct ip_header *curr_packet;
 	int ip_dst_addr_results;
-	int route_entry_num = -1; // Number entry in routing_table to take
-	struct route route_to_take;
-	uint8_t mac_dst[6];
-	int found_mac_addr = 0;
-
-	struct ether_header new_ether_header;
-
-	uint8_t frame[ETHER_MAX_FRAME_SIZE];
-	size_t frame_len;
-
 			
 	// Interpret data as IPv4
 	curr_packet = (struct ip_header *) packet;
@@ -556,8 +546,28 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_length
 	}
 		
 	// curr_packet not for one of my interfaces (needs routing) 
-	
-	
+	return route_ip_packet(packet, packet_length);
+
+}
+
+
+/*
+ */
+int route_ip_packet(uint8_t *packet, size_t packet_length)
+{
+	int route_entry_num = -1; // Number entry in routing_table to take
+	struct route route_to_take;
+	int found_mac_addr = 0;
+	uint8_t mac_dst[6];
+
+	struct ether_header new_ether_header;
+
+	uint8_t frame[ETHER_MAX_FRAME_SIZE];
+	size_t frame_len;
+
+
+	struct ip_header *curr_packet = (struct ip_header *) packet;
+
 	// Check whether have route for packet in routing table
 			
 	// Determine whether there is a valid route in routing table
@@ -579,9 +589,9 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_length
 		
 		return -1;
 
-	// Found corresponding entry in routing table for IP packet, now find MAC address for next hop
 	}
 
+	// Found corresponding entry in routing table for IP packet, now find MAC address for next hop
 	route_to_take = routing_table[route_entry_num];
 	
 	// Get MAC dst
@@ -625,15 +635,12 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_length
 	
 	// Rewrite the frame and forward it to next hop 
 	//		Note: Rewriting over received frame since we want to keep the IP packet in tact
-		
-	// Set frame src to corresponding leaving interface
-	memcpy(new_ether_header.src, interfaces[route_to_take.num_interface].ether_addr, 6); 
 	
 	// Set frame dst to mac address found in arp cache
 	memcpy(new_ether_header.dst, mac_dst, 6);
-
+	// Set frame src to corresponding leaving interface
+	memcpy(new_ether_header.src, interfaces[route_to_take.num_interface].ether_addr, 6); 
 	memcpy(new_ether_header.type, ETHER_TYPE_IP, 2);
-	
 
 	// Update the TTL 
 	curr_packet->ttl = curr_packet->ttl - 1;
@@ -641,7 +648,6 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_length
 	// Recalculate IP header checksum since changed TTL
 	curr_packet->header_checksum = 0;
 	curr_packet->header_checksum = checksum(curr_packet, (curr_packet->version_and_ihl & 0x0f) * 4);
-	
 
 	frame_len = compose_ether_frame(frame, &new_ether_header, packet, packet_length);
 
@@ -650,9 +656,7 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_length
 	
 	return 0;
 
-
 }
-
 
 /*
  * Check if inital checksum in IP header is correct by recalculating it.
