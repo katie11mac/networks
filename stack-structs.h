@@ -10,6 +10,9 @@ struct ether_header {
 struct interface {
     uint8_t ether_addr[6];
     uint8_t ip_addr[4];
+	char *name;
+	int in_fd;
+	int out_fd;
 };
 
 struct arp_entry {

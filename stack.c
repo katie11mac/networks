@@ -1,5 +1,8 @@
 /*
  * stack.c
+ *
+ * Network Topology 
+ *
  */
 
 #include "stack.h"
@@ -20,11 +23,7 @@ int main(int argc, char *argv[])
                                       NULL };
     char **vde_cmd = connect_to_remote_switch ? remote_vde_cmd : local_vde_cmd;
 
-	// Initialize interfaces, arp cache, and routing table
-	init_interfaces(&interfaces);
-	init_routing_table(&routing_table);
-	init_arp_cache(&arp_cache); 
-
+	
 	// Connect to vde virtual switches for all interfaces	
 	for (int i = 0; i < NUM_INTERFACES; i++) {
 		
@@ -42,11 +41,17 @@ int main(int argc, char *argv[])
 	
 	}
 	
+	// Initialize interfaces, arp cache, and routing table
+	init_interfaces(&interfaces);
+	init_routing_table(&routing_table);
+	init_arp_cache(&arp_cache); 
 
 	// Process frames until user terminates with Control-C
 	// (Assignment 3 Part I: Only listening on interface 0)
 	while(1) {
+	
 		handle_ethernet_frame(&interfaces[0]);
+	
 	}
 
 	free(interfaces);
@@ -71,18 +76,30 @@ void init_interfaces(struct interface **interfaces)
     // Interface 0 - WILL BE RECIEVING IN PART I
     memcpy((*interfaces)[0].ether_addr, "\x01\x02\x03\x04\xff\xff", 6);
     memcpy((*interfaces)[0].ip_addr, "\x01\x02\x03\x04", 4);
+	(*interfaces)[0].name = "i0";
+	(*interfaces)[0].in_fd = fds[0][0];
+	(*interfaces)[0].out_fd = fds[0][1];
 
     // Interface 1
     memcpy((*interfaces)[1].ether_addr, "\x05\x06\x07\x08\xff\xff", 6);
     memcpy((*interfaces)[1].ip_addr, "\x05\x06\x07\x08", 4);
+	(*interfaces)[1].name = "i1";
+	(*interfaces)[1].in_fd = fds[1][0];
+	(*interfaces)[1].out_fd = fds[1][1];
 
     // Interface 2
     memcpy((*interfaces)[2].ether_addr, "\x09\x0a\x0b\x0c\xff\xff", 6);
     memcpy((*interfaces)[2].ip_addr, "\x09\x0a\x0b\x0c", 4);
+	(*interfaces)[2].name = "i2";
+	(*interfaces)[2].in_fd = fds[2][0];
+	(*interfaces)[2].out_fd = fds[2][1];
 
     // Interface 3
     memcpy((*interfaces)[3].ether_addr, "\x0d\x0e\x0f\x10\xff\xff", 6);
     memcpy((*interfaces)[3].ip_addr, "\x0d\x0e\x0f\x10", 4);
+	(*interfaces)[3].name = "i3";
+	(*interfaces)[3].in_fd = fds[3][0];
+	(*interfaces)[3].out_fd = fds[3][1];
 
 }
 
@@ -162,7 +179,12 @@ void init_arp_cache(struct arp_entry **arp_cache)
 
 }
 
-
+/*
+ * Received an ethernet frame from iface and check its integrity
+ *
+ * Return -1 for invalid frames
+ * Return 0 otherwise
+ */
 int handle_ethernet_frame(struct interface *iface) 
 {
 	
@@ -176,11 +198,10 @@ int handle_ethernet_frame(struct interface *iface)
 	uint32_t *fcs_ptr;
 	uint8_t *payload;
 	int payload_len;
-	
 	int ether_dst_addr_results;
 
 	// Read frame from interface !!!! NEED TO CHANGE THIS !!!! 
-	frame_len = receive_ethernet_frame(fds[RECEIVING_INTERFACE][0], frame);
+	frame_len = receive_ethernet_frame(iface->in_fd, frame);
 	printf("received %ld-byte frame on interface 0\n", frame_len);
 
 	// Set header information
@@ -209,35 +230,46 @@ int handle_ethernet_frame(struct interface *iface)
 	payload_len = frame_len - sizeof(struct ether_header) - ETHER_FCS_SIZE;
 	
 	// Acknowledge broadcasts and set ether_dst_addr_results
-	ether_dst_addr_results = check_ether_dst_addr(curr_frame, frame_len, interfaces[RECEIVING_INTERFACE]);
+	ether_dst_addr_results = check_ether_dst_addr(curr_frame, frame_len, *iface);
 	
+	// Received broadcast
+	if (ether_dst_addr_results == 0) {
+		
+		// Ethernet is ARP
+		if (memcmp(curr_frame->type, ETHER_TYPE_ARP, 2) == 0) {
+		
+			printf("  has type ARP\n");
+			handle_arp_packet(curr_frame->src, iface, payload, payload_len);	
+			return 0;
+		
+		} else {
+	
+			printf("  ignoring %lu-byte frame (unrecognized type)\n", frame_len); 
+			return -1; 
+	
+		}
+
+	// Received ethernet frame for me  
+	} else if (ether_dst_addr_results == 1) {
+		
+		// Ethernet is IPv4
+		if (memcmp(curr_frame->type, ETHER_TYPE_IP, 2) == 0) {
+		
+			printf("  has type IP\n"); 	
+			handle_ip_packet(iface, payload, payload_len);
+			return 0;
+	
+		} else {
+	
+			printf("  ignoring %lu-byte frame (unrecognized type)\n", frame_len); 
+			return -1; 
+	
+		}
+
 	// Received ethernet frame not for me 
-	if (ether_dst_addr_results == -1) {
+	} else {
 		
 		return -1;
-	
-	}
-
-	// Received ethernet frame for me
-	// Ethernet is IPv4
-	if (memcmp(curr_frame->type, ETHER_TYPE_IP, 2) == 0) {
-		
-		printf("  has type IP\n"); 	
-		handle_ip_packet(&interfaces[RECEIVING_INTERFACE], payload, payload_len);
-		return 0;
-	
-	// Ethernet is ARP 
-	} else if (memcmp(curr_frame->type, ETHER_TYPE_ARP, 2) == 0) {
-		
-		printf("  has type ARP\n");
-		handle_arp_packet(curr_frame->src, &interfaces[RECEIVING_INTERFACE], payload, payload_len);	
-		return 0;
-	
-	// Otherwise unrecognized type 
-	} else {
-	
-		printf("  ignoring %lu-byte frame (unrecognized type)\n", frame_len); 
-		return -1; 
 	
 	}
 		
@@ -337,6 +369,11 @@ int check_ether_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, str
 }
 
 /*
+ * Copy data from new_ether_header and data to frame to create a 
+ * new ethernet frame ready for sending. 
+ *
+ * Return the size of the constructed ethernet frame.
+ * Return -1 if the data is too large
  */
 int compose_ether_frame(uint8_t *frame, struct ether_header *new_ether_header, uint8_t *data, size_t data_size) 
 {
@@ -362,6 +399,10 @@ int compose_ether_frame(uint8_t *frame, struct ether_header *new_ether_header, u
 }
 
 /*
+ * Handle and check integrity of ARP packets
+ *
+ * Return -1 for invalid packets or packets with specifications not handling 
+ * Return 0 otherwise
  */
 int handle_arp_packet(uint8_t *src, struct interface *iface, uint8_t *packet, int packet_length) 
 {
@@ -370,8 +411,8 @@ int handle_arp_packet(uint8_t *src, struct interface *iface, uint8_t *packet, in
 	struct arp_packet *curr_arp_packet;
 	uint16_t given_opcode;
 
+	// Variables for sending a response
 	struct ether_header new_ether_header;
-
 	uint8_t frame[ETHER_MAX_FRAME_SIZE];
 	size_t frame_len;
 
@@ -423,11 +464,11 @@ int handle_arp_packet(uint8_t *src, struct interface *iface, uint8_t *packet, in
 		// DO WE HAVE TO VERIFY ANYTHING ABOUT THE TARGET OR SOURCE IP ADDRS? 
 
 		// Only respond to ARP requests that corresponds to my listening interface
-		if (memcmp(curr_arp_packet->target_ip_addr, interfaces[RECEIVING_INTERFACE].ip_addr, 4) == 0) {
+		if (memcmp(curr_arp_packet->target_ip_addr, iface->ip_addr, 4) == 0) {
 			
 			// Rewrite ethernet frame
 			memcpy(new_ether_header.dst, src, 6);
-			memcpy(new_ether_header.src, interfaces[RECEIVING_INTERFACE].ether_addr, 6);
+			memcpy(new_ether_header.src, iface->ether_addr, 6);
 			memcpy(new_ether_header.type, ETHER_TYPE_ARP, 2);
 
 			// Set opcode to reply
@@ -438,13 +479,13 @@ int handle_arp_packet(uint8_t *src, struct interface *iface, uint8_t *packet, in
 			memcpy(curr_arp_packet->target_ip_addr, curr_arp_packet->sender_ip_addr, 4);
 			
 			// Set sender as the interface
-			memcpy(curr_arp_packet->sender_mac_addr, interfaces[RECEIVING_INTERFACE].ether_addr, 6);
-			memcpy(curr_arp_packet->sender_ip_addr, interfaces[RECEIVING_INTERFACE].ip_addr, 4);
+			memcpy(curr_arp_packet->sender_mac_addr, iface->ether_addr, 6);
+			memcpy(curr_arp_packet->sender_ip_addr, iface->ip_addr, 4);
 			
 			frame_len = compose_ether_frame(frame, &new_ether_header, packet, packet_length);
 
 			// Send to corresponding fd for vde switch connected to that interface 
-			send_ethernet_frame(fds[RECEIVING_INTERFACE][1], frame, frame_len);
+			send_ethernet_frame(iface->out_fd, frame, frame_len);
 			
 			return 0;
 		
@@ -462,6 +503,10 @@ int handle_arp_packet(uint8_t *src, struct interface *iface, uint8_t *packet, in
 }
 
 /*
+ * Handle and check integrity of IP packets 
+ *
+ * Return -1 if invalid 
+ * Return 0 otherwise
  */
 int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_length)
 {
@@ -476,9 +521,9 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_length
 	if (packet_length != ntohs(curr_packet->total_length)) {
 		
 		printf("    dropping packet from %u.%u.%u.%u (wrong length)\n", curr_packet->src_addr[0],
-																	curr_packet->src_addr[1],
-																	curr_packet->src_addr[2],
-																	curr_packet->src_addr[3]);
+																	    curr_packet->src_addr[1],
+																	    curr_packet->src_addr[2],
+																	    curr_packet->src_addr[3]);
 
 		return -1;
 	
@@ -533,14 +578,14 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_length
 	if (ip_dst_addr_results != -1) {
 		
 		printf("  delivering locally: received packet from %u.%u.%u.%u for %u.%u.%u.%u (interface %d)\n", curr_packet->src_addr[0],
-																					curr_packet->src_addr[1],
-																					curr_packet->src_addr[2],
-																					curr_packet->src_addr[3], 
-																					interfaces[ip_dst_addr_results].ip_addr[0], 
-																					interfaces[ip_dst_addr_results].ip_addr[1],
-																					interfaces[ip_dst_addr_results].ip_addr[2],
-																					interfaces[ip_dst_addr_results].ip_addr[3], 
-																					ip_dst_addr_results); 
+																										  curr_packet->src_addr[1],
+																										  curr_packet->src_addr[2],
+																										  curr_packet->src_addr[3], 
+																					    interfaces[ip_dst_addr_results].ip_addr[0], 
+																					    interfaces[ip_dst_addr_results].ip_addr[1],
+																					    interfaces[ip_dst_addr_results].ip_addr[2],
+																					    interfaces[ip_dst_addr_results].ip_addr[3], 
+																											   ip_dst_addr_results); 
 		return 0;
 
 	}
@@ -552,23 +597,25 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_length
 
 
 /*
+ * Find correct route for IP packet and forward it accordingly 
+ *
+ * Return -1 if no route is found
+ * Return 0 otherwise
  */
 int route_ip_packet(uint8_t *packet, size_t packet_length)
 {
+	
 	int route_entry_num = -1; // Number entry in routing_table to take
 	struct route route_to_take;
 	int found_mac_addr = 0;
 	uint8_t mac_dst[6];
 
 	struct ether_header new_ether_header;
-
 	uint8_t frame[ETHER_MAX_FRAME_SIZE];
 	size_t frame_len;
 
-
 	struct ip_header *curr_packet = (struct ip_header *) packet;
 
-	// Check whether have route for packet in routing table
 			
 	// Determine whether there is a valid route in routing table
 	route_entry_num = determine_route(curr_packet, interfaces, routing_table); 
@@ -577,13 +624,13 @@ int route_ip_packet(uint8_t *packet, size_t packet_length)
 	if (route_entry_num == -1) {
 		
 		printf("    dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (no route)\n", curr_packet->src_addr[0],
-																			   curr_packet->src_addr[1], 
-																			   curr_packet->src_addr[2], 
-																			   curr_packet->src_addr[3], 
-																			   curr_packet->dst_addr[0], 
-																			   curr_packet->dst_addr[1], 
-																			   curr_packet->dst_addr[2], 
-																			   curr_packet->dst_addr[3]);
+																			       curr_packet->src_addr[1], 
+																			       curr_packet->src_addr[2], 
+																			       curr_packet->src_addr[3], 
+																				   curr_packet->dst_addr[0], 
+																			       curr_packet->dst_addr[1], 
+																			       curr_packet->dst_addr[2], 
+																			       curr_packet->dst_addr[3]);
 		
 		//send_icmp_message(frame, frame_len, 3, 0, fds, interfaces);
 		
@@ -594,7 +641,6 @@ int route_ip_packet(uint8_t *packet, size_t packet_length)
 	// Found corresponding entry in routing table for IP packet, now find MAC address for next hop
 	route_to_take = routing_table[route_entry_num];
 	
-	// Get MAC dst
 	// If gateway of route is 0.0.0.0 (meaning destination device is in one of networks router is connected to)
 	// then we can send the ethernet frame directly to the device 
 	if (memcmp(route_to_take.gateway, DIRECT_NETWORK_GATEWAY, 4) == 0) {	
@@ -618,13 +664,13 @@ int route_ip_packet(uint8_t *packet, size_t packet_length)
 	if (found_mac_addr == 0) {
 		
 		printf("    dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (no ARP)\n", curr_packet->src_addr[0],
-																			 curr_packet->src_addr[1], 
-																			 curr_packet->src_addr[2], 
-																			 curr_packet->src_addr[3], 
-																			 curr_packet->dst_addr[0], 
-																			 curr_packet->dst_addr[1], 
-																			 curr_packet->dst_addr[2], 
-																			 curr_packet->dst_addr[3]);
+																			     curr_packet->src_addr[1], 
+																			     curr_packet->src_addr[2], 
+																			     curr_packet->src_addr[3], 
+																			     curr_packet->dst_addr[0], 
+																			     curr_packet->dst_addr[1], 
+																			     curr_packet->dst_addr[2], 
+																			     curr_packet->dst_addr[3]);
 		
 		//send_icmp_message(frame, frame_len, 3, 1, fds, interfaces);
 		
@@ -634,7 +680,6 @@ int route_ip_packet(uint8_t *packet, size_t packet_length)
 
 	
 	// Rewrite the frame and forward it to next hop 
-	//		Note: Rewriting over received frame since we want to keep the IP packet in tact
 	
 	// Set frame dst to mac address found in arp cache
 	memcpy(new_ether_header.dst, mac_dst, 6);
