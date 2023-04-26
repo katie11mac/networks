@@ -194,13 +194,11 @@ int handle_ethernet_frame(struct interface *iface)
 	
 	// Variables for processing recieved frames
 	struct ether_header *curr_frame;
-	ssize_t data_len;
-	uint32_t *fcs_ptr;
 	uint8_t *payload;
 	int payload_len;
 	int ether_dst_addr_results;
 
-	// Read frame from interface !!!! NEED TO CHANGE THIS !!!! 
+	// Read frame from interface  
 	frame_len = receive_ethernet_frame(iface->in_fd, frame);
 	printf("received %ld-byte frame on interface 0\n", frame_len);
 
@@ -214,12 +212,8 @@ int handle_ethernet_frame(struct interface *iface)
 
 	}
 
-	// Get data length and set ptr to given fcs 
-	data_len = frame_len - sizeof(struct ether_header) - sizeof(*fcs_ptr); 
-	fcs_ptr = (uint32_t *)(frame + sizeof(struct ether_header) + data_len);
-
 	// Verify fcs
-	if (is_valid_fcs(&frame, frame_len, data_len, *fcs_ptr) == 0) {
+	if (is_valid_fcs(frame, frame_len) == 0) {
 	
 		return -1;
 
@@ -313,17 +307,24 @@ int is_valid_frame_length(ssize_t frame_len)
  * Return 1 if fcs is correct
  * Return 0 otherwise 
  */
-int is_valid_fcs (uint8_t (*frame)[1600], size_t frame_len, ssize_t data_len, uint32_t fcs) 
+int is_valid_fcs (uint8_t *frame, size_t frame_len) 
 {
-	
+	size_t data_len;	
+	uint32_t *fcs_ptr;
 	uint32_t calculated_fcs;
 
+
+	// Get data length and set ptr to given fcs 
+	data_len = frame_len - sizeof(struct ether_header) - ETHER_FCS_SIZE; 
+	fcs_ptr = (uint32_t *)(frame + frame_len - ETHER_FCS_SIZE);
+
+
 	// Verify fcs
-	calculated_fcs = crc32(0, *frame, frame_len - sizeof(fcs));
+	calculated_fcs = crc32(0, frame, sizeof(struct ether_header) + data_len);
 		
-	if (calculated_fcs != fcs) {
+	if (calculated_fcs != *fcs_ptr) {
 		
-		printf("  ignoring %ld-byte frame (bad fcs: got 0x%08x, expected 0x%08x)\n", frame_len, fcs, calculated_fcs);
+		printf("  ignoring %ld-byte frame (bad fcs: got 0x%08x, expected 0x%08x)\n", frame_len, *fcs_ptr, calculated_fcs);
 		
 		return 0;
 	
