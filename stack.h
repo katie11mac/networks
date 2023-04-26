@@ -58,12 +58,12 @@ int route_ip_packet(uint8_t *packet, size_t packet_length);
 int is_valid_ip_checksum(struct ip_header *curr_packet);
 int is_valid_ihl(struct ip_header *curr_packet);
 int is_valid_ip_version(struct ip_header *curr_packet);
-int check_ip_dst(struct ip_header *curr_packet, struct interface *interfaces);
+int check_ip_dst(struct ip_header *curr_packet);
 uint32_t array_to_uint32(uint8_t array[4]);
-int determine_route(struct ip_header *curr_packet, struct interface *interfaces, struct route *routing_table);
-int determine_mac_from_ip(uint8_t *mac_dst, uint8_t *ip_addr, struct arp_entry *arp_cache);
+int determine_route(struct ip_header *curr_packet);
+int determine_mac_from_ip(uint8_t *mac_dst, uint8_t *ip_addr);
 
 // ICMP functions
-void send_icmp_message(uint8_t frame[1600], ssize_t frame_len, uint8_t type, uint8_t code, int (*fds)[2], struct interface *interfaces);
+void old_send_icmp_message(uint8_t frame[1600], ssize_t frame_len, uint8_t type, uint8_t code, int (*fds)[2]);
 
 #endif /* __STACK_H */

@@ -571,7 +571,7 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_length
 	// Get ip destination and check if it has a valid TTL accordingly 
 		
 	// Check ip destination 
-	ip_dst_addr_results = check_ip_dst(curr_packet, interfaces);
+	ip_dst_addr_results = check_ip_dst(curr_packet);
 
 
 	// curr_packet destined for one of my interfaces
@@ -618,7 +618,7 @@ int route_ip_packet(uint8_t *packet, size_t packet_length)
 
 			
 	// Determine whether there is a valid route in routing table
-	route_entry_num = determine_route(curr_packet, interfaces, routing_table); 
+	route_entry_num = determine_route(curr_packet); 
 
 	// No corresponding entry in routing table for IP packet
 	if (route_entry_num == -1) {
@@ -648,7 +648,7 @@ int route_ip_packet(uint8_t *packet, size_t packet_length)
 		printf("    destination host is on attached network\n");
 
 		// Find dst mac address to the current packets ip dest in arp cache 
-		found_mac_addr = determine_mac_from_ip(mac_dst, curr_packet->dst_addr, arp_cache);
+		found_mac_addr = determine_mac_from_ip(mac_dst, curr_packet->dst_addr);
 	
 	// If gateway of route is not 0.0.0.0, then we have to send packet to another router 
 	} else {
@@ -656,7 +656,7 @@ int route_ip_packet(uint8_t *packet, size_t packet_length)
 		printf("    packet must be routed\n");
 
 		// Find dst mac address to the current packets ip dest in arp cache 
-		found_mac_addr = determine_mac_from_ip(mac_dst, route_to_take.gateway, arp_cache);
+		found_mac_addr = determine_mac_from_ip(mac_dst, route_to_take.gateway);
 		
 	}
 
@@ -798,7 +798,7 @@ int is_valid_ip_version(struct ip_header *curr_packet)
  * Return index of interface it was destined for
  * Return -1 otherwise (meaning IP packet not destined for one of interfaces) 
  */
-int check_ip_dst(struct ip_header *curr_packet, struct interface *interfaces) 
+int check_ip_dst(struct ip_header *curr_packet) 
 {
 	
 	for (int i = 0; i < NUM_INTERFACES; i++) {
@@ -837,7 +837,7 @@ uint32_t array_to_uint32(uint8_t array[4])
  * Return index of interface the curr_packet should follow 
  * Return -1 if no interface has a matching route 
  */
-int determine_route(struct ip_header *curr_packet, struct interface *interfaces, struct route *routing_table) 
+int determine_route(struct ip_header *curr_packet) 
 {	
 
 	uint32_t given_ip_dst_addr = array_to_uint32(curr_packet->dst_addr);
@@ -878,7 +878,7 @@ int determine_route(struct ip_header *curr_packet, struct interface *interfaces,
  * Returns 1 if it found a successful ip/mac match
  * Returns 0 if it could not find a match
  */
-int determine_mac_from_ip(uint8_t *mac_dst, uint8_t *ip_addr, struct arp_entry *arp_cache)
+int determine_mac_from_ip(uint8_t *mac_dst, uint8_t *ip_addr)
 {
 
 	for (int i = 0; i < NUM_ARP_ENTRIES; i++) {
@@ -901,7 +901,7 @@ int determine_mac_from_ip(uint8_t *mac_dst, uint8_t *ip_addr, struct arp_entry *
 /*
  * Send an ICMP message for TLL exceeded, network unreachable or host unreachable using the original frame. 
  */
-void old_send_icmp_message(uint8_t frame[1600], ssize_t frame_len, uint8_t type, uint8_t code, int (*fds)[2], struct interface *interfaces)
+void old_send_icmp_message(uint8_t frame[1600], ssize_t frame_len, uint8_t type, uint8_t code, int (*fds)[2])
 {
 	// Set ethernet header information
 	struct ether_header *curr_frame = (struct ether_header *) frame;
