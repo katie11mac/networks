@@ -504,7 +504,7 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_length
 {
 
 	struct ip_header *curr_packet;
-	int ip_dst_addr_results;
+	struct interface *local_interface;
 			
 	// Interpret data as IPv4
 	curr_packet = (struct ip_header *) packet;
@@ -563,21 +563,21 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_length
 	// Get ip destination and check if it has a valid TTL accordingly 
 		
 	// Check ip destination 
-	ip_dst_addr_results = check_ip_dst(curr_packet);
+	local_interface = determine_local_interface(curr_packet);
 
 
 	// curr_packet destined for one of my interfaces
-	if (ip_dst_addr_results != -1) {
+	if (local_interface != NULL) {
 		
-		printf("  delivering locally: received packet from %u.%u.%u.%u for %u.%u.%u.%u (interface %d)\n", curr_packet->src_addr[0],
-																										  curr_packet->src_addr[1],
-																										  curr_packet->src_addr[2],
-																										  curr_packet->src_addr[3], 
-																					    interfaces[ip_dst_addr_results].ip_addr[0], 
-																					    interfaces[ip_dst_addr_results].ip_addr[1],
-																					    interfaces[ip_dst_addr_results].ip_addr[2],
-																					    interfaces[ip_dst_addr_results].ip_addr[3], 
-																											   ip_dst_addr_results); 
+		printf("  delivering locally: received packet from %u.%u.%u.%u for %u.%u.%u.%u (%s)\n", curr_packet->src_addr[0],
+																								curr_packet->src_addr[1],
+																								curr_packet->src_addr[2],
+																								curr_packet->src_addr[3], 
+																							 local_interface->ip_addr[0], 
+																							 local_interface->ip_addr[1],
+																							 local_interface->ip_addr[2],
+																							 local_interface->ip_addr[3], 
+																								   local_interface->name); 
 		return 0;
 
 	}
@@ -597,8 +597,7 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_length
 int route_ip_packet(uint8_t *packet, size_t packet_length)
 {
 	
-	int route_entry_num = -1; // Number entry in routing_table to take
-	struct route route_to_take;
+	struct route *route_to_take;
 	int found_mac_addr = 0;
 	uint8_t mac_dst[6];
 
@@ -610,10 +609,10 @@ int route_ip_packet(uint8_t *packet, size_t packet_length)
 
 			
 	// Determine whether there is a valid route in routing table
-	route_entry_num = determine_route(curr_packet); 
+	route_to_take = determine_route(curr_packet); 
 
 	// No corresponding entry in routing table for IP packet
-	if (route_entry_num == -1) {
+	if (route_to_take == NULL) {
 		
 		printf("    dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (no route)\n", curr_packet->src_addr[0],
 																			       curr_packet->src_addr[1], 
@@ -631,11 +630,11 @@ int route_ip_packet(uint8_t *packet, size_t packet_length)
 	}
 
 	// Found corresponding entry in routing table for IP packet, now find MAC address for next hop
-	route_to_take = routing_table[route_entry_num];
+	//route_to_take = routing_table[route_entry_num];
 	
 	// If gateway of route is 0.0.0.0 (meaning destination device is in one of networks router is connected to)
 	// then we can send the ethernet frame directly to the device 
-	if (memcmp(route_to_take.gateway, DIRECT_NETWORK_GATEWAY, 4) == 0) {	
+	if (memcmp(route_to_take->gateway, DIRECT_NETWORK_GATEWAY, 4) == 0) {	
 		
 		printf("    destination host is on attached network\n");
 
@@ -648,7 +647,7 @@ int route_ip_packet(uint8_t *packet, size_t packet_length)
 		printf("    packet must be routed\n");
 
 		// Find dst mac address to the current packets ip dest in arp cache 
-		found_mac_addr = determine_mac_from_ip(mac_dst, route_to_take.gateway);
+		found_mac_addr = determine_mac_from_ip(mac_dst, route_to_take->gateway);
 		
 	}
 
@@ -676,7 +675,7 @@ int route_ip_packet(uint8_t *packet, size_t packet_length)
 	// Set frame dst to mac address found in arp cache
 	memcpy(new_ether_header.dst, mac_dst, 6);
 	// Set frame src to corresponding leaving interface
-	memcpy(new_ether_header.src, interfaces[route_to_take.num_interface].ether_addr, 6); 
+	memcpy(new_ether_header.src, interfaces[route_to_take->num_interface].ether_addr, 6); 
 	memcpy(new_ether_header.type, ETHER_TYPE_IP, 2);
 
 	// Update the TTL 
@@ -689,7 +688,7 @@ int route_ip_packet(uint8_t *packet, size_t packet_length)
 	frame_len = compose_ether_frame(frame, &new_ether_header, packet, packet_length);
 
 	// Send to corresponding fd for vde switch connected to the interface
-	send_ethernet_frame(fds[route_to_take.num_interface][1], frame, frame_len);	
+	send_ethernet_frame(fds[route_to_take->num_interface][1], frame, frame_len);	
 	
 	return 0;
 
@@ -813,7 +812,7 @@ int is_valid_ip_version(struct ip_header *curr_packet)
  * Return index of interface it was destined for
  * Return -1 otherwise (meaning IP packet not destined for one of interfaces) 
  */
-int check_ip_dst(struct ip_header *curr_packet) 
+struct interface *determine_local_interface(struct ip_header *curr_packet) 
 {
 	
 	for (int i = 0; i < NUM_INTERFACES; i++) {
@@ -822,14 +821,14 @@ int check_ip_dst(struct ip_header *curr_packet)
 		if (memcmp(curr_packet->dst_addr, interfaces[i].ip_addr, 4) == 0) {
 	
 			// Can return immediately since IP addresses are unique
-			return i; 
+			return &interfaces[i]; 
 		
 		} 
 	
 	}
 
 	// curr_packet not for any of my interfaces
-	return -1;
+	return NULL;
 
 }
 
@@ -852,13 +851,13 @@ uint32_t array_to_uint32(uint8_t array[4])
  * Return index of interface the curr_packet should follow 
  * Return -1 if no interface has a matching route 
  */
-int determine_route(struct ip_header *curr_packet) 
+struct route *determine_route(struct ip_header *curr_packet) 
 {	
 
 	uint32_t given_ip_dst_addr = array_to_uint32(curr_packet->dst_addr);
 
 	uint32_t genmask_results = 0;
-	int route_entry_results = -1;
+	int route_entry_num = -1;
 
 	uint32_t curr_genmask;
 	uint32_t curr_dst;
@@ -874,15 +873,23 @@ int determine_route(struct ip_header *curr_packet)
 			if (curr_genmask > genmask_results) {
 				
 				genmask_results = curr_genmask;
-				route_entry_results = i;
+				route_entry_num = i;
 			
 			}
 
 		}
 
 	}
-
-	return route_entry_results;
+	
+	if (route_entry_num == -1) {
+		
+		return NULL;
+	
+	} else {
+		
+		return &routing_table[route_entry_num];
+	
+	}
 
 }
 
