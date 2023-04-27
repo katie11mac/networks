@@ -20,7 +20,7 @@ int fds[NUM_INTERFACES][2];
 int main(int argc, char *argv[])
 {
 	
-	// Initialize interfaces, arp cache, and routing table
+	// Initialize fds for reading and sending, interfaces, arp cache, and routing table
 	init_fds();
 	init_interfaces();
 	init_routing_table();
@@ -264,8 +264,6 @@ int handle_ethernet_frame(struct interface *iface)
 	}
 		
 }
-
-
 
 
 /*
@@ -564,7 +562,7 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_length
 																					   curr_packet->dst_addr[2], 
 																					   curr_packet->dst_addr[3]);
 
-		//send_icmp_message(frame, frame_len, 11, 0, fds, interfaces);
+		send_icmp_message(packet, packet_length, 11, 0);
 
 		return -1;
 	}
@@ -639,9 +637,6 @@ int route_ip_packet(uint8_t *packet, size_t packet_length)
 
 	}
 
-	// Found corresponding entry in routing table for IP packet, now find MAC address for next hop
-	//route_to_take = routing_table[route_entry_num];
-	
 	// If gateway of route is 0.0.0.0 (meaning destination device is in one of networks router is connected to)
 	// then we can send the ethernet frame directly to the device 
 	if (memcmp(route_to_take->gateway, DIRECT_NETWORK_GATEWAY, 4) == 0) {	
@@ -931,40 +926,54 @@ int determine_mac_from_ip(uint8_t *mac_dst, uint8_t *ip_addr)
 }
 
 
-/*
-void send_icmp_message(uint8_t *packet, size_t packet_len, struct interface *iface, uint8_t type, uint8_t code)
+void send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_len, uint8_t type, uint8_t code)
 {
-
-	struct ether_header new_ether_header;
+	// original packet length will be both the ip header and its data 	
+	struct icmp_header new_icmp_header; 
+	uint8_t icmp_packet[sizeof(struct icmp_header) + ICMP_MAX_DATA_SIZE];
+	size_t icmp_packet_len;
+	size_t original_bytes_num;
+	size_t original_ip_data_len = original_ip_packet_len - sizeof(struct ip_header);
+	
 	struct ip_header new_ip_header;
-	struct icmp_header new_icmp_header;
+	struct ip_header *original_ip_header = (struct ip_header *) original_ip_packet;
+	uint8_t *ip_packet; // cannot determine size yet since it's dependent on icmp_packet_len
 
-	struct ip_header *curr_ip_header = (struct ip_header *) packet;
 
-	// HOW DO YOU PASS THE ORIGINAL ETHER SRC ALL THE WAY OVER HERE? 
-	memcpy(new_ether_header.dst_addr, NULL, 6);
-	memcpy(new_ether_header.src_addr, iface->ether_addr, 6);
 
-	memcpy(new_ip_header.dst_addr, curr_ip_header->src_addr, 4);
-	memcpy(new_ip_header.src_addr, iface->ip_addr, 4);
-	new_ip_header.ttl = curr_ip_header->ttl - 1; // SINCE TTL EXCEEDED SHOULD THIS STILL BE new_ttl OR SHOULD IT RESET???
-	curr_packet->protocol = 1;
+	if (original_ip_data_len < ICMP_IP_ORIGINAL_DATA_SIZE) {
+		original_bytes_num = original_ip_data_len;
+	} else {
+		original_bytes_num = ICMP_IP_ORIGINAL_DATA_SIZE;
+	}
 
-	memset(&new_icmp_header, '\x00', sizeof(struct icmp_header)); // set new_icmp to avoid keeping unwanted data from original frame
-    new_icmp_header.type = type;
-    new_icmp_header.code = code;
-    memcpy(&new_icmp_header.original_ip_header, curr_packet, sizeof(struct ip_header));
-    memcpy(&new_icmp_header.original_data, (uint8_t *)curr_packet + sizeof(struct ip_header), sizeof(new_icmp.original_data));
-    new_icmp.checksum = 0;
-    new_icmp.checksum = checksum(&new_icmp, sizeof(struct icmp_header)); // does this need to be converted from hton
-    memcpy(frame + sizeof(struct ether_header) + sizeof(struct ip_header), &new_icmp, sizeof(struct icmp_header));
+	icmp_packet_len = sizeof(struct icmp_header) + sizeof(struct ip_header) + original_bytes_num;
+
+	new_icmp_header.type = type;
+	new_icmp_header.code = code; 
+	new_icmp_header.checksum = 0;
+	new_icmp_header.unused = 0;
+	
+	memcpy(icmp_packet, &new_icmp_header, sizeof(struct icmp_header));
+	memcpy(icmp_packet + sizeof(struct icmp_header), original_ip_packet, sizeof(struct ip_header) + original_bytes_num);;
+	new_icmp_header.checksum = checksum(icmp_packet, icmp_packet_len); // does this need to be converted from hton
+	memcpy(icmp_packet, &new_icmp_header, sizeof(struct icmp_header)); // redundant but whatever
+
+	memset(&new_ip_header, '\0', sizeof(struct ip_header));
+	memcpy(&new_ip_header.version_and_ihl, "\x45", 1);
+	new_ip_header.total_length = htons(sizeof(struct ip_header) + icmp_packet_len);
+	new_ip_header.ttl = 64;
+	new_ip_header.protocol = 1;
+	memcpy(new_ip_header.dst_addr, original_ip_header->src_addr, 4);
+
+	
 
 }
-*/
 
 /*
  * Send an ICMP message for TLL exceeded, network unreachable or host unreachable using the original frame. 
  */
+/*
 void old_send_icmp_message(uint8_t frame[1600], ssize_t frame_len, uint8_t type, uint8_t code, int (*fds)[2])
 {
 	// Set ethernet header information
@@ -1012,6 +1021,6 @@ void old_send_icmp_message(uint8_t frame[1600], ssize_t frame_len, uint8_t type,
 	send_ethernet_frame(fds[RECEIVING_INTERFACE][1], frame, frame_len);
 	
 }
-
+*/
 
 

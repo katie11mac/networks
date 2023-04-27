@@ -58,8 +58,6 @@ struct icmp_header {
     uint8_t code;
     uint16_t checksum;
     uint32_t unused;
-    struct ip_header original_ip_header;
-    uint8_t original_data[64];
 };
 
 #endif /* __STACK_STRUCTS_H */

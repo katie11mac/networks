@@ -29,6 +29,10 @@
 #define IP_INITIAL_TTL 64
 #define DIRECT_NETWORK_GATEWAY "\x00\x00\x00\x00"
 
+// ICMP
+#define ICMP_IP_ORIGINAL_DATA_SIZE 64 / 8
+#define ICMP_MAX_DATA_SIZE sizeof(struct ip_header) + ICMP_IP_ORIGINAL_DATA_SIZE
+
 // Stack
 #define RECEIVING_INTERFACE 0
 #define NUM_INTERFACES 4
@@ -66,6 +70,7 @@ struct route *determine_route(struct ip_header *curr_packet);
 int determine_mac_from_ip(uint8_t *mac_dst, uint8_t *ip_addr);
 
 // ICMP functions
+void send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_len, uint8_t type, uint8_t code);
 void old_send_icmp_message(uint8_t frame[1600], ssize_t frame_len, uint8_t type, uint8_t code, int (*fds)[2]);
 
 #endif /* __STACK_H */
