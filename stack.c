@@ -606,8 +606,7 @@ int route_ip_packet(uint8_t *packet, size_t packet_length)
 {
 	
 	struct route *route_to_take;
-	int found_mac_addr = 0;
-	uint8_t mac_dst[6];
+	struct arp_entry *corresponding_arp_entry;
 
 	struct ether_header new_ether_header;
 	uint8_t frame[ETHER_MAX_FRAME_SIZE];
@@ -643,21 +642,19 @@ int route_ip_packet(uint8_t *packet, size_t packet_length)
 		
 		printf("    destination host is on attached network\n");
 
-		// Find dst mac address to the current packets ip dest in arp cache 
-		found_mac_addr = determine_mac_from_ip(mac_dst, curr_packet->dst_addr);
+		corresponding_arp_entry = determine_mac_arp(curr_packet->dst_addr);
 	
 	// If gateway of route is not 0.0.0.0, then we have to send packet to another router 
 	} else {
 		
 		printf("    packet must be routed\n");
 
-		// Find dst mac address to the current packets ip dest in arp cache 
-		found_mac_addr = determine_mac_from_ip(mac_dst, route_to_take->gateway);
+		corresponding_arp_entry = determine_mac_arp(route_to_take->gateway);
 		
 	}
 
 	// Could not find corresponding mac address for route
-	if (found_mac_addr == 0) {
+	if (corresponding_arp_entry == NULL) {
 		
 		printf("    dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (no ARP)\n", curr_packet->src_addr[0],
 																			     curr_packet->src_addr[1], 
@@ -678,7 +675,7 @@ int route_ip_packet(uint8_t *packet, size_t packet_length)
 	// Rewrite the frame and forward it to next hop 
 	
 	// Set frame dst to mac address found in arp cache
-	memcpy(new_ether_header.dst, mac_dst, 6);
+	memcpy(new_ether_header.dst, corresponding_arp_entry->ether_addr, 6);
 	// Set frame src to corresponding leaving interface
 	memcpy(new_ether_header.src, interfaces[route_to_take->num_interface].ether_addr, 6); 
 	memcpy(new_ether_header.type, ETHER_TYPE_IP, 2);
@@ -905,23 +902,21 @@ struct route *determine_route(struct ip_header *curr_packet)
  * Returns 1 if it found a successful ip/mac match
  * Returns 0 if it could not find a match
  */
-int determine_mac_from_ip(uint8_t *mac_dst, uint8_t *ip_addr)
+struct arp_entry *determine_mac_arp(uint8_t *ip_addr)
 {
 
 	for (int i = 0; i < NUM_ARP_ENTRIES; i++) {
 		
 		// Found matching IP address
 		if (memcmp(ip_addr, arp_cache[i].ip_addr, 4) == 0) {
-			
-			memcpy(mac_dst, arp_cache[i].ether_addr, 6);
-			
-			return 1;
 		
+			return &arp_cache[i];
+
 		}
 	
 	}
 	
-	return 0;
+	return NULL;
 
 }
 

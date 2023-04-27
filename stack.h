@@ -67,7 +67,7 @@ int is_valid_ip_version(struct ip_header *curr_packet);
 struct interface *determine_local_interface(struct ip_header *curr_packet);
 uint32_t array_to_uint32(uint8_t array[4]);
 struct route *determine_route(struct ip_header *curr_packet);
-int determine_mac_from_ip(uint8_t *mac_dst, uint8_t *ip_addr);
+struct arp_entry *determine_mac_arp(uint8_t *ip_addr);
 
 // ICMP functions
 void send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_len, uint8_t type, uint8_t code);
