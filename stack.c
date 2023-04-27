@@ -1,15 +1,20 @@
 /*
  * stack.c
  *
- * Network Topology 
- *
+ * Network Configuration
+ * - i0 on net0: 1.2.3.4/24
+ * - i1 on net1: 5.6.7.8/24
+ * - i2 on net2: 9.10.11.12/24
+ * - i3 on net3: 13.14.15.16/24
+ * - net4: 17.18.19.0/24 through gateway 13.14.15.17 
+ * - net5: 11.11.0.0/16 through gateway 9.10.11.13 (no ARP though) 
  */
 
 #include "stack.h"
 
-struct interface *interfaces;
-struct arp_entry *arp_cache;
-struct route *routing_table;
+struct interface interfaces[NUM_INTERFACES];
+struct arp_entry arp_cache[NUM_ARP_ENTRIES];
+struct route routing_table[NUM_ROUTES];
 int fds[NUM_INTERFACES][2];
 
 int main(int argc, char *argv[])
@@ -42,9 +47,9 @@ int main(int argc, char *argv[])
 	}
 	
 	// Initialize interfaces, arp cache, and routing table
-	init_interfaces(&interfaces);
-	init_routing_table(&routing_table);
-	init_arp_cache(&arp_cache); 
+	init_interfaces();
+	init_routing_table();
+	init_arp_cache(); 
 
 	// Process frames until user terminates with Control-C
 	// (Assignment 3 Part I: Only listening on interface 0)
@@ -54,10 +59,6 @@ int main(int argc, char *argv[])
 	
 	}
 
-	free(interfaces);
-	free(arp_cache);
-	free(routing_table);
-
     return 0;
 
 }
@@ -65,41 +66,36 @@ int main(int argc, char *argv[])
 /*
  * Initialize interfaces with hardcoded values
  */
-void init_interfaces(struct interface **interfaces) 
+void init_interfaces() 
 {
 	
-	if ((*interfaces = (struct interface *) malloc(NUM_INTERFACES * sizeof(struct interface))) == NULL) {
-        printf("malloc failed\n");
-		return;
-	}
-
     // Interface 0 - WILL BE RECIEVING IN PART I
-    memcpy((*interfaces)[0].ether_addr, "\x01\x02\x03\x04\xff\xff", 6);
-    memcpy((*interfaces)[0].ip_addr, "\x01\x02\x03\x04", 4);
-	(*interfaces)[0].name = "i0";
-	(*interfaces)[0].in_fd = fds[0][0];
-	(*interfaces)[0].out_fd = fds[0][1];
+    memcpy(interfaces[0].ether_addr, "\x01\x02\x03\x04\xff\xff", 6);
+    memcpy(interfaces[0].ip_addr, "\x01\x02\x03\x04", 4);
+	interfaces[0].name = "i0";
+	interfaces[0].in_fd = fds[0][0];
+	interfaces[0].out_fd = fds[0][1];
 
     // Interface 1
-    memcpy((*interfaces)[1].ether_addr, "\x05\x06\x07\x08\xff\xff", 6);
-    memcpy((*interfaces)[1].ip_addr, "\x05\x06\x07\x08", 4);
-	(*interfaces)[1].name = "i1";
-	(*interfaces)[1].in_fd = fds[1][0];
-	(*interfaces)[1].out_fd = fds[1][1];
+    memcpy(interfaces[1].ether_addr, "\x05\x06\x07\x08\xff\xff", 6);
+    memcpy(interfaces[1].ip_addr, "\x05\x06\x07\x08", 4);
+	interfaces[1].name = "i1";
+	interfaces[1].in_fd = fds[1][0];
+	interfaces[1].out_fd = fds[1][1];
 
     // Interface 2
-    memcpy((*interfaces)[2].ether_addr, "\x09\x0a\x0b\x0c\xff\xff", 6);
-    memcpy((*interfaces)[2].ip_addr, "\x09\x0a\x0b\x0c", 4);
-	(*interfaces)[2].name = "i2";
-	(*interfaces)[2].in_fd = fds[2][0];
-	(*interfaces)[2].out_fd = fds[2][1];
+    memcpy(interfaces[2].ether_addr, "\x09\x0a\x0b\x0c\xff\xff", 6);
+    memcpy(interfaces[2].ip_addr, "\x09\x0a\x0b\x0c", 4);
+	interfaces[2].name = "i2";
+	interfaces[2].in_fd = fds[2][0];
+	interfaces[2].out_fd = fds[2][1];
 
     // Interface 3
-    memcpy((*interfaces)[3].ether_addr, "\x0d\x0e\x0f\x10\xff\xff", 6);
-    memcpy((*interfaces)[3].ip_addr, "\x0d\x0e\x0f\x10", 4);
-	(*interfaces)[3].name = "i3";
-	(*interfaces)[3].in_fd = fds[3][0];
-	(*interfaces)[3].out_fd = fds[3][1];
+    memcpy(interfaces[3].ether_addr, "\x0d\x0e\x0f\x10\xff\xff", 6);
+    memcpy(interfaces[3].ip_addr, "\x0d\x0e\x0f\x10", 4);
+	interfaces[3].name = "i3";
+	interfaces[3].in_fd = fds[3][0];
+	interfaces[3].out_fd = fds[3][1];
 
 }
 
@@ -107,49 +103,44 @@ void init_interfaces(struct interface **interfaces)
 /*
  * Initialize routing table with hard coded routes 
  */
-void init_routing_table(struct route **routing_table) 
+void init_routing_table() 
 {	
 	
-	if ((*routing_table = (struct route *) malloc(NUM_ROUTES * sizeof(struct route))) == NULL) {
-		printf("malloc failed\n");
-		return;
-	}
-	
 	// Route 0 (interface 0)
-	(*routing_table)[0].num_interface = 0;
-	memcpy((*routing_table)[0].dst, "\x01\x02\x03\x00", 4);
-	memcpy((*routing_table)[0].gateway, "\x00\x00\x00\x00", 4);
-	memcpy((*routing_table)[0].genmask, "\xff\xff\xff\x00", 4);
+	routing_table[0].num_interface = 0;
+	memcpy(routing_table[0].dst, "\x01\x02\x03\x00", 4);
+	memcpy(routing_table[0].gateway, "\x00\x00\x00\x00", 4);
+	memcpy(routing_table[0].genmask, "\xff\xff\xff\x00", 4);
 
 	// Route 1 (interface 1)
-	(*routing_table)[1].num_interface = 1;
-	memcpy((*routing_table)[1].dst, "\x05\x06\x07\x00", 4);	
-	memcpy((*routing_table)[1].gateway, "\x00\x00\x00\x00", 4);
-	memcpy((*routing_table)[1].genmask, "\xff\xff\xff\x00", 4);
+	routing_table[1].num_interface = 1;
+	memcpy(routing_table[1].dst, "\x05\x06\x07\x00", 4);	
+	memcpy(routing_table[1].gateway, "\x00\x00\x00\x00", 4);
+	memcpy(routing_table[1].genmask, "\xff\xff\xff\x00", 4);
 	
 	// Route 2 (interface 2)
-	(*routing_table)[2].num_interface = 2;
-	memcpy((*routing_table)[2].dst, "\x09\x0a\x0b\x00", 4);
-	memcpy((*routing_table)[2].gateway, "\x00\x00\x00\x00", 4);
-	memcpy((*routing_table)[2].genmask, "\xff\xff\xff\x00", 4);
+	routing_table[2].num_interface = 2;
+	memcpy(routing_table[2].dst, "\x09\x0a\x0b\x00", 4);
+	memcpy(routing_table[2].gateway, "\x00\x00\x00\x00", 4);
+	memcpy(routing_table[2].genmask, "\xff\xff\xff\x00", 4);
 
 	// Route 3 (interface 3)
-	(*routing_table)[3].num_interface = 3;
-	memcpy((*routing_table)[3].dst, "\x0d\x0e\x0f\x00", 4);
-	memcpy((*routing_table)[3].gateway, "\x00\x00\x00\x00", 4);
-	memcpy((*routing_table)[3].genmask, "\xff\xff\xff\x00", 4);
+	routing_table[3].num_interface = 3;
+	memcpy(routing_table[3].dst, "\x0d\x0e\x0f\x00", 4);
+	memcpy(routing_table[3].gateway, "\x00\x00\x00\x00", 4);
+	memcpy(routing_table[3].genmask, "\xff\xff\xff\x00", 4);
 	
 	// Route 4 (to another router through interface 3)
-	(*routing_table)[4].num_interface = 3;
-	memcpy((*routing_table)[4].dst, "\x11\x12\x13\x00", 4);
-	memcpy((*routing_table)[4].gateway, "\x0d\x0e\x0f\x11", 4);
-	memcpy((*routing_table)[4].genmask, "\xff\xff\xff\x00", 4);
+	routing_table[4].num_interface = 3;
+	memcpy(routing_table[4].dst, "\x11\x12\x13\x00", 4);
+	memcpy(routing_table[4].gateway, "\x0d\x0e\x0f\x11", 4);
+	memcpy(routing_table[4].genmask, "\xff\xff\xff\x00", 4);
 
 	// Route 5 (to another router through interface 2)
-	(*routing_table)[5].num_interface = 2;
-    memcpy((*routing_table)[5].dst, "\x0b\x0b\x00\x00", 4);
-    memcpy((*routing_table)[5].gateway, "\x09\x0a\x0b\x0d", 4);
-    memcpy((*routing_table)[5].genmask, "\xff\xff\x00\x00", 4);	
+	routing_table[5].num_interface = 2;
+    memcpy(routing_table[5].dst, "\x0b\x0b\x00\x00", 4);
+    memcpy(routing_table[5].gateway, "\x09\x0a\x0b\x0d", 4);
+    memcpy(routing_table[5].genmask, "\xff\xff\x00\x00", 4);	
 
 }
 
@@ -157,25 +148,20 @@ void init_routing_table(struct route **routing_table)
 /*
  * Initialize arp cache with hard coded values 
  */
-void init_arp_cache(struct arp_entry **arp_cache) 
+void init_arp_cache() 
 {	
 	
-	if ((*arp_cache = (struct arp_entry *) malloc(NUM_ARP_ENTRIES * sizeof(struct arp_entry))) == NULL) {
-		printf("malloc failed\n");
-		return;
-	}
-	
 	// Device A
-	memcpy((*arp_cache)[0].ether_addr, "\x11\x22\x33\x00\xff\xff", 6);
-	memcpy((*arp_cache)[0].ip_addr, "\x01\x02\x03\x00", 4);
+	memcpy(arp_cache[0].ether_addr, "\x11\x22\x33\x00\xff\xff", 6);
+	memcpy(arp_cache[0].ip_addr, "\x01\x02\x03\x00", 4);
 
 	// Device H
-	memcpy((*arp_cache)[1].ether_addr, "\xdd\xee\xff\x00\xff\xff", 6);
-	memcpy((*arp_cache)[1].ip_addr, "\x0d\x0e\x0f\x00", 4);
+	memcpy(arp_cache[1].ether_addr, "\xdd\xee\xff\x00\xff\xff", 6);
+	memcpy(arp_cache[1].ip_addr, "\x0d\x0e\x0f\x00", 4);
 
 	// Router 1 (connected to I3) 
-	memcpy((*arp_cache)[2].ether_addr, "\xdd\xee\xff\x11\xff\xff", 6);
-	memcpy((*arp_cache)[2].ip_addr, "\x0d\x0e\x0f\x11", 4);
+	memcpy(arp_cache[2].ether_addr, "\xdd\xee\xff\x11\xff\xff", 6);
+	memcpy(arp_cache[2].ip_addr, "\x0d\x0e\x0f\x11", 4);
 
 }
 
@@ -444,18 +430,23 @@ int handle_arp_packet(uint8_t *src, struct interface *iface, uint8_t *packet, in
 		// Verify the protocol size for ethernet type
 		if (memcmp(&curr_arp_packet->protocol_size, "\x04", 1) != 0) {
 			
-			printf("    ignoring arp packet with bad protocol size from %s", binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
+			printf("    ignoring arp packet with bad protocol size from %s", 
+					binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
 			return -1;
 		
 		}
 
 	} else {
 		
-		printf("    ignoring arp packet with incompatible protocol type from %s", binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
+		printf("    ignoring arp packet with incompatible protocol type from %s", 
+				binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
 		return -1;
 	
 	}
-	
+
+
+	// -----------------------------------TO-DO: MAKE THIS ANOTHER FUNCTION-----------------------------------
+
 	// Respond to requests 
 	given_opcode = ntohs(curr_arp_packet->opcode);
 	
@@ -705,6 +696,29 @@ int route_ip_packet(uint8_t *packet, size_t packet_length)
 }
 
 /*
+ */
+int compose_ip_packet(uint8_t *packet, struct ip_header *ip_header, uint8_t *payload, size_t payload_len) 
+{
+
+	int ihl; 
+	uint16_t total_length; 
+	uint16_t header_checksum; 
+
+	ihl = (ip_header->version_and_ihl & 0xf) * 4;
+	total_length = ihl + payload_len; 
+	ip_header->total_length = htons(total_length);
+
+	memcpy(packet, ip_header, ihl);
+	memcpy(packet + ihl, payload, payload_len);
+
+	header_checksum = checksum((struct ip_header *)packet, ihl);
+	((struct ip_header *) packet)->header_checksum = header_checksum;
+
+	return total_length;
+}
+
+
+/*
  * Check if inital checksum in IP header is correct by recalculating it.
  *
  * Return 1 if checksum is correct
@@ -898,6 +912,38 @@ int determine_mac_from_ip(uint8_t *mac_dst, uint8_t *ip_addr)
 	return 0;
 
 }
+
+
+/*
+void send_icmp_message(uint8_t *packet, size_t packet_len, struct interface *iface, uint8_t type, uint8_t code)
+{
+
+	struct ether_header new_ether_header;
+	struct ip_header new_ip_header;
+	struct icmp_header new_icmp_header;
+
+	struct ip_header *curr_ip_header = (struct ip_header *) packet;
+
+	// HOW DO YOU PASS THE ORIGINAL ETHER SRC ALL THE WAY OVER HERE? 
+	memcpy(new_ether_header.dst_addr, NULL, 6);
+	memcpy(new_ether_header.src_addr, iface->ether_addr, 6);
+
+	memcpy(new_ip_header.dst_addr, curr_ip_header->src_addr, 4);
+	memcpy(new_ip_header.src_addr, iface->ip_addr, 4);
+	new_ip_header.ttl = curr_ip_header->ttl - 1; // SINCE TTL EXCEEDED SHOULD THIS STILL BE new_ttl OR SHOULD IT RESET???
+	curr_packet->protocol = 1;
+
+	memset(&new_icmp_header, '\x00', sizeof(struct icmp_header)); // set new_icmp to avoid keeping unwanted data from original frame
+    new_icmp_header.type = type;
+    new_icmp_header.code = code;
+    memcpy(&new_icmp_header.original_ip_header, curr_packet, sizeof(struct ip_header));
+    memcpy(&new_icmp_header.original_data, (uint8_t *)curr_packet + sizeof(struct ip_header), sizeof(new_icmp.original_data));
+    new_icmp.checksum = 0;
+    new_icmp.checksum = checksum(&new_icmp, sizeof(struct icmp_header)); // does this need to be converted from hton
+    memcpy(frame + sizeof(struct ether_header) + sizeof(struct ip_header), &new_icmp, sizeof(struct icmp_header));
+
+}
+*/
 
 /*
  * Send an ICMP message for TLL exceeded, network unreachable or host unreachable using the original frame. 
