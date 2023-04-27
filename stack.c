@@ -511,33 +511,33 @@ int handle_arp_packet(uint8_t *src, struct interface *iface, uint8_t *packet, in
 int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_length)
 {
 
-	struct ip_header *curr_packet;
+	struct ip_header *curr_ip_header;
 	struct interface *local_interface;
 			
 	// Interpret data as IPv4
-	curr_packet = (struct ip_header *) packet;
+	curr_ip_header = (struct ip_header *) packet;
 	
 	// Check if total length is correct 
-	if (packet_length != ntohs(curr_packet->total_length)) {
+	if (packet_length != ntohs(curr_ip_header->total_length)) {
 		
-		printf("    dropping packet from %u.%u.%u.%u (wrong length)\n", curr_packet->src_addr[0],
-																	    curr_packet->src_addr[1],
-																	    curr_packet->src_addr[2],
-																	    curr_packet->src_addr[3]);
+		printf("    dropping packet from %u.%u.%u.%u (wrong length)\n", curr_ip_header->src_addr[0],
+																	    curr_ip_header->src_addr[1],
+																	    curr_ip_header->src_addr[2],
+																	    curr_ip_header->src_addr[3]);
 
 		return -1;
 	
 	}
 
 	// Check if the header checksum is correct 
-	if (is_valid_ip_checksum(curr_packet) == 0) {	
+	if (is_valid_ip_checksum(curr_ip_header) == 0) {
 		
 		return -1;
 
 	}
 	
 	// Check IHL 
-	if (is_valid_ihl(curr_packet) == 0) {
+	if (is_valid_ihl(curr_ip_header) == 0) {
 		
 		return -1;
 
@@ -545,22 +545,22 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_length
 	
 
 	// Check if provided recognized IP version (only IPv4)
-	if (is_valid_ip_version(curr_packet) == 0) {
+	if (is_valid_ip_version(curr_ip_header) == 0) {
 		
 		return -1;
 
 	}
 
 	// Check if valid TTL 
-	if(curr_packet->ttl == 0) {
-		printf("    dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (TTL exceeded)\n", curr_packet->src_addr[0], 
-																					   curr_packet->src_addr[1], 
-																					   curr_packet->src_addr[2], 
-																					   curr_packet->src_addr[3], 
-																					   curr_packet->dst_addr[0], 
-																					   curr_packet->dst_addr[1], 
-																					   curr_packet->dst_addr[2], 
-																					   curr_packet->dst_addr[3]);
+	if(curr_ip_header->ttl == 0) {
+		printf("    dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (TTL exceeded)\n", curr_ip_header->src_addr[0], 
+																					   curr_ip_header->src_addr[1], 
+																					   curr_ip_header->src_addr[2], 
+																					   curr_ip_header->src_addr[3], 
+																					   curr_ip_header->dst_addr[0], 
+																					   curr_ip_header->dst_addr[1], 
+																					   curr_ip_header->dst_addr[2], 
+																					   curr_ip_header->dst_addr[3]);
 
 		send_icmp_message(packet, packet_length, 11, 0);
 
@@ -571,16 +571,16 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_length
 	// Get ip destination and check if it has a valid TTL accordingly 
 		
 	// Check ip destination 
-	local_interface = determine_local_interface(curr_packet);
+	local_interface = determine_local_interface(curr_ip_header);
 
 
-	// curr_packet destined for one of my interfaces
+	// curr_ip_header destined for one of my interfaces
 	if (local_interface != NULL) {
 		
-		printf("  delivering locally: received packet from %u.%u.%u.%u for %u.%u.%u.%u (%s)\n", curr_packet->src_addr[0],
-																								curr_packet->src_addr[1],
-																								curr_packet->src_addr[2],
-																								curr_packet->src_addr[3], 
+		printf("  delivering locally: received packet from %u.%u.%u.%u for %u.%u.%u.%u (%s)\n", curr_ip_header->src_addr[0],
+																								curr_ip_header->src_addr[1],
+																								curr_ip_header->src_addr[2],
+																								curr_ip_header->src_addr[3], 
 																							 local_interface->ip_addr[0], 
 																							 local_interface->ip_addr[1],
 																							 local_interface->ip_addr[2],
@@ -590,7 +590,7 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_length
 
 	}
 		
-	// curr_packet not for one of my interfaces (needs routing) 
+	// curr_ip_header not for one of my interfaces (needs routing) 
 	return route_ip_packet(packet, packet_length);
 
 }
@@ -612,23 +612,23 @@ int route_ip_packet(uint8_t *packet, size_t packet_length)
 	uint8_t frame[ETHER_MAX_FRAME_SIZE];
 	size_t frame_len;
 
-	struct ip_header *curr_packet = (struct ip_header *) packet;
+	struct ip_header *curr_ip_header = (struct ip_header *) packet;
 
 			
 	// Determine whether there is a valid route in routing table
-	route_to_take = determine_route(curr_packet); 
+	route_to_take = determine_route(curr_ip_header); 
 
 	// No corresponding entry in routing table for IP packet
 	if (route_to_take == NULL) {
 		
-		printf("    dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (no route)\n", curr_packet->src_addr[0],
-																			       curr_packet->src_addr[1], 
-																			       curr_packet->src_addr[2], 
-																			       curr_packet->src_addr[3], 
-																				   curr_packet->dst_addr[0], 
-																			       curr_packet->dst_addr[1], 
-																			       curr_packet->dst_addr[2], 
-																			       curr_packet->dst_addr[3]);
+		printf("    dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (no route)\n", curr_ip_header->src_addr[0],
+																			       curr_ip_header->src_addr[1], 
+																			       curr_ip_header->src_addr[2], 
+																			       curr_ip_header->src_addr[3], 
+																				   curr_ip_header->dst_addr[0], 
+																			       curr_ip_header->dst_addr[1], 
+																			       curr_ip_header->dst_addr[2], 
+																			       curr_ip_header->dst_addr[3]);
 		send_icmp_message(packet, packet_length, 3, 0);
 		
 		return -1;
@@ -641,7 +641,7 @@ int route_ip_packet(uint8_t *packet, size_t packet_length)
 		
 		printf("    destination host is on attached network\n");
 
-		corresponding_arp_entry = determine_mac_arp(curr_packet->dst_addr);
+		corresponding_arp_entry = determine_mac_arp(curr_ip_header->dst_addr);
 	
 	// If gateway of route is not 0.0.0.0, then we have to send packet to another router 
 	} else {
@@ -655,14 +655,14 @@ int route_ip_packet(uint8_t *packet, size_t packet_length)
 	// Could not find corresponding mac address for route
 	if (corresponding_arp_entry == NULL) {
 		
-		printf("    dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (no ARP)\n", curr_packet->src_addr[0],
-																			     curr_packet->src_addr[1], 
-																			     curr_packet->src_addr[2], 
-																			     curr_packet->src_addr[3], 
-																			     curr_packet->dst_addr[0], 
-																			     curr_packet->dst_addr[1], 
-																			     curr_packet->dst_addr[2], 
-																			     curr_packet->dst_addr[3]);
+		printf("    dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (no ARP)\n", curr_ip_header->src_addr[0],
+																			     curr_ip_header->src_addr[1], 
+																			     curr_ip_header->src_addr[2], 
+																			     curr_ip_header->src_addr[3], 
+																			     curr_ip_header->dst_addr[0], 
+																			     curr_ip_header->dst_addr[1], 
+																			     curr_ip_header->dst_addr[2], 
+																			     curr_ip_header->dst_addr[3]);
 		
 		send_icmp_message(packet, packet_length, 3, 1);
 		
@@ -680,11 +680,11 @@ int route_ip_packet(uint8_t *packet, size_t packet_length)
 	memcpy(new_ether_header.type, ETHER_TYPE_IP, 2);
 
 	// Update the TTL 
-	curr_packet->ttl = curr_packet->ttl - 1;
+	curr_ip_header->ttl = curr_ip_header->ttl - 1;
 
 	// Recalculate IP header checksum since changed TTL
-	curr_packet->header_checksum = 0;
-	curr_packet->header_checksum = checksum(curr_packet, (curr_packet->version_and_ihl & 0x0f) * 4);
+	curr_ip_header->header_checksum = 0;
+	curr_ip_header->header_checksum = checksum(curr_ip_header, (curr_ip_header->version_and_ihl & 0x0f) * 4);
 
 	frame_len = compose_ether_frame(frame, &new_ether_header, packet, packet_length);
 
@@ -724,34 +724,34 @@ int compose_ip_packet(uint8_t *packet, struct ip_header *ip_header, uint8_t *pay
  * Return 1 if checksum is correct
  * Return 0 otherwise
  */
-int is_valid_ip_checksum(struct ip_header *curr_packet)
+int is_valid_ip_checksum(struct ip_header *curr_ip_header)
 {
 
 	uint16_t given_checksum;
 	uint8_t given_ihl;
 
 	// Get given IHL 
-	given_ihl = curr_packet->version_and_ihl & 0x0f; // low nibble
+	given_ihl = curr_ip_header->version_and_ihl & 0x0f; // low nibble
 
 	// Get given ip checksum 
-	given_checksum = curr_packet->header_checksum;
+	given_checksum = curr_ip_header->header_checksum;
 	
 	// Reset the header checksum to recalculate it correctly
-	curr_packet->header_checksum = 0;
+	curr_ip_header->header_checksum = 0;
 
-	if (given_checksum != checksum(curr_packet, (given_ihl * 32) / 8)) {
+	if (given_checksum != checksum(curr_ip_header, (given_ihl * 32) / 8)) {
 		
-		printf("    dropping packet from %u.%u.%u.%u (bad IP header checksum)\n", curr_packet->src_addr[0], 
-																				  curr_packet->src_addr[1], 
-																				  curr_packet->src_addr[2], 
-																				  curr_packet->src_addr[3]);
+		printf("    dropping packet from %u.%u.%u.%u (bad IP header checksum)\n", curr_ip_header->src_addr[0], 
+																				  curr_ip_header->src_addr[1], 
+																				  curr_ip_header->src_addr[2], 
+																				  curr_ip_header->src_addr[3]);
 		
 		return 0;
 	
 	}
 
 	// Reset the header chucksum back (mainly needed for ICMP) 
-	curr_packet->header_checksum = given_checksum;
+	curr_ip_header->header_checksum = given_checksum;
 
 	return 1;
 
@@ -764,15 +764,15 @@ int is_valid_ip_checksum(struct ip_header *curr_packet)
  * Return 1 if IHL is greater than 5
  * Return 0 otherwise
  */
-int is_valid_ihl(struct ip_header *curr_packet) 
+int is_valid_ihl(struct ip_header *curr_ip_header) 
 {
 
-	if ((curr_packet->version_and_ihl & 0x0f) < 5) {
+	if ((curr_ip_header->version_and_ihl & 0x0f) < 5) {
 		
-		printf("    dropping packet from %u.%u.%u.%u (invalid IHL)\n", curr_packet->src_addr[0],
-																	   curr_packet->src_addr[1],
-																	   curr_packet->src_addr[2],
-																	   curr_packet->src_addr[3]);
+		printf("    dropping packet from %u.%u.%u.%u (invalid IHL)\n", curr_ip_header->src_addr[0],
+																	   curr_ip_header->src_addr[1],
+																	   curr_ip_header->src_addr[2],
+																	   curr_ip_header->src_addr[3]);
 		return 0;
 	
 	}
@@ -788,16 +788,16 @@ int is_valid_ihl(struct ip_header *curr_packet)
  * Return 1 if IP version is 4
  * Return 0 otherwise
  */
-int is_valid_ip_version(struct ip_header *curr_packet) 
+int is_valid_ip_version(struct ip_header *curr_ip_header) 
 {
 
 	// Get given version (high nibble)
-	if (((curr_packet->version_and_ihl & 0xf0) >> 4) != 4) {
+	if (((curr_ip_header->version_and_ihl & 0xf0) >> 4) != 4) {
 		
-		printf("    dropping packet from %u.%u.%u.%u (unrecognized IP version)\n", curr_packet->src_addr[0], 
-																				   curr_packet->src_addr[1], 
-																				   curr_packet->src_addr[2], 
-																				   curr_packet->src_addr[3]);
+		printf("    dropping packet from %u.%u.%u.%u (unrecognized IP version)\n", curr_ip_header->src_addr[0], 
+																				   curr_ip_header->src_addr[1], 
+																				   curr_ip_header->src_addr[2], 
+																				   curr_ip_header->src_addr[3]);
 		return 0;
 	
 	}
@@ -813,13 +813,13 @@ int is_valid_ip_version(struct ip_header *curr_packet)
  * Return index of interface it was destined for
  * Return -1 otherwise (meaning IP packet not destined for one of interfaces) 
  */
-struct interface *determine_local_interface(struct ip_header *curr_packet) 
+struct interface *determine_local_interface(struct ip_header *curr_ip_header) 
 {
 	
 	for (int i = 0; i < NUM_INTERFACES; i++) {
 		
 		// Check if packet is for one of my interfaces 
-		if (memcmp(curr_packet->dst_addr, interfaces[i].ip_addr, 4) == 0) {
+		if (memcmp(curr_ip_header->dst_addr, interfaces[i].ip_addr, 4) == 0) {
 	
 			// Can return immediately since IP addresses are unique
 			return &interfaces[i]; 
@@ -828,7 +828,7 @@ struct interface *determine_local_interface(struct ip_header *curr_packet)
 	
 	}
 
-	// curr_packet not for any of my interfaces
+	// curr_ip_header not for any of my interfaces
 	return NULL;
 
 }
@@ -847,15 +847,15 @@ uint32_t array_to_uint32(uint8_t array[4])
 }
 
 /*
- * Determine the route the curr_packet should take. 
+ * Determine the route the curr_ip_header should take. 
  * 
- * Return index of interface the curr_packet should follow 
+ * Return index of interface the curr_ip_header should follow 
  * Return -1 if no interface has a matching route 
  */
-struct route *determine_route(struct ip_header *curr_packet) 
+struct route *determine_route(struct ip_header *curr_ip_header) 
 {	
 
-	uint32_t given_ip_dst_addr = array_to_uint32(curr_packet->dst_addr);
+	uint32_t given_ip_dst_addr = array_to_uint32(curr_ip_header->dst_addr);
 
 	uint32_t genmask_results = 0;
 	int route_entry_num = -1;

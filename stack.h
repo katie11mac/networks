@@ -61,12 +61,12 @@ int handle_arp_packet(uint8_t *src, struct interface *iface, uint8_t *packet, in
 int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_len);
 int route_ip_packet(uint8_t *packet, size_t packet_length);
 int compose_ip_packet(uint8_t *packet, struct ip_header *ip_header, uint8_t *payload, size_t payload_len);
-int is_valid_ip_checksum(struct ip_header *curr_packet);
-int is_valid_ihl(struct ip_header *curr_packet);
-int is_valid_ip_version(struct ip_header *curr_packet);
-struct interface *determine_local_interface(struct ip_header *curr_packet);
+int is_valid_ip_checksum(struct ip_header *curr_ip_header);
+int is_valid_ihl(struct ip_header *curr_ip_header);
+int is_valid_ip_version(struct ip_header *curr_ip_header);
+struct interface *determine_local_interface(struct ip_header *curr_ip_header);
 uint32_t array_to_uint32(uint8_t array[4]);
-struct route *determine_route(struct ip_header *curr_packet);
+struct route *determine_route(struct ip_header *curr_ip_header);
 struct arp_entry *determine_mac_arp(uint8_t *ip_addr);
 
 // ICMP functions
