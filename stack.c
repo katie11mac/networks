@@ -19,6 +19,30 @@ int fds[NUM_INTERFACES][2];
 
 int main(int argc, char *argv[])
 {
+	
+	// Initialize interfaces, arp cache, and routing table
+	init_fds();
+	init_interfaces();
+	init_routing_table();
+	init_arp_cache(); 
+
+	// Process frames until user terminates with Control-C
+	// (Assignment 3 Part I: Only listening on interface 0)
+	while(1) {
+	
+		handle_ethernet_frame(&interfaces[0]);
+	
+	}
+
+    return 0;
+
+}
+
+/*
+ */
+void init_fds() 
+{
+	
 	// Variables for vde_switch (one for each interface)
 	char vde_path[20];
     int connect_to_remote_switch = 0;
@@ -45,23 +69,9 @@ int main(int argc, char *argv[])
 		}
 	
 	}
-	
-	// Initialize interfaces, arp cache, and routing table
-	init_interfaces();
-	init_routing_table();
-	init_arp_cache(); 
-
-	// Process frames until user terminates with Control-C
-	// (Assignment 3 Part I: Only listening on interface 0)
-	while(1) {
-	
-		handle_ethernet_frame(&interfaces[0]);
-	
-	}
-
-    return 0;
 
 }
+
 
 /*
  * Initialize interfaces with hardcoded values

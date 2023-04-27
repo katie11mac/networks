@@ -37,6 +37,7 @@
 
 
 // Initializing global variables
+void init_fds();
 void init_interfaces();
 void init_routing_table();
 void init_arp_cache();
