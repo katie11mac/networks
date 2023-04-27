@@ -71,6 +71,5 @@ struct arp_entry *determine_mac_arp(uint8_t *ip_addr);
 
 // ICMP functions
 void send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_len, uint8_t type, uint8_t code);
-void old_send_icmp_message(uint8_t frame[1600], ssize_t frame_len, uint8_t type, uint8_t code, int (*fds)[2]);
 
 #endif /* __STACK_H */
