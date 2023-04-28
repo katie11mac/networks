@@ -602,7 +602,7 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_len)
 	}
 		
 	// curr_ip_header not for one of my interfaces (needs routing) 
-	return route_ip_packet(packet, packet_len);
+	return route_ip_packet(packet, packet_len, 0);
 
 }
 
@@ -613,7 +613,7 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_len)
  * Return -1 if no route is found
  * Return 0 otherwise
  */
-int route_ip_packet(uint8_t *packet, size_t packet_len)
+int route_ip_packet(uint8_t *packet, size_t packet_len, int is_icmp)
 {
 	// Variables for routing
 	struct route *route_to_take;
@@ -634,6 +634,8 @@ int route_ip_packet(uint8_t *packet, size_t packet_len)
 	// No corresponding entry in routing table for IP packet
 	if (route_to_take == NULL) {
 		
+		
+
 		printf("    dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (no route)\n", curr_ip_header->src_addr[0],
 																			       curr_ip_header->src_addr[1], 
 																			       curr_ip_header->src_addr[2], 
@@ -642,8 +644,12 @@ int route_ip_packet(uint8_t *packet, size_t packet_len)
 																			       curr_ip_header->dst_addr[1], 
 																			       curr_ip_header->dst_addr[2], 
 																			       curr_ip_header->dst_addr[3]);
-		send_icmp_message(packet, packet_len, 3, 0);
+		if (!is_icmp) {
 		
+			send_icmp_message(packet, packet_len, 3, 0);
+
+		} 
+
 		return -1;
 
 	}
@@ -665,7 +671,7 @@ int route_ip_packet(uint8_t *packet, size_t packet_len)
 
 	// Could not find corresponding mac address for route
 	if (corresponding_arp_entry == NULL) {
-		
+	
 		printf("    dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (no ARP)\n", curr_ip_header->src_addr[0],
 																			     curr_ip_header->src_addr[1], 
 																			     curr_ip_header->src_addr[2], 
@@ -674,10 +680,15 @@ int route_ip_packet(uint8_t *packet, size_t packet_len)
 																			     curr_ip_header->dst_addr[1], 
 																			     curr_ip_header->dst_addr[2], 
 																			     curr_ip_header->dst_addr[3]);
+		if (!is_icmp) {
 		
-		send_icmp_message(packet, packet_len, 3, 1);
-		
+			send_icmp_message(packet, packet_len, 3, 1);
+
+		} 
+
 		return -1;
+		
+		
 
 	}
 
@@ -938,8 +949,9 @@ struct arp_entry *determine_mac_arp(uint8_t *ip_addr)
 
 
 /*
+ * return -1 if cannot send icmp
  */
-void send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_len, uint8_t type, uint8_t code)
+int send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_len, uint8_t type, uint8_t code)
 {
 	
 	// original packet length will be both the ip header and its data 	
@@ -951,17 +963,11 @@ void send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_le
 	
 	struct ip_header new_ip_header;
 	struct ip_header *original_ip_header = (struct ip_header *) original_ip_packet;
-	uint8_t *ip_packet; // cannot determine size yet since it's dependent on icmp_packet_len
+	uint8_t ip_packet[MAX_IP_PACKET_SIZE]; 	
 	int total_ip_len;
 	struct interface src_interface;
 
 	struct route *route_to_take;
-	struct arp_entry *corresponding_arp_entry;
-
-	struct ether_header new_ether_header;
-	uint8_t ether_frame[ETHER_MAX_FRAME_SIZE];
-	int total_frame_len;
-
 
 	// determine how many bytes to read of the original data 
 	if (original_ip_data_len < ICMP_IP_ORIGINAL_DATA_SIZE) {
@@ -993,37 +999,17 @@ void send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_le
 
 	// determine the ip source
 	route_to_take = determine_route(&new_ip_header); 
-	if (memcmp(route_to_take->gateway, DIRECT_NETWORK_GATEWAY, 4) == 0) {	
-		
-		printf("    destination host is on attached network\n");
-
-		corresponding_arp_entry = determine_mac_arp(new_ip_header.dst_addr);
 	
-	// If gateway of route is not 0.0.0.0, then we have to send packet to another router 
-	} else {
-		
-		printf("    packet must be routed\n");
-
-		corresponding_arp_entry = determine_mac_arp(route_to_take->gateway);
-		
+	if (route_to_take == NULL) {
+		return -1;
 	}
 
 	src_interface = interfaces[route_to_take->num_interface];
 	memcpy(new_ip_header.src_addr, src_interface.ip_addr, 4);
 	
-	// THIS SEEMS SUPER FRAGILE AND CONTRADICTORY 
-	ip_packet = (uint8_t*) malloc(sizeof(struct ip_header) + (icmp_packet_len * sizeof(uint8_t)));	
 	total_ip_len = compose_ip_packet(ip_packet, &new_ip_header, icmp_packet, icmp_packet_len);
-	// make this a function that returns the total_ip_len and takes a double pointer 
-	// (so we pass the address of the pointer) so that we write to that address instead 
-	// use the returned number as the one to malloc 
 
-	memcpy(new_ether_header.dst, corresponding_arp_entry->ether_addr, 6);
-	memcpy(new_ether_header.src, src_interface.ether_addr, 6);
-	memcpy(new_ether_header.type, ETHER_TYPE_IP, 2);
-
-	total_frame_len = compose_ether_frame(ether_frame, &new_ether_header, ip_packet, total_ip_len);
-	send_ethernet_frame(src_interface.out_fd, ether_frame, total_frame_len);
+	return route_ip_packet(ip_packet, total_ip_len, 1);
 
 }
 

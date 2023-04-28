@@ -28,6 +28,7 @@
 // IP 
 #define IP_INITIAL_TTL 64
 #define DIRECT_NETWORK_GATEWAY "\x00\x00\x00\x00"
+#define MAX_IP_PACKET_SIZE 1600
 
 // ICMP
 #define ICMP_IP_ORIGINAL_DATA_SIZE 64 / 8
@@ -59,7 +60,7 @@ int handle_arp_packet(uint8_t *src, struct interface *iface, uint8_t *packet, in
 
 // IP functions
 int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_len);
-int route_ip_packet(uint8_t *packet, size_t packet_len);
+int route_ip_packet(uint8_t *packet, size_t packet_len, int is_icmp);
 int compose_ip_packet(uint8_t *packet, struct ip_header *ip_header, uint8_t *payload, size_t payload_len);
 int is_valid_ip_checksum(struct ip_header *curr_ip_header);
 int is_valid_ihl(struct ip_header *curr_ip_header);
@@ -70,6 +71,6 @@ struct route *determine_route(struct ip_header *curr_ip_header);
 struct arp_entry *determine_mac_arp(uint8_t *ip_addr);
 
 // ICMP functions
-void send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_len, uint8_t type, uint8_t code);
+int send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_len, uint8_t type, uint8_t code);
 
 #endif /* __STACK_H */

@@ -423,7 +423,7 @@ int main(int argc, char *argv[])
     memcpy(&ip_test.version_and_ihl, "\x45", 1);
     ip_test.ttl = 10;
     ip_test.protocol = 4;
-    memcpy(&ip_test.src_addr, "\x01\x02\x03\x00", 4);
+    memcpy(&ip_test.src_addr, "\x01\x02\x03\x0a", 4);
     memcpy(&ip_test.dst_addr, "\x0d\x0e\x0f\x04", 4);
 
     // Set data inside of the IP packet
