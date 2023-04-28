@@ -62,7 +62,7 @@ int compose_ether_frame(uint8_t *frame, struct ether_header *new_ether_header, u
 
 // ARP functions
 int handle_arp_packet(uint8_t *src, struct interface *iface, uint8_t *packet, int packet_len);
-
+int send_arp_reply(uint8_t *src, struct interface *iface, uint8_t *packet, int packet_len);
 
 // IP functions
 int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_len);

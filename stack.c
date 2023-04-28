@@ -415,11 +415,6 @@ int handle_arp_packet(uint8_t *src, struct interface *iface, uint8_t *packet, in
 	struct arp_packet *curr_arp_packet;
 	uint16_t given_opcode;
 
-	// Variables for sending a response
-	struct ether_header new_ether_header;
-	uint8_t frame[ETHER_MAX_FRAME_SIZE];
-	size_t frame_len;
-
 	curr_arp_packet = (struct arp_packet *) packet;
 
 	// NOTE: SHOULD MAKE SOME OF THESE VALUES GLOBAL VARIABLES
@@ -466,44 +461,14 @@ int handle_arp_packet(uint8_t *src, struct interface *iface, uint8_t *packet, in
 	}
 
 
-	// -----------------------------------TO-DO: MAKE THIS ANOTHER FUNCTION-----------------------------------
-
 	// Respond to requests 
 	given_opcode = ntohs(curr_arp_packet->opcode);
 	
 	// Verify the opcode is a request
 	if (given_opcode == 1) {
-
-		// DO WE HAVE TO VERIFY ANYTHING ABOUT THE TARGET OR SOURCE IP ADDRS? 
-
-		// Only respond to ARP requests that corresponds to my listening interface
-		if (memcmp(curr_arp_packet->target_ip_addr, iface->ip_addr, 4) == 0) {
-			
-			// Rewrite ethernet frame
-			memcpy(new_ether_header.dst, src, 6);
-			memcpy(new_ether_header.src, iface->ether_addr, 6);
-			memcpy(new_ether_header.type, ETHER_TYPE_ARP, 2);
-
-			// Set opcode to reply
-			curr_arp_packet->opcode = htons(0x0002);
-			
-			// Set target as the given sender
-			memcpy(curr_arp_packet->target_mac_addr, curr_arp_packet->sender_mac_addr, 6);
-			memcpy(curr_arp_packet->target_ip_addr, curr_arp_packet->sender_ip_addr, 4);
-			
-			// Set sender as the interface
-			memcpy(curr_arp_packet->sender_mac_addr, iface->ether_addr, 6);
-			memcpy(curr_arp_packet->sender_ip_addr, iface->ip_addr, 4);
-			
-			frame_len = compose_ether_frame(frame, &new_ether_header, packet, packet_len);
-
-			// Send to corresponding fd for vde switch connected to that interface 
-			send_ethernet_frame(iface->out_fd, frame, frame_len);
-			
-			return 0;
 		
-		}
-
+		send_arp_reply(src, iface, packet, packet_len);		
+		
 	} else {
 		
 		printf("    ignoring arp packet (only receiving requests)\n");
@@ -514,6 +479,60 @@ int handle_arp_packet(uint8_t *src, struct interface *iface, uint8_t *packet, in
 	return 0;
 
 }
+
+/*
+ * Send ARP reply if the ARP request corresponds with interface iface
+ *
+ * Return 0 if sent a reply
+ * Return -1 if did not send a reply 
+ */
+int send_arp_reply(uint8_t *src, struct interface *iface, uint8_t *packet, int packet_len) 
+{
+	
+	struct arp_packet *curr_arp_packet;
+	
+	// Variables for sending a response
+	struct ether_header new_ether_header;
+	uint8_t frame[ETHER_MAX_FRAME_SIZE];
+	size_t frame_len;
+
+	curr_arp_packet = (struct arp_packet *) packet;
+
+	// DO WE HAVE TO VERIFY ANYTHING ABOUT THE TARGET OR SOURCE IP ADDRS? 
+
+	// Only respond to ARP requests that corresponds to my listening interface
+	if (memcmp(curr_arp_packet->target_ip_addr, iface->ip_addr, 4) == 0) {
+		
+		// Rewrite ethernet frame
+		memcpy(new_ether_header.dst, src, 6);
+		memcpy(new_ether_header.src, iface->ether_addr, 6);
+		memcpy(new_ether_header.type, ETHER_TYPE_ARP, 2);
+
+		// Set opcode to reply
+		curr_arp_packet->opcode = htons(0x0002);
+		
+		// Set target as the given sender
+		memcpy(curr_arp_packet->target_mac_addr, curr_arp_packet->sender_mac_addr, 6);
+		memcpy(curr_arp_packet->target_ip_addr, curr_arp_packet->sender_ip_addr, 4);
+		
+		// Set sender as the interface
+		memcpy(curr_arp_packet->sender_mac_addr, iface->ether_addr, 6);
+		memcpy(curr_arp_packet->sender_ip_addr, iface->ip_addr, 4);
+		
+		frame_len = compose_ether_frame(frame, &new_ether_header, packet, packet_len);
+
+		// Send to corresponding fd for vde switch connected to that interface 
+		send_ethernet_frame(iface->out_fd, frame, frame_len);
+		
+		return 0;
+	
+	}
+
+	return -1;
+
+}
+
+
 
 /*
  * Handle and check integrity of IP packet received on interface iface 
