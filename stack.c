@@ -784,8 +784,7 @@ int is_valid_ip_checksum(struct ip_header *curr_ip_header)
 	// Reset the header checksum to recalculate it correctly
 	curr_ip_header->header_checksum = 0;
 
-	// NOTE: SHOULD DO THE CONDITIONAL IN THE REVERSE ORDER
-	if (given_checksum != checksum(curr_ip_header, (given_ihl * 32) / 8)) {
+	if (given_checksum != checksum(curr_ip_header, given_ihl * 4)) {
 		
 		printf("    dropping packet from %u.%u.%u.%u (bad IP header checksum)\n", curr_ip_header->src_addr[0], 
 																				  curr_ip_header->src_addr[1], 
@@ -836,7 +835,6 @@ int is_valid_ihl(struct ip_header *curr_ip_header)
  */
 int is_valid_ip_version(struct ip_header *curr_ip_header) 
 {
-	// NOTE: SHOULD DO THE CONDITIONAL IN THE REVERSE ORDER
 	
 	// Get given version (high nibble)
 	if (((curr_ip_header->version_and_ihl & 0xf0) >> 4) != 4) {
