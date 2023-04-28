@@ -425,32 +425,34 @@ int handle_arp_packet(uint8_t *src, struct interface *iface, uint8_t *packet, in
 	// NOTE: SHOULD MAKE SOME OF THESE VALUES GLOBAL VARIABLES
 
 	// Verify hardware type (only handling ethernet hardware) 
-	if (memcmp(curr_arp_packet->hardware_type, "\x00\x01", 2) == 0) {
+	if (memcmp(curr_arp_packet->hardware_type, ARP_TYPE_ETHER, 2) == 0) {
 		
 		// Verify the hardware size for ethernet type
 		if (memcmp(&curr_arp_packet->hardware_size, "\x06", 1) != 0) {
 			
-			printf("    ignoring arp packet with bad hardware size from %s", binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
+			printf("    ignoring arp packet with bad hardware size from %s", 
+						 binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
 			return -1;
 		
 		}
 
 	} else {
 		
-		printf("    ignoring arp packet with incompatible hardware type from %s", binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
+		printf("    ignoring arp packet with incompatible hardware type from %s", 
+							  binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
 		return -1;
 	
 	}
 
 
 	// Verify protocol type (only handling IPv4) 
-	if (memcmp(curr_arp_packet->protocol_type, "\x08\x00", 2) == 0) {
+	if (memcmp(curr_arp_packet->protocol_type, ARP_TYPE_IP, 2) == 0) {
 		
 		// Verify the protocol size for ethernet type
 		if (memcmp(&curr_arp_packet->protocol_size, "\x04", 1) != 0) {
 			
 			printf("    ignoring arp packet with bad protocol size from %s", 
-					binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
+						 binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
 			return -1;
 		
 		}
@@ -458,7 +460,7 @@ int handle_arp_packet(uint8_t *src, struct interface *iface, uint8_t *packet, in
 	} else {
 		
 		printf("    ignoring arp packet with incompatible protocol type from %s", 
-				binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
+							  binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
 		return -1;
 	
 	}
@@ -949,12 +951,14 @@ struct arp_entry *determine_mac_arp(uint8_t *ip_addr)
 
 
 /*
- * return -1 if cannot send icmp
+ * Send ICMP message using the original_ip_packet (IP header + payload) 
+ * for the specified type and code
+ *
+ * Return -1 if sending ICMP message fails
  */
 int send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_len, uint8_t type, uint8_t code)
 {
 	
-	// original packet length will be both the ip header and its data 	
 	struct icmp_header new_icmp_header; 
 	uint8_t icmp_packet[sizeof(struct icmp_header) + ICMP_MAX_DATA_SIZE];
 	size_t icmp_packet_len;
@@ -969,35 +973,41 @@ int send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_len
 
 	struct route *route_to_take;
 
-	// determine how many bytes to read of the original data 
+	// Determine how many bytes to read of the original data 
 	if (original_ip_data_len < ICMP_IP_ORIGINAL_DATA_SIZE) {
+		
 		original_bytes_num = original_ip_data_len;
+	
 	} else {
+		
 		original_bytes_num = ICMP_IP_ORIGINAL_DATA_SIZE;
+	
 	}
 	
 	icmp_packet_len = sizeof(struct icmp_header) + sizeof(struct ip_header) + original_bytes_num;
 
-	// fill in info for icmp packet
+	// Fill in ICMP header
+	memset(&new_icmp_header, '\0', sizeof(struct icmp_header));
 	new_icmp_header.type = type;
 	new_icmp_header.code = code; 
 	new_icmp_header.checksum = 0;
 	new_icmp_header.unused = 0;
 	
+	// Calculate ICMP header checksum
 	memcpy(icmp_packet, &new_icmp_header, sizeof(struct icmp_header));
 	memcpy(icmp_packet + sizeof(struct icmp_header), original_ip_packet, sizeof(struct ip_header) + original_bytes_num);
 	new_icmp_header.checksum = checksum(icmp_packet, icmp_packet_len); // does this need to be converted from hton
-	memcpy(icmp_packet, &new_icmp_header, sizeof(struct icmp_header)); // redundant but whatever
+	memcpy(icmp_packet, &new_icmp_header, sizeof(struct icmp_header)); // Redundant
 
-	// construct ip packet
+	// Construct new IP packet
 	memset(&new_ip_header, '\0', sizeof(struct ip_header));
-	memcpy(&new_ip_header.version_and_ihl, "\x45", 1);
+	memcpy(&new_ip_header.version_and_ihl, IP_INITIAL_VERSION_AND_IHL, 1);
 	new_ip_header.total_length = htons(sizeof(struct ip_header) + icmp_packet_len);
 	new_ip_header.ttl = IP_INITIAL_TTL;
-	new_ip_header.protocol = 1;
+	new_ip_header.protocol = IP_ICMP_PROTOCOL;
 	memcpy(new_ip_header.dst_addr, original_ip_header->src_addr, 4);
 
-	// determine the ip source
+	// Determine the IP source (ie. which interface it will be leaving from) 
 	route_to_take = determine_route(&new_ip_header); 
 	
 	if (route_to_take == NULL) {
@@ -1009,6 +1019,7 @@ int send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_len
 	
 	total_ip_len = compose_ip_packet(ip_packet, &new_ip_header, icmp_packet, icmp_packet_len);
 
+	// Route the newly constructed IP packet
 	return route_ip_packet(ip_packet, total_ip_len, 1);
 
 }
