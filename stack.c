@@ -1,4 +1,4 @@
-/*
+/* 
  * stack.c
  *
  * Network Configuration
@@ -20,7 +20,7 @@ int fds[NUM_INTERFACES][2];
 int main(int argc, char *argv[])
 {
 	
-	// Initialize fds for reading and sending, interfaces, arp cache, and routing table
+	// Initialize fds for sending and receiving, interfaces, arp cache, and routing table
 	init_fds();
 	init_interfaces();
 	init_routing_table();
@@ -39,6 +39,7 @@ int main(int argc, char *argv[])
 }
 
 /*
+ * Initialize the fds for sending and receiving
  */
 void init_fds() 
 {
@@ -176,7 +177,7 @@ void init_arp_cache()
 }
 
 /*
- * Received an ethernet frame from iface and check its integrity
+ * Check the integrity of an ethernet frame received on interface iface
  *
  * Return -1 for invalid frames
  * Return 0 otherwise
@@ -185,15 +186,16 @@ int handle_ethernet_frame(struct interface *iface)
 {
 	
 	// Variables for frame
-	uint8_t frame[1600];
+	uint8_t frame[ETHER_MAX_FRAME_SIZE];
     ssize_t frame_len;
 	
-	// Variables for processing recieved frames
+	// Variables for processing received frame
 	struct ether_header *curr_frame;
 	uint8_t *payload;
 	int payload_len;
 	int ether_dst_addr_results;
 
+	
 	// Read frame from interface  
 	frame_len = receive_ethernet_frame(iface->in_fd, frame);
 	printf("received %ld-byte frame on interface 0\n", frame_len);
@@ -267,7 +269,10 @@ int handle_ethernet_frame(struct interface *iface)
 
 
 /*
- * Return 1 if the frame has a valid length and 0 otherwise 
+ * Check length of an ethernet frame
+ *
+ * Return 1 if the frame has a valid length
+ * Return 0 otherwise 
  */
 int is_valid_frame_len(ssize_t frame_len) 
 {
@@ -296,30 +301,29 @@ int is_valid_frame_len(ssize_t frame_len)
 
 
 /*
- * Check if initial fcs in Ethernet frame is correct by recalculating it. 
+ * Check if initial fcs in Ethernet frame is correct by recalculating it 
  *
  * Return 1 if fcs is correct
  * Return 0 otherwise 
  */
 int is_valid_fcs (uint8_t *frame, size_t frame_len) 
 {
+
 	size_t data_len;	
 	uint32_t *fcs_ptr;
 	uint32_t calculated_fcs;
 
-
-	// Get data length and set ptr to given fcs 
+	// Get data length and set fcs_ptr to given fcs 
 	data_len = frame_len - sizeof(struct ether_header) - ETHER_FCS_SIZE; 
 	fcs_ptr = (uint32_t *)(frame + frame_len - ETHER_FCS_SIZE);
-
 
 	// Verify fcs
 	calculated_fcs = crc32(0, frame, sizeof(struct ether_header) + data_len);
 		
 	if (calculated_fcs != *fcs_ptr) {
 		
-		printf("  ignoring %ld-byte frame (bad fcs: got 0x%08x, expected 0x%08x)\n", frame_len, *fcs_ptr, calculated_fcs);
-		
+		printf("  ignoring %ld-byte frame (bad fcs: got 0x%08x, expected 0x%08x)\n", 
+												frame_len, *fcs_ptr, calculated_fcs);
 		return 0;
 	
 	}
@@ -331,8 +335,7 @@ int is_valid_fcs (uint8_t *frame, size_t frame_len)
 
 
 /*
- * Check whether destination address is for me (i.e. broadcast or interfaces' MAC address) 
- * and print appropriate messages. 
+ * Check whether ethernet destination address in curr_frame is for interface iface
  *
  * Return 0 if frame was a braodcast
  * Return 1 if frame was for me (i.e. interfaces' MAC address)
@@ -344,8 +347,8 @@ int check_ether_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, str
 	// Check if frame is a broadcast 
 	if (memcmp(curr_frame->dst, ETHER_BROADCAST_ADDR, 6) == 0) {
 		
-		printf("  received %lu-byte broadcast frame from %s", frame_len, binary_to_hex(curr_frame->src, 6)); 
-		
+		printf("  received %lu-byte broadcast frame from %s", 
+				frame_len, binary_to_hex(curr_frame->src, 6)); 
 		return 0;
 	
 	// Check if frame is for the receiving interface 
@@ -364,18 +367,21 @@ int check_ether_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, str
 }
 
 /*
- * Copy data from new_ether_header and data to frame to create a 
+ * Copy data from new_ether_header and data to frame and set the fcs to create a 
  * new ethernet frame ready for sending. 
  *
- * Return the size of the constructed ethernet frame.
+ * Return the size of the constructed ethernet frame
  * Return -1 if the data is too large
  */
 int compose_ether_frame(uint8_t *frame, struct ether_header *new_ether_header, uint8_t *data, size_t data_size) 
 {
+	
 	uint32_t fcs; 
 
 	if (data_size > ETHER_MAX_DATA_SIZE) {
+		
 		return -1;
+	
 	}
 
 	memcpy(frame, new_ether_header, sizeof(*new_ether_header));
@@ -383,18 +389,21 @@ int compose_ether_frame(uint8_t *frame, struct ether_header *new_ether_header, u
 
 	// Pad with zeros if data too short
 	if (data_size < ETHER_MIN_DATA_SIZE) {
+		
 		memset(frame + sizeof(*new_ether_header) + data_size, '\0', ETHER_MIN_DATA_SIZE - data_size);
 		data_size = ETHER_MIN_DATA_SIZE;
+	
 	}
 
 	fcs = crc32(0, frame, sizeof(struct ether_header) + data_size);
 	memcpy(frame + sizeof(*new_ether_header) + data_size, &fcs, ETHER_FCS_SIZE);
 
 	return sizeof(*new_ether_header) + data_size + ETHER_FCS_SIZE;
+
 }
 
 /*
- * Handle and check integrity of ARP packets
+ * Handle and check integrity of ARP packet received on interface iface
  *
  * Return -1 for invalid packets or packets with specifications not handling 
  * Return 0 otherwise
@@ -412,7 +421,9 @@ int handle_arp_packet(uint8_t *src, struct interface *iface, uint8_t *packet, in
 	size_t frame_len;
 
 	curr_arp_packet = (struct arp_packet *) packet;
-	
+
+	// NOTE: SHOULD MAKE SOME OF THESE VALUES GLOBAL VARIABLES
+
 	// Verify hardware type (only handling ethernet hardware) 
 	if (memcmp(curr_arp_packet->hardware_type, "\x00\x01", 2) == 0) {
 		
@@ -503,7 +514,7 @@ int handle_arp_packet(uint8_t *src, struct interface *iface, uint8_t *packet, in
 }
 
 /*
- * Handle and check integrity of IP packets 
+ * Handle and check integrity of IP packet received on interface iface 
  *
  * Return -1 if invalid 
  * Return 0 otherwise
@@ -514,7 +525,7 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_len)
 	struct ip_header *curr_ip_header;
 	struct interface *local_interface;
 			
-	// Interpret data as IPv4
+	// Interpret data as IPv4 header
 	curr_ip_header = (struct ip_header *) packet;
 	
 	// Check if total length is correct 
@@ -604,16 +615,18 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_len)
  */
 int route_ip_packet(uint8_t *packet, size_t packet_len)
 {
-	
+	// Variables for routing
 	struct route *route_to_take;
 	struct arp_entry *corresponding_arp_entry;
 
+	// Variables for sending the IP packet to its next hop
 	struct ether_header new_ether_header;
 	uint8_t frame[ETHER_MAX_FRAME_SIZE];
 	size_t frame_len;
 
-	struct ip_header *curr_ip_header = (struct ip_header *) packet;
 
+	// Interpret packet as IP header
+	struct ip_header *curr_ip_header = (struct ip_header *) packet;
 			
 	// Determine whether there is a valid route in routing table
 	route_to_take = determine_route(curr_ip_header); 
@@ -640,14 +653,12 @@ int route_ip_packet(uint8_t *packet, size_t packet_len)
 	if (memcmp(route_to_take->gateway, DIRECT_NETWORK_GATEWAY, 4) == 0) {	
 		
 		printf("    destination host is on attached network\n");
-
 		corresponding_arp_entry = determine_mac_arp(curr_ip_header->dst_addr);
 	
 	// If gateway of route is not 0.0.0.0, then we have to send packet to another router 
 	} else {
 		
 		printf("    packet must be routed\n");
-
 		corresponding_arp_entry = determine_mac_arp(route_to_take->gateway);
 		
 	}
@@ -671,9 +682,7 @@ int route_ip_packet(uint8_t *packet, size_t packet_len)
 	}
 
 	
-	// Rewrite the frame and forward it to next hop 
-	
-	// Set frame dst to mac address found in arp cache
+	// Write ethernet header for next hop
 	memcpy(new_ether_header.dst, corresponding_arp_entry->ether_addr, 6);
 	// Set frame src to corresponding leaving interface
 	memcpy(new_ether_header.src, interfaces[route_to_take->num_interface].ether_addr, 6); 
@@ -682,7 +691,7 @@ int route_ip_packet(uint8_t *packet, size_t packet_len)
 	// Update the TTL 
 	curr_ip_header->ttl = curr_ip_header->ttl - 1;
 
-	// Recalculate IP header checksum since changed TTL
+	// Recalculate IP header checksum 
 	curr_ip_header->header_checksum = 0;
 	curr_ip_header->header_checksum = checksum(curr_ip_header, (curr_ip_header->version_and_ihl & 0x0f) * 4);
 
@@ -695,8 +704,12 @@ int route_ip_packet(uint8_t *packet, size_t packet_len)
 
 }
 
-/*
- */
+/*      
+ * Copy data from ip_header and payload to packet and set the checksum to create a 
+ * new IP packet. 
+ *  
+ * Return the size of the constructed IP packet
+ */ 
 int compose_ip_packet(uint8_t *packet, struct ip_header *ip_header, uint8_t *payload, size_t payload_len) 
 {
 
@@ -739,6 +752,7 @@ int is_valid_ip_checksum(struct ip_header *curr_ip_header)
 	// Reset the header checksum to recalculate it correctly
 	curr_ip_header->header_checksum = 0;
 
+	// NOTE: SHOULD DO THE CONDITIONAL IN THE REVERSE ORDER
 	if (given_checksum != checksum(curr_ip_header, (given_ihl * 32) / 8)) {
 		
 		printf("    dropping packet from %u.%u.%u.%u (bad IP header checksum)\n", curr_ip_header->src_addr[0], 
@@ -790,7 +804,8 @@ int is_valid_ihl(struct ip_header *curr_ip_header)
  */
 int is_valid_ip_version(struct ip_header *curr_ip_header) 
 {
-
+	// NOTE: SHOULD DO THE CONDITIONAL IN THE REVERSE ORDER
+	
 	// Get given version (high nibble)
 	if (((curr_ip_header->version_and_ihl & 0xf0) >> 4) != 4) {
 		
@@ -808,10 +823,11 @@ int is_valid_ip_version(struct ip_header *curr_ip_header)
 
 
 /*
- * Check IP destination of IP packet. Determine whether IP packet is for one of interfaces.
+ * Check IP destination of curr_ip_header. 
+ * Determine whether the ip packet is for one of interfaces.
  *
- * Return index of interface it was destined for
- * Return -1 otherwise (meaning IP packet not destined for one of interfaces) 
+ * Return pointer to interface it was destined for
+ * Return NULL otherwise (meaning IP packet not destined for one of interfaces) 
  */
 struct interface *determine_local_interface(struct ip_header *curr_ip_header) 
 {
@@ -835,7 +851,7 @@ struct interface *determine_local_interface(struct ip_header *curr_ip_header)
 
 
 /*
- * Convert uint8_t array of 4 to a uint32_t for bit comparison purposes.
+ * Convert uint8_t[4] to a uint32_t for bit comparison purposes.
  * Return the converted value. 
  */
 uint32_t array_to_uint32(uint8_t array[4]) 
@@ -849,8 +865,8 @@ uint32_t array_to_uint32(uint8_t array[4])
 /*
  * Determine the route the curr_ip_header should take. 
  * 
- * Return index of interface the curr_ip_header should follow 
- * Return -1 if no interface has a matching route 
+ * Return the pointer to the route the curr_ip_header should follow 
+ * Return NULL if no interface has a matching route 
  */
 struct route *determine_route(struct ip_header *curr_ip_header) 
 {	
@@ -896,10 +912,11 @@ struct route *determine_route(struct ip_header *curr_ip_header)
 
 
 /*
- * Sets mac_dst to the appropriate mac destination 
+ * Get the ether address corresponding with the ip_addr
+ * by referring to the arp cache
  *
- * Returns 1 if it found a successful ip/mac match
- * Returns 0 if it could not find a match
+ * Returns pointer to arp_entry if found a successful ip/mac match
+ * Returns NULL if it could not find a match
  */
 struct arp_entry *determine_mac_arp(uint8_t *ip_addr)
 {
@@ -920,6 +937,8 @@ struct arp_entry *determine_mac_arp(uint8_t *ip_addr)
 }
 
 
+/*
+ */
 void send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_len, uint8_t type, uint8_t code)
 {
 	
