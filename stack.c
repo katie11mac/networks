@@ -202,7 +202,7 @@ int handle_ethernet_frame(struct interface *iface)
 	curr_frame = (struct ether_header *) frame;
 
 	// Verify length of frame 
-	if(is_valid_frame_length(frame_len) == 0) {
+	if(is_valid_frame_len(frame_len) == 0) {
 	
 		return -1;
 
@@ -269,7 +269,7 @@ int handle_ethernet_frame(struct interface *iface)
 /*
  * Return 1 if the frame has a valid length and 0 otherwise 
  */
-int is_valid_frame_length(ssize_t frame_len) 
+int is_valid_frame_len(ssize_t frame_len) 
 {
 	// Frame length too small
 	if (frame_len < ETHER_MIN_FRAME_SIZE) {
@@ -399,7 +399,7 @@ int compose_ether_frame(uint8_t *frame, struct ether_header *new_ether_header, u
  * Return -1 for invalid packets or packets with specifications not handling 
  * Return 0 otherwise
  */
-int handle_arp_packet(uint8_t *src, struct interface *iface, uint8_t *packet, int packet_length) 
+int handle_arp_packet(uint8_t *src, struct interface *iface, uint8_t *packet, int packet_len) 
 {
 	
 	// Variables for processing ARP types
@@ -482,7 +482,7 @@ int handle_arp_packet(uint8_t *src, struct interface *iface, uint8_t *packet, in
 			memcpy(curr_arp_packet->sender_mac_addr, iface->ether_addr, 6);
 			memcpy(curr_arp_packet->sender_ip_addr, iface->ip_addr, 4);
 			
-			frame_len = compose_ether_frame(frame, &new_ether_header, packet, packet_length);
+			frame_len = compose_ether_frame(frame, &new_ether_header, packet, packet_len);
 
 			// Send to corresponding fd for vde switch connected to that interface 
 			send_ethernet_frame(iface->out_fd, frame, frame_len);
@@ -508,7 +508,7 @@ int handle_arp_packet(uint8_t *src, struct interface *iface, uint8_t *packet, in
  * Return -1 if invalid 
  * Return 0 otherwise
  */
-int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_length)
+int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_len)
 {
 
 	struct ip_header *curr_ip_header;
@@ -518,7 +518,7 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_length
 	curr_ip_header = (struct ip_header *) packet;
 	
 	// Check if total length is correct 
-	if (packet_length != ntohs(curr_ip_header->total_length)) {
+	if (packet_len != ntohs(curr_ip_header->total_length)) {
 		
 		printf("    dropping packet from %u.%u.%u.%u (wrong length)\n", curr_ip_header->src_addr[0],
 																	    curr_ip_header->src_addr[1],
@@ -562,7 +562,7 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_length
 																					   curr_ip_header->dst_addr[2], 
 																					   curr_ip_header->dst_addr[3]);
 
-		send_icmp_message(packet, packet_length, 11, 0);
+		send_icmp_message(packet, packet_len, 11, 0);
 
 		return -1;
 	}
@@ -591,7 +591,7 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_length
 	}
 		
 	// curr_ip_header not for one of my interfaces (needs routing) 
-	return route_ip_packet(packet, packet_length);
+	return route_ip_packet(packet, packet_len);
 
 }
 
@@ -602,7 +602,7 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_length
  * Return -1 if no route is found
  * Return 0 otherwise
  */
-int route_ip_packet(uint8_t *packet, size_t packet_length)
+int route_ip_packet(uint8_t *packet, size_t packet_len)
 {
 	
 	struct route *route_to_take;
@@ -629,7 +629,7 @@ int route_ip_packet(uint8_t *packet, size_t packet_length)
 																			       curr_ip_header->dst_addr[1], 
 																			       curr_ip_header->dst_addr[2], 
 																			       curr_ip_header->dst_addr[3]);
-		send_icmp_message(packet, packet_length, 3, 0);
+		send_icmp_message(packet, packet_len, 3, 0);
 		
 		return -1;
 
@@ -664,7 +664,7 @@ int route_ip_packet(uint8_t *packet, size_t packet_length)
 																			     curr_ip_header->dst_addr[2], 
 																			     curr_ip_header->dst_addr[3]);
 		
-		send_icmp_message(packet, packet_length, 3, 1);
+		send_icmp_message(packet, packet_len, 3, 1);
 		
 		return -1;
 
@@ -686,7 +686,7 @@ int route_ip_packet(uint8_t *packet, size_t packet_length)
 	curr_ip_header->header_checksum = 0;
 	curr_ip_header->header_checksum = checksum(curr_ip_header, (curr_ip_header->version_and_ihl & 0x0f) * 4);
 
-	frame_len = compose_ether_frame(frame, &new_ether_header, packet, packet_length);
+	frame_len = compose_ether_frame(frame, &new_ether_header, packet, packet_len);
 
 	// Send to corresponding fd for vde switch connected to the interface
 	send_ethernet_frame(fds[route_to_take->num_interface][1], frame, frame_len);	
@@ -701,12 +701,12 @@ int compose_ip_packet(uint8_t *packet, struct ip_header *ip_header, uint8_t *pay
 {
 
 	int ihl; 
-	uint16_t total_length; 
+	uint16_t total_len; 
 	uint16_t header_checksum; 
 
 	ihl = (ip_header->version_and_ihl & 0xf) * 4;
-	total_length = ihl + payload_len; 
-	ip_header->total_length = htons(total_length);
+	total_len = ihl + payload_len; 
+	ip_header->total_length = htons(total_len);
 
 	memcpy(packet, ip_header, ihl);
 	memcpy(packet + ihl, payload, payload_len);
@@ -714,7 +714,7 @@ int compose_ip_packet(uint8_t *packet, struct ip_header *ip_header, uint8_t *pay
 	header_checksum = checksum((struct ip_header *)packet, ihl);
 	((struct ip_header *) packet)->header_checksum = header_checksum;
 
-	return total_length;
+	return total_len;
 }
 
 

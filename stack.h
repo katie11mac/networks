@@ -48,18 +48,18 @@ void init_arp_cache();
 
 // Ethernet functions
 int handle_ethernet_frame(struct interface *iface);
-int is_valid_frame_length(ssize_t frame_len);
+int is_valid_frame_len(ssize_t frame_len);
 int is_valid_fcs (uint8_t *frame, size_t frame_len);
 int check_ether_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, struct interface iface);
 int compose_ether_frame(uint8_t *frame, struct ether_header *new_ether_header, uint8_t *data, size_t data_size);
 
 // ARP functions
-int handle_arp_packet(uint8_t *src, struct interface *iface, uint8_t *packet, int packet_length);
+int handle_arp_packet(uint8_t *src, struct interface *iface, uint8_t *packet, int packet_len);
 
 
 // IP functions
 int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_len);
-int route_ip_packet(uint8_t *packet, size_t packet_length);
+int route_ip_packet(uint8_t *packet, size_t packet_len);
 int compose_ip_packet(uint8_t *packet, struct ip_header *ip_header, uint8_t *payload, size_t payload_len);
 int is_valid_ip_checksum(struct ip_header *curr_ip_header);
 int is_valid_ihl(struct ip_header *curr_ip_header);
