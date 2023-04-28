@@ -613,10 +613,10 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_len)
 																								curr_ip_header->src_addr[1],
 																								curr_ip_header->src_addr[2],
 																								curr_ip_header->src_addr[3], 
-																							 local_interface->ip_addr[0], 
-																							 local_interface->ip_addr[1],
-																							 local_interface->ip_addr[2],
-																							 local_interface->ip_addr[3], 
+																							    local_interface->ip_addr[0], 
+																							    local_interface->ip_addr[1],
+																							    local_interface->ip_addr[2],
+																							    local_interface->ip_addr[3], 
 																								   local_interface->name); 
 		return 0;
 
