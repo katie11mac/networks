@@ -118,37 +118,37 @@ void init_routing_table()
 {	
 	
 	// Route 0 (interface 0)
-	routing_table[0].num_interface = 0;
+	routing_table[0].iface = &interfaces[0];
 	memcpy(routing_table[0].dst, "\x01\x02\x03\x00", 4);
 	memcpy(routing_table[0].gateway, "\x00\x00\x00\x00", 4);
 	memcpy(routing_table[0].genmask, "\xff\xff\xff\x00", 4);
 
 	// Route 1 (interface 1)
-	routing_table[1].num_interface = 1;
+	routing_table[1].iface = &interfaces[1];
 	memcpy(routing_table[1].dst, "\x05\x06\x07\x00", 4);	
 	memcpy(routing_table[1].gateway, "\x00\x00\x00\x00", 4);
 	memcpy(routing_table[1].genmask, "\xff\xff\xff\x00", 4);
 	
 	// Route 2 (interface 2)
-	routing_table[2].num_interface = 2;
+	routing_table[2].iface = &interfaces[2];
 	memcpy(routing_table[2].dst, "\x09\x0a\x0b\x00", 4);
 	memcpy(routing_table[2].gateway, "\x00\x00\x00\x00", 4);
 	memcpy(routing_table[2].genmask, "\xff\xff\xff\x00", 4);
 
 	// Route 3 (interface 3)
-	routing_table[3].num_interface = 3;
+	routing_table[3].iface= &interfaces[3];
 	memcpy(routing_table[3].dst, "\x0d\x0e\x0f\x00", 4);
 	memcpy(routing_table[3].gateway, "\x00\x00\x00\x00", 4);
 	memcpy(routing_table[3].genmask, "\xff\xff\xff\x00", 4);
 	
 	// Route 4 (to another router through interface 3)
-	routing_table[4].num_interface = 3;
+	routing_table[4].iface = &interfaces[3];
 	memcpy(routing_table[4].dst, "\x11\x12\x13\x00", 4);
 	memcpy(routing_table[4].gateway, "\x0d\x0e\x0f\x11", 4);
 	memcpy(routing_table[4].genmask, "\xff\xff\xff\x00", 4);
 
 	// Route 5 (to another router through interface 2)
-	routing_table[5].num_interface = 2;
+	routing_table[5].iface = &interfaces[2];
     memcpy(routing_table[5].dst, "\x0b\x0b\x00\x00", 4);
     memcpy(routing_table[5].gateway, "\x09\x0a\x0b\x0d", 4);
     memcpy(routing_table[5].genmask, "\xff\xff\x00\x00", 4);	
@@ -717,7 +717,7 @@ int route_ip_packet(uint8_t *packet, size_t packet_len, int is_icmp)
 	// Write ethernet header for next hop
 	memcpy(new_ether_header.dst, corresponding_arp_entry->ether_addr, 6);
 	// Set frame src to corresponding leaving interface
-	memcpy(new_ether_header.src, interfaces[route_to_take->num_interface].ether_addr, 6); 
+	memcpy(new_ether_header.src, route_to_take->iface->ether_addr, 6); 
 	memcpy(new_ether_header.type, ETHER_TYPE_IP, 2);
 
 	// Update the TTL 
@@ -730,7 +730,7 @@ int route_ip_packet(uint8_t *packet, size_t packet_len, int is_icmp)
 	frame_len = compose_ether_frame(frame, &new_ether_header, packet, packet_len);
 
 	// Send to corresponding fd for vde switch connected to the interface
-	send_ethernet_frame(fds[route_to_take->num_interface][1], frame, frame_len);	
+	send_ethernet_frame(route_to_take->iface->out_fd, frame, frame_len);	
 	
 	return 0;
 
@@ -1031,7 +1031,7 @@ int send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_len
 		return -1;
 	}
 
-	src_interface = interfaces[route_to_take->num_interface];
+	src_interface = *(route_to_take->iface);
 	memcpy(new_ip_header.src_addr, src_interface.ip_addr, 4);
 	
 	total_ip_len = compose_ip_packet(ip_packet, &new_ip_header, icmp_packet, icmp_packet_len);

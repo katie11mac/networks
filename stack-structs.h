@@ -21,7 +21,7 @@ struct arp_entry {
 };
 
 struct route {
-    int num_interface; // number interface on route
+    struct interface *iface; 
     uint8_t dst[4];
     uint8_t gateway[4];
     uint8_t genmask[4];
