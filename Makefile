@@ -8,6 +8,9 @@ stack: stack.c util.o cs431vde.o crc32.o checksum.o
 testing-sender: testing-sender.c util.o cs431vde.o crc32.o checksum.o
 	gcc $(CFLAGS) $@ $^
 
+testing-i3: testing-i3.c util.o cs431vde.o crc32.o checksum.o
+	gcc $(CFLAGS) $@ $^
+
 receiver: receiver.c util.o cs431vde.o
 	gcc $(CFLAGS) $@ $^
 

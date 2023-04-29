@@ -16,21 +16,55 @@ struct interface interfaces[NUM_INTERFACES];
 struct arp_entry arp_cache[NUM_ARP_ENTRIES];
 struct route routing_table[NUM_ROUTES];
 int fds[NUM_INTERFACES][2];
+struct pollfd poll_fds[NUM_INTERFACES];
 
 int main(int argc, char *argv[])
 {
-	
+
+	int poll_results;
+
 	// Initialize fds for sending and receiving, interfaces, arp cache, and routing table
 	init_fds();
 	init_interfaces();
+	init_poll_fds();
 	init_routing_table();
 	init_arp_cache(); 
 
 	// Process frames until user terminates with Control-C
 	// (Assignment 3 Part I: Only listening on interface 0)
 	while(1) {
-	
-		handle_ethernet_frame(&interfaces[0]);
+		
+		poll_results = poll(poll_fds, NUM_INTERFACES, INFTIM);
+
+		if (poll_results == -1) {
+
+			perror("poll failed");
+		
+		}
+		
+		if (poll_fds[0].revents & POLLIN) {
+		
+			handle_ethernet_frame(&interfaces[0]);
+
+		}
+
+		if (poll_fds[1].revents & POLLIN) {
+		
+			handle_ethernet_frame(&interfaces[1]);
+
+		}
+
+		if (poll_fds[2].revents & POLLIN) {
+		
+			handle_ethernet_frame(&interfaces[2]);
+
+		}
+
+		if (poll_fds[3].revents & POLLIN) {
+		
+			handle_ethernet_frame(&interfaces[3]);
+
+		}
 	
 	}
 
@@ -110,6 +144,22 @@ void init_interfaces()
 
 }
 
+
+/*
+ * Initialize each struct poll fd in poll_fds 
+ * using each interfaces' in_fd
+ */
+void init_poll_fds()
+{
+	
+	for (int i = 0; i < NUM_INTERFACES; i++) {
+		
+		poll_fds[i].fd = interfaces[i].in_fd;
+		poll_fds[i].events = POLLIN;
+
+	}
+
+}
 
 /*
  * Initialize routing table with hard coded routes 
