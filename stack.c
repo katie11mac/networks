@@ -23,7 +23,6 @@ int main(int argc, char *argv[])
 
 	int poll_results;
 
-	// Initialize fds for sending and receiving, interfaces, arp cache, and routing table
 	init_fds();
 	init_interfaces();
 	init_poll_fds();
@@ -31,41 +30,26 @@ int main(int argc, char *argv[])
 	init_arp_cache(); 
 
 	// Process frames until user terminates with Control-C
-	// (Assignment 3 Part I: Only listening on interface 0)
 	while(1) {
 		
 		poll_results = poll(poll_fds, NUM_INTERFACES, INFTIM);
-
+		
 		if (poll_results == -1) {
 
 			perror("poll failed");
 		
 		}
 		
-		if (poll_fds[0].revents & POLLIN) {
+		for (int i = 0; i < NUM_INTERFACES; i++) {
+			
+			if (poll_fds[i].revents & POLLIN) {
 		
-			handle_ethernet_frame(&interfaces[0]);
+				handle_ethernet_frame(&interfaces[i]);
 
+			}	
+		
 		}
 
-		if (poll_fds[1].revents & POLLIN) {
-		
-			handle_ethernet_frame(&interfaces[1]);
-
-		}
-
-		if (poll_fds[2].revents & POLLIN) {
-		
-			handle_ethernet_frame(&interfaces[2]);
-
-		}
-
-		if (poll_fds[3].revents & POLLIN) {
-		
-			handle_ethernet_frame(&interfaces[3]);
-
-		}
-	
 	}
 
     return 0;
