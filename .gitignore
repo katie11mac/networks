@@ -1,4 +1,5 @@
 *.o
 stack
 testing-sender
+testing-i3
 *.core
