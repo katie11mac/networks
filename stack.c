@@ -409,19 +409,19 @@ int handle_arp_packet(uint8_t *src, struct interface *iface, uint8_t *packet, in
 {
 	
 	// Variables for processing ARP types
-	struct arp_packet *curr_arp_packet;
+	struct arp_header *curr_arp_header;
 	uint16_t given_opcode;
 
-	curr_arp_packet = (struct arp_packet *) packet;
+	curr_arp_header = (struct arp_header *) packet;
 
 	// Verify hardware type (only handling ethernet hardware) 
-	if (memcmp(curr_arp_packet->hardware_type, ARP_TYPE_ETHER, 2) == 0) {
+	if (memcmp(curr_arp_header->hardware_type, ARP_TYPE_ETHER, 2) == 0) {
 		
 		// Verify the hardware size for ethernet type
-		if (curr_arp_packet->hardware_size != ARP_ETHER_SIZE) { 
+		if (curr_arp_header->hardware_size != ARP_ETHER_SIZE) { 
 			
 			printf("    ignoring arp packet with bad hardware size from %s", 
-						 binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
+						 binary_to_hex(curr_arp_header->sender_mac_addr, 6));
 			return -1;
 		
 		}
@@ -429,20 +429,20 @@ int handle_arp_packet(uint8_t *src, struct interface *iface, uint8_t *packet, in
 	} else {
 		
 		printf("    ignoring arp packet with incompatible hardware type from %s", 
-							  binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
+							  binary_to_hex(curr_arp_header->sender_mac_addr, 6));
 		return -1;
 	
 	}
 
 
 	// Verify protocol type (only handling IPv4) 
-	if (memcmp(curr_arp_packet->protocol_type, ARP_TYPE_IP, 2) == 0) {
+	if (memcmp(curr_arp_header->protocol_type, ARP_TYPE_IP, 2) == 0) {
 		
 		// Verify the protocol size for ethernet type
-		if (curr_arp_packet->protocol_size != ARP_IP_SIZE) {
+		if (curr_arp_header->protocol_size != ARP_IP_SIZE) {
 			
 			printf("    ignoring arp packet with bad protocol size from %s", 
-						 binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
+						 binary_to_hex(curr_arp_header->sender_mac_addr, 6));
 			return -1;
 		
 		}
@@ -450,14 +450,14 @@ int handle_arp_packet(uint8_t *src, struct interface *iface, uint8_t *packet, in
 	} else {
 		
 		printf("    ignoring arp packet with incompatible protocol type from %s", 
-							  binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
+							  binary_to_hex(curr_arp_header->sender_mac_addr, 6));
 		return -1;
 	
 	}
 
 
 	// Respond to requests 
-	given_opcode = ntohs(curr_arp_packet->opcode);
+	given_opcode = ntohs(curr_arp_header->opcode);
 	
 	// Verify the opcode is a request
 	if (given_opcode == 1) {
@@ -484,19 +484,19 @@ int handle_arp_packet(uint8_t *src, struct interface *iface, uint8_t *packet, in
 int send_arp_reply(uint8_t *src, struct interface *iface, uint8_t *packet, int packet_len) 
 {
 	
-	struct arp_packet *curr_arp_packet;
+	struct arp_header *curr_arp_header;
 	
 	// Variables for sending a response
 	struct ether_header new_ether_header;
 	uint8_t frame[ETHER_MAX_FRAME_SIZE];
 	size_t frame_len;
 
-	curr_arp_packet = (struct arp_packet *) packet;
+	curr_arp_header = (struct arp_header *) packet;
 
 	// DO WE HAVE TO VERIFY ANYTHING ABOUT THE TARGET OR SOURCE IP ADDRS? 
 
 	// Only respond to ARP requests that corresponds to my listening interface
-	if (memcmp(curr_arp_packet->target_ip_addr, iface->ip_addr, 4) == 0) {
+	if (memcmp(curr_arp_header->target_ip_addr, iface->ip_addr, 4) == 0) {
 		
 		// Rewrite ethernet frame
 		memcpy(new_ether_header.dst, src, 6);
@@ -504,15 +504,15 @@ int send_arp_reply(uint8_t *src, struct interface *iface, uint8_t *packet, int p
 		memcpy(new_ether_header.type, ETHER_TYPE_ARP, 2);
 
 		// Set opcode to reply
-		curr_arp_packet->opcode = htons(0x0002);
+		curr_arp_header->opcode = htons(0x0002);
 		
 		// Set target as the given sender
-		memcpy(curr_arp_packet->target_mac_addr, curr_arp_packet->sender_mac_addr, 6);
-		memcpy(curr_arp_packet->target_ip_addr, curr_arp_packet->sender_ip_addr, 4);
+		memcpy(curr_arp_header->target_mac_addr, curr_arp_header->sender_mac_addr, 6);
+		memcpy(curr_arp_header->target_ip_addr, curr_arp_header->sender_ip_addr, 4);
 		
 		// Set sender as the interface
-		memcpy(curr_arp_packet->sender_mac_addr, iface->ether_addr, 6);
-		memcpy(curr_arp_packet->sender_ip_addr, iface->ip_addr, 4);
+		memcpy(curr_arp_header->sender_mac_addr, iface->ether_addr, 6);
+		memcpy(curr_arp_header->sender_ip_addr, iface->ip_addr, 4);
 		
 		frame_len = compose_ether_frame(frame, &new_ether_header, packet, packet_len);
 

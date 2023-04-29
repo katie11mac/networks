@@ -41,7 +41,7 @@ struct ip_header {
     // OPTIONS WITH VARIABLE LENGTH
 };
 
-struct arp_packet {
+struct arp_header {
     uint8_t hardware_type[2];
     uint8_t protocol_type[2];
     uint8_t hardware_size;
