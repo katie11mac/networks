@@ -423,7 +423,7 @@ int handle_arp_packet(uint8_t *src, struct interface *iface, uint8_t *packet, in
 	if (memcmp(curr_arp_packet->hardware_type, ARP_TYPE_ETHER, 2) == 0) {
 		
 		// Verify the hardware size for ethernet type
-		if (memcmp(&curr_arp_packet->hardware_size, "\x06", 1) != 0) {
+		if (curr_arp_packet->hardware_size != ARP_ETHER_SIZE) { 
 			
 			printf("    ignoring arp packet with bad hardware size from %s", 
 						 binary_to_hex(curr_arp_packet->sender_mac_addr, 6));
@@ -444,7 +444,7 @@ int handle_arp_packet(uint8_t *src, struct interface *iface, uint8_t *packet, in
 	if (memcmp(curr_arp_packet->protocol_type, ARP_TYPE_IP, 2) == 0) {
 		
 		// Verify the protocol size for ethernet type
-		if (memcmp(&curr_arp_packet->protocol_size, "\x04", 1) != 0) {
+		if (curr_arp_packet->protocol_size != ARP_IP_SIZE) {
 			
 			printf("    ignoring arp packet with bad protocol size from %s", 
 						 binary_to_hex(curr_arp_packet->sender_mac_addr, 6));

@@ -16,35 +16,39 @@
 // Ethernet 
 #define ETHER_MIN_DATA_SIZE 46 
 #define ETHER_MAX_DATA_SIZE 1500
-#define ETHER_FCS_SIZE 4
+#define ETHER_FCS_SIZE      4
 
 #define ETHER_MIN_FRAME_SIZE (sizeof(struct ether_header) + ETHER_MIN_DATA_SIZE + ETHER_FCS_SIZE)
 #define ETHER_MAX_FRAME_SIZE (sizeof(struct ether_header) + ETHER_MAX_DATA_SIZE + ETHER_FCS_SIZE)
 
 #define ETHER_BROADCAST_ADDR "\xff\xff\xff\xff\xff\xff"
-#define ETHER_TYPE_IP "\x08\x00"
-#define ETHER_TYPE_ARP "\x08\x06"
+#define ETHER_TYPE_IP        "\x08\x00"
+#define ETHER_TYPE_ARP       "\x08\x06"
 
 // IP 
-#define IP_INITIAL_TTL 64
-#define DIRECT_NETWORK_GATEWAY "\x00\x00\x00\x00"
-#define MAX_IP_PACKET_SIZE 1600
+#define DIRECT_NETWORK_GATEWAY     "\x00\x00\x00\x00"
 #define IP_INITIAL_VERSION_AND_IHL "\x45" 
-#define IP_ICMP_PROTOCOL 1
+
+#define MAX_IP_PACKET_SIZE 1600
+#define IP_INITIAL_TTL     64
+#define IP_ICMP_PROTOCOL   1
 
 // ARP
 #define ARP_TYPE_ETHER "\x00\x01"
-#define ARP_TYPE_IP "\x08\x00"
+#define ARP_TYPE_IP    "\x08\x00"
+
+#define ARP_ETHER_SIZE 6
+#define ARP_IP_SIZE    4
 
 // ICMP
 #define ICMP_IP_ORIGINAL_DATA_SIZE 64 / 8
-#define ICMP_MAX_DATA_SIZE sizeof(struct ip_header) + ICMP_IP_ORIGINAL_DATA_SIZE
+#define ICMP_MAX_DATA_SIZE         sizeof(struct ip_header) + ICMP_IP_ORIGINAL_DATA_SIZE
 
 // Stack
 #define RECEIVING_INTERFACE 0
-#define NUM_INTERFACES 4
-#define NUM_ARP_ENTRIES 3
-#define NUM_ROUTES 6
+#define NUM_INTERFACES      4
+#define NUM_ARP_ENTRIES     3
+#define NUM_ROUTES          6
 
 
 // Initializing global variables
