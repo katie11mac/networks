@@ -737,9 +737,13 @@ int route_ip_packet(uint8_t *packet, size_t packet_len, int is_icmp)
 	memcpy(new_ether_header.src, route_to_take->iface->ether_addr, 6); 
 	memcpy(new_ether_header.type, ETHER_TYPE_IP, 2);
 
-	// Update the TTL 
-	curr_ip_header->ttl = curr_ip_header->ttl - 1;
-
+	// Update the TTL if it is not an ICMP message 
+	if (!is_icmp) {
+	
+		curr_ip_header->ttl = curr_ip_header->ttl - 1;
+	
+	}
+	
 	// Do not emit packet with TTL of 0
 	if (is_valid_ttl(curr_ip_header) == 0) {
 	
@@ -871,7 +875,6 @@ int is_valid_ttl(struct ip_header *curr_ip_header)
 																					   curr_ip_header->dst_addr[2], 
 																					   curr_ip_header->dst_addr[3]);
 
-		
 		return 0;
 
 	}
