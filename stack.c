@@ -280,14 +280,12 @@ int is_valid_frame_len(ssize_t frame_len)
 	if (frame_len < ETHER_MIN_FRAME_SIZE) {
 		
 		printf("  ignoring %lu-byte frame (short)\n", frame_len);
-		
 		return 0;
 	
 	// Frame length too large
 	} else if (frame_len > ETHER_MAX_FRAME_SIZE) {
 		
 		printf("  ignoring %lu-byte frame (long)\n", frame_len);
-		
 		return 0;
 	
 	} else {
@@ -361,7 +359,6 @@ int check_ether_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, str
 	
 	// Frame is not for any of my interfaces
 	printf("  ignoring %lu-byte frame (not for me)\n", frame_len); 
-	
 	return -1;
 
 }
@@ -416,8 +413,6 @@ int handle_arp_packet(uint8_t *src, struct interface *iface, uint8_t *packet, in
 	uint16_t given_opcode;
 
 	curr_arp_packet = (struct arp_packet *) packet;
-
-	// NOTE: SHOULD MAKE SOME OF THESE VALUES GLOBAL VARIABLES
 
 	// Verify hardware type (only handling ethernet hardware) 
 	if (memcmp(curr_arp_packet->hardware_type, ARP_TYPE_ETHER, 2) == 0) {
@@ -585,6 +580,7 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_len)
 
 	// Check if valid TTL 
 	if(curr_ip_header->ttl == 0) {
+		
 		printf("    dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (TTL exceeded)\n", curr_ip_header->src_addr[0], 
 																					   curr_ip_header->src_addr[1], 
 																					   curr_ip_header->src_addr[2], 
@@ -597,6 +593,7 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_len)
 		send_icmp_message(packet, packet_len, 11, 0);
 
 		return -1;
+	
 	}
 
 
@@ -636,6 +633,7 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_len)
  */
 int route_ip_packet(uint8_t *packet, size_t packet_len, int is_icmp)
 {
+	
 	// Variables for routing
 	struct route *route_to_take;
 	struct arp_entry *corresponding_arp_entry;
@@ -653,9 +651,7 @@ int route_ip_packet(uint8_t *packet, size_t packet_len, int is_icmp)
 	route_to_take = determine_route(curr_ip_header); 
 
 	// No corresponding entry in routing table for IP packet
-	if (route_to_take == NULL) {
-		
-		
+	if (route_to_take == NULL) {	
 
 		printf("    dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (no route)\n", curr_ip_header->src_addr[0],
 																			       curr_ip_header->src_addr[1], 
@@ -708,8 +704,6 @@ int route_ip_packet(uint8_t *packet, size_t packet_len, int is_icmp)
 		} 
 
 		return -1;
-		
-		
 
 	}
 
@@ -887,7 +881,10 @@ struct interface *determine_local_interface(struct ip_header *curr_ip_header)
 uint32_t array_to_uint32(uint8_t array[4]) 
 {
     
-	uint32_t result = ((uint32_t)array[0] << 24) | ((uint32_t)array[1] << 16) | ((uint32_t)array[2] << 8) | ((uint32_t)array[3]);
+	uint32_t result = ((uint32_t)array[0] << 24) 
+					| ((uint32_t)array[1] << 16) 
+					| ((uint32_t)array[2] << 8) 
+					| ((uint32_t)array[3]);
     
 	return result;
 }
@@ -1028,7 +1025,9 @@ int send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_len
 	route_to_take = determine_route(&new_ip_header); 
 	
 	if (route_to_take == NULL) {
+	
 		return -1;
+	
 	}
 
 	src_interface = *(route_to_take->iface);
