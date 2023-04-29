@@ -13,7 +13,7 @@ int main(int argc, char *argv[])
 	
 	struct ether_header test;
 	struct ip_header ip_test;
-	struct arp_packet arp_test;
+	struct arp_header arp_test;
 	ssize_t data_len;
 	uint32_t fcs;
 
@@ -670,10 +670,10 @@ int main(int argc, char *argv[])
 	//target_mac_addr
 	//target_ip_addr
 
-	memcpy(frame + sizeof(struct ether_header), &arp_test, sizeof(struct arp_packet));
+	memcpy(frame + sizeof(struct ether_header), &arp_test, sizeof(struct arp_header));
 
     // rest of Ethernet 
-    frame_len = sizeof(struct ether_header) + sizeof(struct arp_packet) + data_len;
+    frame_len = sizeof(struct ether_header) + sizeof(struct arp_header) + data_len;
     fcs = crc32(0, frame, frame_len);
     memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
     frame_len += sizeof(uint32_t);
@@ -710,10 +710,10 @@ int main(int argc, char *argv[])
 	//target_mac_addr
 	//target_ip_addr
 
-	memcpy(frame + sizeof(struct ether_header), &arp_test, sizeof(struct arp_packet));
+	memcpy(frame + sizeof(struct ether_header), &arp_test, sizeof(struct arp_header));
 
     // rest of Ethernet 
-    frame_len = sizeof(struct ether_header) + sizeof(struct arp_packet) + data_len;
+    frame_len = sizeof(struct ether_header) + sizeof(struct arp_header) + data_len;
     fcs = crc32(0, frame, frame_len);
     memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
     frame_len += sizeof(uint32_t);
@@ -750,10 +750,10 @@ int main(int argc, char *argv[])
     //target_mac_addr
     //target_ip_addr
 
-    memcpy(frame + sizeof(struct ether_header), &arp_test, sizeof(struct arp_packet));
+    memcpy(frame + sizeof(struct ether_header), &arp_test, sizeof(struct arp_header));
 
     // rest of Ethernet 
-    frame_len = sizeof(struct ether_header) + sizeof(struct arp_packet) + data_len;
+    frame_len = sizeof(struct ether_header) + sizeof(struct arp_header) + data_len;
     fcs = crc32(0, frame, frame_len);
     memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
     frame_len += sizeof(uint32_t);
@@ -790,10 +790,10 @@ int main(int argc, char *argv[])
     //target_mac_addr
     //target_ip_addr
 
-    memcpy(frame + sizeof(struct ether_header), &arp_test, sizeof(struct arp_packet));
+    memcpy(frame + sizeof(struct ether_header), &arp_test, sizeof(struct arp_header));
 
     // rest of Ethernet 
-    frame_len = sizeof(struct ether_header) + sizeof(struct arp_packet) + data_len;
+    frame_len = sizeof(struct ether_header) + sizeof(struct arp_header) + data_len;
     fcs = crc32(0, frame, frame_len);
     memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
     frame_len += sizeof(uint32_t);
@@ -832,10 +832,10 @@ int main(int argc, char *argv[])
 	memcpy(&arp_test.sender_ip_addr, "\x01\x02\x03\x00", 4);
 	memcpy(arp_test.sender_mac_addr, "\x11\x22\x33\x00\xff\xff", 6);
 
-    memcpy(frame + sizeof(struct ether_header), &arp_test, sizeof(struct arp_packet));
+    memcpy(frame + sizeof(struct ether_header), &arp_test, sizeof(struct arp_header));
 
     // rest of Ethernet 
-    frame_len = sizeof(struct ether_header) + sizeof(struct arp_packet) + data_len;
+    frame_len = sizeof(struct ether_header) + sizeof(struct arp_header) + data_len;
     fcs = crc32(0, frame, frame_len);
     memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
     frame_len += sizeof(uint32_t);
@@ -876,10 +876,10 @@ int main(int argc, char *argv[])
 	memcpy(&arp_test.sender_ip_addr, "\x01\x02\x03\x00", 4);
 	memcpy(arp_test.sender_mac_addr, "\x11\x22\x33\x00\xff\xff", 6);
 
-    memcpy(frame + sizeof(struct ether_header), &arp_test, sizeof(struct arp_packet));
+    memcpy(frame + sizeof(struct ether_header), &arp_test, sizeof(struct arp_header));
 
     // rest of Ethernet 
-    frame_len = sizeof(struct ether_header) + sizeof(struct arp_packet) + data_len;
+    frame_len = sizeof(struct ether_header) + sizeof(struct arp_header) + data_len;
     fcs = crc32(0, frame, frame_len);
     memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
     frame_len += sizeof(uint32_t);
@@ -919,10 +919,10 @@ int main(int argc, char *argv[])
 	memcpy(&arp_test.sender_ip_addr, "\x01\x02\x03\x00", 4);
 	memcpy(arp_test.sender_mac_addr, "\x11\x22\x33\x00\xff\xff", 6);
 
-    memcpy(frame + sizeof(struct ether_header), &arp_test, sizeof(struct arp_packet));
+    memcpy(frame + sizeof(struct ether_header), &arp_test, sizeof(struct arp_header));
 
     // rest of Ethernet 
-    frame_len = sizeof(struct ether_header) + sizeof(struct arp_packet) + data_len;
+    frame_len = sizeof(struct ether_header) + sizeof(struct arp_header) + data_len;
     fcs = crc32(0, frame, frame_len);
     memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
     frame_len += sizeof(uint32_t);
