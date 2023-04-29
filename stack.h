@@ -77,6 +77,7 @@ int compose_ip_packet(uint8_t *packet, struct ip_header *ip_header, uint8_t *pay
 int is_valid_ip_checksum(struct ip_header *curr_ip_header);
 int is_valid_ihl(struct ip_header *curr_ip_header);
 int is_valid_ip_version(struct ip_header *curr_ip_header);
+int is_valid_ttl(struct ip_header *curr_ip_header);
 struct interface *determine_local_interface(struct ip_header *curr_ip_header);
 uint32_t array_to_uint32(uint8_t array[4]);
 struct route *determine_route(struct ip_header *curr_ip_header);

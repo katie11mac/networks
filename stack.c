@@ -613,23 +613,12 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_len)
 	}
 
 	// Check if valid TTL 
-	if(curr_ip_header->ttl == 0) {
+	if (is_valid_ttl(curr_ip_header) == 0) {
 		
-		printf("    dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (TTL exceeded)\n", curr_ip_header->src_addr[0], 
-																					   curr_ip_header->src_addr[1], 
-																					   curr_ip_header->src_addr[2], 
-																					   curr_ip_header->src_addr[3], 
-																					   curr_ip_header->dst_addr[0], 
-																					   curr_ip_header->dst_addr[1], 
-																					   curr_ip_header->dst_addr[2], 
-																					   curr_ip_header->dst_addr[3]);
-
 		send_icmp_message(packet, packet_len, 11, 0);
-
 		return -1;
-	
-	}
 
+	}
 
 	// Get ip destination and check if it has a valid TTL accordingly 
 		
@@ -751,6 +740,14 @@ int route_ip_packet(uint8_t *packet, size_t packet_len, int is_icmp)
 	// Update the TTL 
 	curr_ip_header->ttl = curr_ip_header->ttl - 1;
 
+	// Do not emit packet with TTL of 0
+	if (is_valid_ttl(curr_ip_header) == 0) {
+	
+		send_icmp_message(packet, packet_len, 11, 0);
+		return -1;
+
+	}
+
 	// Recalculate IP header checksum 
 	curr_ip_header->header_checksum = 0;
 	curr_ip_header->header_checksum = checksum(curr_ip_header, (curr_ip_header->version_and_ihl & 0x0f) * 4);
@@ -848,6 +845,35 @@ int is_valid_ihl(struct ip_header *curr_ip_header)
 																	   curr_ip_header->src_addr[3]);
 		return 0;
 	
+	}
+
+	return 1;
+
+}
+
+/*
+ * Check if given TTL is valid 
+ *
+ * Return 1 if TTL is valid
+ * Return 0 otherwise
+ */
+int is_valid_ttl(struct ip_header *curr_ip_header) 
+{
+
+	if(curr_ip_header->ttl == 0) {
+			
+		printf("    dropping packet from %u.%u.%u.%u to %u.%u.%u.%u (TTL exceeded)\n", curr_ip_header->src_addr[0], 
+																					   curr_ip_header->src_addr[1], 
+																					   curr_ip_header->src_addr[2], 
+																					   curr_ip_header->src_addr[3], 
+																					   curr_ip_header->dst_addr[0], 
+																					   curr_ip_header->dst_addr[1], 
+																					   curr_ip_header->dst_addr[2], 
+																					   curr_ip_header->dst_addr[3]);
+
+		
+		return 0;
+
 	}
 
 	return 1;
@@ -1006,7 +1032,7 @@ struct arp_entry *determine_mac_arp(uint8_t *ip_addr)
  */
 int send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_len, uint8_t type, uint8_t code)
 {
-	
+
 	struct icmp_header new_icmp_header; 
 	uint8_t icmp_packet[sizeof(struct icmp_header) + ICMP_MAX_DATA_SIZE];
 	size_t icmp_packet_len;
@@ -1020,6 +1046,8 @@ int send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_len
 	struct interface src_interface;
 
 	struct route *route_to_take;
+	
+	printf("  sending ICMP message\n");
 
 	// Determine how many bytes to read of the original data 
 	if (original_ip_data_len < ICMP_IP_ORIGINAL_DATA_SIZE) {
