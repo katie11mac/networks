@@ -741,17 +741,20 @@ int route_ip_packet(uint8_t *packet, size_t packet_len, int is_icmp)
 	if (!is_icmp) {
 	
 		curr_ip_header->ttl = curr_ip_header->ttl - 1;
-	
-	}
-	
-	// Do not emit packet with TTL of 0
-	if (is_valid_ttl(curr_ip_header) == 0) {
-	
-		send_icmp_message(packet, packet_len, 11, 0);
-		return -1;
+		
+		// Do not emit packet with TTL of 0
+		if (is_valid_ttl(curr_ip_header) == 0) {
+			
+			// Restore IP header to have original TTL again
+			curr_ip_header->ttl = curr_ip_header->ttl + 1;
+
+			send_icmp_message(packet, packet_len, 11, 0);
+			return -1;
+
+		}
 
 	}
-
+	
 	// Recalculate IP header checksum 
 	curr_ip_header->header_checksum = 0;
 	curr_ip_header->header_checksum = checksum(curr_ip_header, (curr_ip_header->version_and_ihl & 0x0f) * 4);
