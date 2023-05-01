@@ -183,7 +183,7 @@ void init_routing_table()
 
 	// Route 5 (to another router through interface 2)
 	routing_table[5].iface = &interfaces[2];
-    memcpy(routing_table[5].dst, "\x0b\x0b\x00\x00", 4);
+    memcpy(routing_table[5].dst, "\x0b\x0c\x0d\x0e", 4);
     memcpy(routing_table[5].gateway, "\x09\x0a\x0b\x0d", 4);
     memcpy(routing_table[5].genmask, "\xff\xff\x00\x00", 4);	
 
@@ -685,7 +685,7 @@ int route_ip_packet(uint8_t *packet, size_t packet_len, int is_icmp)
 																			       curr_ip_header->dst_addr[2], 
 																			       curr_ip_header->dst_addr[3]);
 		if (!is_icmp) {
-		
+			
 			send_icmp_message(packet, packet_len, 3, 0);
 
 		} 
@@ -951,7 +951,7 @@ uint32_t array_to_uint32(uint8_t array[4])
 					| ((uint32_t)array[1] << 16) 
 					| ((uint32_t)array[2] << 8) 
 					| ((uint32_t)array[3]);
-    
+	
 	return result;
 }
 
@@ -973,13 +973,13 @@ struct route *determine_route(struct ip_header *curr_ip_header)
 	uint32_t curr_dst;
 
 
-	for (int i = 0; i < NUM_ROUTES; i++) {
+	for (int i = 0; i < NUM_ROUTES && routing_table[i].iface; i++) {
 				
 		curr_genmask = array_to_uint32(routing_table[i].genmask);
 		curr_dst = array_to_uint32(routing_table[i].dst);
 		
-		if ((given_ip_dst_addr & curr_genmask) == curr_dst) {
-			
+		if ((given_ip_dst_addr & curr_genmask) == (curr_dst & curr_genmask)) {
+	
 			if (curr_genmask > genmask_results) {
 				
 				genmask_results = curr_genmask;
@@ -1093,7 +1093,8 @@ int send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_len
 	route_to_take = determine_route(&new_ip_header); 
 	
 	if (route_to_take == NULL) {
-	
+		
+		printf("    dropping ICMP message (no route)\n");
 		return -1;
 	
 	}
