@@ -183,7 +183,7 @@ void init_routing_table()
 
 	// Route 5 (to another router through interface 2)
 	routing_table[5].iface = &interfaces[2];
-    memcpy(routing_table[5].dst, "\x0b\x0c\x0d\x0e", 4);
+    memcpy(routing_table[5].dst, "\x0b\x0c\x00\x00", 4);
     memcpy(routing_table[5].gateway, "\x09\x0a\x0b\x0d", 4);
     memcpy(routing_table[5].genmask, "\xff\xff\x00\x00", 4);	
 
@@ -978,7 +978,7 @@ struct route *determine_route(struct ip_header *curr_ip_header)
 		curr_genmask = array_to_uint32(routing_table[i].genmask);
 		curr_dst = array_to_uint32(routing_table[i].dst);
 		
-		if ((given_ip_dst_addr & curr_genmask) == (curr_dst & curr_genmask)) {
+		if ((given_ip_dst_addr & curr_genmask) == curr_dst) {
 	
 			if (curr_genmask > genmask_results) {
 				
