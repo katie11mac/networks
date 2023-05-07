@@ -33,4 +33,4 @@ hexread: hexread.c util.o
 
 .PHONY: clean
 clean: 
-	rm -f hexdump hexread receiver testing-sender stack *.o 
+	rm -f hexdump hexread receiver testing-sender stack *.o *.core 
