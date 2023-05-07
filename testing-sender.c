@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
 	fcs = crc32(0, frame, frame_len); 
 	memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
 	frame_len += sizeof(uint32_t);
-    printf("sending frame, length %ld\n", frame_len);
+    //printf("1) sending frame, length %ld\n", frame_len);
     //send_ethernet_frame(fds[1], frame, frame_len);
 
 
@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
 	fcs = 123; 
 	memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
 	frame_len += sizeof(uint32_t);
-    printf("sending frame, length %ld\n", frame_len);
+    //printf("2) sending frame, length %ld\n", frame_len);
     //send_ethernet_frame(fds[1], frame, frame_len);
 
 
@@ -90,7 +90,7 @@ int main(int argc, char *argv[])
     fcs = crc32(0, frame, frame_len);
     memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
     frame_len += sizeof(uint32_t);
-    printf("sending frame, length %ld\n", frame_len);
+    //printf("3) sending frame, length %ld\n", frame_len);
     //send_ethernet_frame(fds[1], frame, frame_len);
 
 	
@@ -111,7 +111,7 @@ int main(int argc, char *argv[])
     fcs = crc32(0, frame, frame_len);
     memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
     frame_len += sizeof(uint32_t);
-    printf("sending frame, length %ld\n", frame_len);
+    //printf("4) sending frame, length %ld\n", frame_len);
     //send_ethernet_frame(fds[1], frame, frame_len);
 
 
@@ -137,7 +137,7 @@ int main(int argc, char *argv[])
     fcs = crc32(0, frame, frame_len);
     memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
     frame_len += sizeof(uint32_t);
-    printf("sending frame, length %ld\n", frame_len);
+    //printf("5) sending frame, length %ld\n", frame_len);
     //send_ethernet_frame(fds[1], frame, frame_len);
 
 
@@ -178,7 +178,7 @@ int main(int argc, char *argv[])
 	fcs = crc32(0, frame, frame_len);  
 	memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
 	frame_len += sizeof(uint32_t);
-    printf("sending frame, length %ld\n", frame_len);
+    //printf("6) sending frame, length %ld\n", frame_len);
     //send_ethernet_frame(fds[1], frame, frame_len);
 
 
@@ -218,7 +218,7 @@ int main(int argc, char *argv[])
 	fcs = crc32(0, frame, frame_len);  
 	memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
 	frame_len += sizeof(uint32_t);
-    printf("sending frame, length %ld\n", frame_len);
+    //printf("7) sending frame, length %ld\n", frame_len);
     //send_ethernet_frame(fds[1], frame, frame_len);
 
 
@@ -258,7 +258,7 @@ int main(int argc, char *argv[])
 	fcs = crc32(0, frame, frame_len);  
 	memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
 	frame_len += sizeof(uint32_t);
-    printf("sending frame, length %ld\n", frame_len);
+    //printf("8) sending frame, length %ld\n", frame_len);
     //send_ethernet_frame(fds[1], frame, frame_len);
 
 
@@ -298,7 +298,7 @@ int main(int argc, char *argv[])
 	fcs = crc32(0, frame, frame_len);  
 	memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
 	frame_len += sizeof(uint32_t);
-    printf("sending frame, length %ld\n", frame_len);
+    //printf("9) sending frame, length %ld\n", frame_len);
     //send_ethernet_frame(fds[1], frame, frame_len);
 
 
@@ -348,7 +348,7 @@ int main(int argc, char *argv[])
 	fcs = crc32(0, frame, frame_len);  
 	memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
 	frame_len += sizeof(uint32_t);
-    printf("sending frame, length %ld\n", frame_len);
+    //printf("10) sending frame, length %ld\n", frame_len);
     //send_ethernet_frame(fds[1], frame, frame_len);
 
 	
@@ -396,7 +396,7 @@ int main(int argc, char *argv[])
 	fcs = crc32(0, frame, frame_len);  
 	memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
 	frame_len += sizeof(uint32_t);
-    printf("sending frame, length %ld\n", frame_len);
+    //printf("11) sending frame, length %ld\n", frame_len);
     //send_ethernet_frame(fds[1], frame, frame_len);
 
 
@@ -443,7 +443,7 @@ int main(int argc, char *argv[])
     fcs = crc32(0, frame, frame_len);
     memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
     frame_len += sizeof(uint32_t);
-    printf("sending frame, length %ld\n", frame_len);
+    //printf("12) sending frame, length %ld\n", frame_len);
     //send_ethernet_frame(fds[1], frame, frame_len);
 
 
@@ -494,7 +494,7 @@ int main(int argc, char *argv[])
     fcs = crc32(0, frame, frame_len);
     memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
     frame_len += sizeof(uint32_t);
-    printf("sending frame, length %ld\n", frame_len);
+    printf("13) sending frame, length %ld\n", frame_len);
     send_ethernet_frame(fds[1], frame, frame_len);
 
 
@@ -541,7 +541,7 @@ int main(int argc, char *argv[])
 	fcs = crc32(0, frame, frame_len);  
 	memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
 	frame_len += sizeof(uint32_t);
-    printf("sending frame, length %ld\n", frame_len);
+    printf("14) sending frame, length %ld\n", frame_len);
     send_ethernet_frame(fds[1], frame, frame_len);
 
 
@@ -589,7 +589,7 @@ int main(int argc, char *argv[])
     fcs = crc32(0, frame, frame_len);
     memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
     frame_len += sizeof(uint32_t);
-    printf("sending frame, length %ld\n", frame_len);
+    printf("15) sending frame, length %ld\n", frame_len);
     send_ethernet_frame(fds[1], frame, frame_len);
    
 
@@ -638,7 +638,7 @@ int main(int argc, char *argv[])
     fcs = crc32(0, frame, frame_len);
     memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
     frame_len += sizeof(uint32_t);
-    printf("sending frame, length %ld\n", frame_len);
+    //printf("16) sending frame, length %ld\n", frame_len);
     //send_ethernet_frame(fds[1], frame, frame_len);
  
 
@@ -677,7 +677,7 @@ int main(int argc, char *argv[])
     fcs = crc32(0, frame, frame_len);
     memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
     frame_len += sizeof(uint32_t);
-    printf("sending frame, length %ld\n", frame_len);
+    //printf("17) sending frame, length %ld\n", frame_len);
     //send_ethernet_frame(fds[1], frame, frame_len);
  
 
@@ -717,7 +717,7 @@ int main(int argc, char *argv[])
     fcs = crc32(0, frame, frame_len);
     memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
     frame_len += sizeof(uint32_t);
-    printf("sending frame, length %ld\n", frame_len);
+    //printf("18) sending frame, length %ld\n", frame_len);
     //send_ethernet_frame(fds[1], frame, frame_len);
 
 
@@ -757,7 +757,7 @@ int main(int argc, char *argv[])
     fcs = crc32(0, frame, frame_len);
     memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
     frame_len += sizeof(uint32_t);
-    printf("sending frame, length %ld\n", frame_len);
+    //printf("19) sending frame, length %ld\n", frame_len);
     //send_ethernet_frame(fds[1], frame, frame_len);
 	
 	/*
@@ -797,7 +797,7 @@ int main(int argc, char *argv[])
     fcs = crc32(0, frame, frame_len);
     memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
     frame_len += sizeof(uint32_t);
-    printf("sending frame, length %ld\n", frame_len);
+    //printf("20) sending frame, length %ld\n", frame_len);
     //send_ethernet_frame(fds[1], frame, frame_len);
 	
 	/*
@@ -839,7 +839,7 @@ int main(int argc, char *argv[])
     fcs = crc32(0, frame, frame_len);
     memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
     frame_len += sizeof(uint32_t);
-    printf("sending frame, length %ld\n", frame_len);
+    //printf("21) sending frame, length %ld\n", frame_len);
     //send_ethernet_frame(fds[1], frame, frame_len);
 	
 	
@@ -883,7 +883,7 @@ int main(int argc, char *argv[])
     fcs = crc32(0, frame, frame_len);
     memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
     frame_len += sizeof(uint32_t);
-    printf("sending frame, length %ld\n", frame_len);
+    //printf("22) sending frame, length %ld\n", frame_len);
     //send_ethernet_frame(fds[1], frame, frame_len);
 
 
@@ -926,7 +926,7 @@ int main(int argc, char *argv[])
     fcs = crc32(0, frame, frame_len);
     memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
     frame_len += sizeof(uint32_t);
-    printf("sending frame, length %ld\n", frame_len);
+    //printf("23) sending frame, length %ld\n", frame_len);
     //send_ethernet_frame(fds[1], frame, frame_len);
 	// ---------------------------------------------------------------------------------------
 
