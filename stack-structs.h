@@ -72,4 +72,39 @@ struct tcp_header {
 	// OPTIONS, PADDING, DATA?? 
 };
 
+struct tcp_pseudo_header {
+	uint8_t ip_src[4];
+	uint8_t ip_dst[4];
+	uint8_t zeros;
+	uint8_t ptcl;
+	uint16_t tcp_length;
+};
+
+enum connection_state {
+	LISTEN, 
+	SYN_SENT,
+	SYN_RECEIVED, 
+	ESTABLISHED,
+	FIN_WAIT_1,
+	FIN_WAIT_2,
+	CLOSE_WAIT,
+	CLOSING,
+	LAST_ACK,
+	TIME_WAIT,
+	CLOSED      // initial state
+};
+
+struct connection {
+	uint8_t ip_src[4];
+	uint8_t ip_dst[4];
+	uint16_t src_port; 
+	uint16_t dst_port;
+	enum connection_state state;	
+	// IS_ACTIVE CONNECTION REDUNDANT? 	
+	// ASSUMPTION: SEGMENTS NEVER ARRIVE OUT OF ORDER OR GO MISSING
+};
+
+
+
+
 #endif /* __STACK_STRUCTS_H */
