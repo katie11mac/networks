@@ -17,6 +17,9 @@ struct arp_entry arp_cache[NUM_ARP_ENTRIES];
 struct route routing_table[NUM_ROUTES];
 int fds[NUM_INTERFACES][2];
 struct pollfd poll_fds[NUM_INTERFACES];
+struct connection connections[MAX_CONNECTIONS];
+int num_connections = 0;
+
 
 int main(int argc, char *argv[])
 {
@@ -310,6 +313,7 @@ int handle_ethernet_frame(struct interface *iface)
  */
 int is_valid_frame_len(ssize_t frame_len) 
 {
+
 	// Frame length too small
 	if (frame_len < ETHER_MIN_FRAME_SIZE) {
 		
@@ -574,7 +578,10 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_len)
 
 	struct ip_header *curr_ip_header;
 	struct interface *local_interface;
-			
+	uint8_t *payload; 
+	int payload_len;
+
+
 	// Interpret data as IPv4 header
 	curr_ip_header = (struct ip_header *) packet;
 	
@@ -620,8 +627,10 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_len)
 
 	}
 
-	// Get ip destination and check if it has a valid TTL accordingly 
-		
+	// Set payload
+	payload = packet + sizeof(struct ip_header);
+	payload_len = packet_len - sizeof(struct ip_header);
+
 	// Check ip destination 
 	local_interface = determine_local_interface(curr_ip_header);
 
@@ -638,7 +647,16 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_len)
 																							    local_interface->ip_addr[2],
 																							    local_interface->ip_addr[3], 
 																								   local_interface->name); 
+		
+		// Received a TCP packet for local interface
+		if (curr_ip_header->protocol == IP_TCP_PROTOCOL) {
+			
+			handle_tcp_packet(curr_ip_header->src_addr, curr_ip_header->dst_addr, payload, payload_len);
+		
+		}
+
 		return 0;
+
 
 	}
 		
@@ -1109,3 +1127,160 @@ int send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_len
 
 }
 
+/*
+ */
+int handle_tcp_packet(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *packet, int packet_len)
+{
+	struct tcp_header *curr_tcp_header;
+	struct connection *curr_connection; 
+
+	printf("   received TCP packet\n");
+	
+	curr_tcp_header = (struct tcp_header *) packet;
+
+	// REMEMBER THAT WE ALREADY KNOW THIS PACKET IS FOR US!!! 
+	
+	if ((curr_connection = determine_connection(ip_src, ip_dst, curr_tcp_header)) == NULL) {
+		
+		printf("      No existing connection found. Creating new connection.\n");
+		curr_connection = add_connection(ip_src, ip_dst, curr_tcp_header);
+	}
+
+	if (curr_connection == NULL) {
+		printf("      Dropping TCP packet?\n");
+		return -1;
+	}
+	
+	// INSPECT WHETHER THE CONNECTION WAS SUCCESSFULLY ADDED!!!!!! 
+
+	// Verify checksum  
+	is_valid_tcp_checksum(curr_connection, packet, packet_len);
+
+	// do something with determining the state 
+	// in that determining the state we would also need to check the flags to determine what to do 
+	
+	return 0; 
+}
+
+
+/*
+ * Determine whether a connection already exists based on 
+ * IP src, IP dst, src port, and dst port of a TCP header
+ *
+ * Return pointer to connection if one already exists
+ * Return NULL if connection does not yet exist 
+ */
+struct connection *determine_connection(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_header *curr_tcp_header)
+{	
+
+	for (int i = 0; i < num_connections; i++) { 
+
+		// Continue if given IP src, IP dst, src port, or dst port do no match the connection
+		
+		if (memcmp(ip_src, connections[i].ip_src, 4) != 0) {
+			continue;
+		}
+		if (memcmp(ip_dst, connections[i].ip_dst, 4) != 0) {
+			continue;
+		}
+		if (ntohs(curr_tcp_header->src_port) != connections[i].src_port) {
+			continue;
+		}
+		if (ntohs(curr_tcp_header->dst_port) != connections[i].dst_port) {
+			continue; 
+		}
+		
+		// Reached end of conditionals and found a match
+		return &connections[i];
+	
+	}
+	
+	return NULL;
+
+}
+
+
+/*
+ */
+struct connection *add_connection(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_header *curr_tcp_header)
+{
+	/*
+	 * THINGS WRONG WITH THIS 
+	 * - Does not check for if it has reached max connections 
+	 * - Not super space efficient 
+	 */
+
+	// No more space for connections
+	if (num_connections >= MAX_CONNECTIONS) {
+		printf("        Reached max number of connections.\n");
+		return NULL;
+	}
+
+	// Add new connection at the end of the array
+	memcpy(connections[num_connections].ip_src, ip_src, 4);
+	memcpy(connections[num_connections].ip_dst, ip_dst, 4);
+	connections[num_connections].src_port = ntohs(curr_tcp_header->src_port);
+	connections[num_connections].dst_port = ntohs(curr_tcp_header->dst_port);
+	connections[num_connections].state = CLOSED;
+	
+	num_connections += 1;
+
+	return &connections[num_connections];
+
+	// How should we determine where this new connection will go? 
+	// Should we just add it to the end of the array? 
+	// Or should we check the connection state and see if any are closed? 
+	// But does that mean that we have to initialized all the structs in the array to have a closed connection? 
+	// Meaning that we would have to do that at the beginning of the code? 
+	// LOOK BACK AT HIS IMPLEMENTATION!!! 
+}
+
+
+/*
+ */
+int is_valid_tcp_checksum(struct connection *curr_connection, uint8_t *curr_tcp_packet, int tcp_length)
+{
+	struct tcp_pseudo_header pseudo_header;
+	struct tcp_header *curr_tcp_header;
+	uint16_t original_checksum;
+	uint16_t calculated_checksum;
+	int total_length = sizeof(struct tcp_pseudo_header) + tcp_length;
+	uint8_t tcp_text[total_length];
+
+	// Create a psuedo header for TCP packet
+	memset(&pseudo_header, '\0', sizeof(struct tcp_pseudo_header));
+	// CHECK THIS SHIT 
+	memcpy(pseudo_header.ip_src, curr_connection->ip_src, 4);
+	memcpy(pseudo_header.ip_dst, curr_connection->ip_dst, 4);
+	pseudo_header.zeros = 0;
+	pseudo_header.ptcl = IP_TCP_PROTOCOL;
+	pseudo_header.tcp_length = tcp_length;
+	
+	// Interpret beginning of packet as TCP header 
+	curr_tcp_header = (struct tcp_header *) curr_tcp_packet;
+
+	// Save original checksum
+	original_checksum = curr_tcp_header->checksum;
+
+	// Reset the checksum 
+	curr_tcp_header->checksum = 0;
+
+	// Write psuedo header and TCP packet into the tcp_text buffer
+	memcpy(tcp_text, &pseudo_header, sizeof(struct tcp_pseudo_header));
+	memcpy(tcp_text + sizeof(struct tcp_pseudo_header), curr_tcp_packet, tcp_length);
+
+	// Calculate the checksum using the data in tcp_text buffer 
+	calculated_checksum = checksum(tcp_text, total_length);
+
+	if (calculated_checksum != original_checksum) {
+		printf("        dropping TCP packet (bad checksum)\n");
+		return 0;
+	}
+
+	return 1;
+	// PADDING??? IS IT HANDLED FOR US? 
+
+
+
+
+}

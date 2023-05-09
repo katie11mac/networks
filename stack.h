@@ -33,6 +33,7 @@
 #define MAX_IP_PACKET_SIZE 1600
 #define IP_INITIAL_TTL     64
 #define IP_ICMP_PROTOCOL   1
+#define IP_TCP_PROTOCOL	   6
 
 // ARP
 #define ARP_TYPE_ETHER "\x00\x01"
@@ -45,12 +46,20 @@
 #define ICMP_IP_ORIGINAL_DATA_SIZE 64 / 8
 #define ICMP_MAX_DATA_SIZE         sizeof(struct ip_header) + ICMP_IP_ORIGINAL_DATA_SIZE
 
+// TCP
+#define TCP_URG_FLAG 32
+#define TCP_ACK_FLAG 16
+#define TCP_PSH_FLAG 8
+#define TCP_RST_FLAG 4
+#define TCP_SYN_FLAG 2
+#define TCP_FIN_FLAG 1
+
 // Stack
 #define RECEIVING_INTERFACE 0
 #define NUM_INTERFACES      4
 #define NUM_ARP_ENTRIES     3
 #define NUM_ROUTES          6
-
+#define MAX_CONNECTIONS     10 // CHECK THIS!!!!!!!!!!!
 
 // Initializing global variables
 void init_fds();
@@ -85,5 +94,11 @@ struct arp_entry *determine_mac_arp(uint8_t *ip_addr);
 
 // ICMP functions
 int send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_len, uint8_t type, uint8_t code);
+
+// TCP functions 
+int handle_tcp_packet(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *packet, int packet_len);
+struct connection *determine_connection(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_header *curr_tcp_header);
+struct connection *add_connection(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_header *curr_tcp_header);
+int is_valid_tcp_checksum(struct connection *curr_connection, uint8_t *curr_tcp_packet, int tcp_length);
 
 #endif /* __STACK_H */
