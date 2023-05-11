@@ -19,7 +19,8 @@
 #define ETHER_MAX_DATA_SIZE 1500
 #define ETHER_FCS_SIZE      4
 
-#define ETHER_MIN_FRAME_SIZE (sizeof(struct ether_header) + ETHER_MIN_DATA_SIZE + ETHER_FCS_SIZE)
+// Changed minimum length bc ARP and TCP do not always have FCS
+#define ETHER_MIN_FRAME_SIZE (sizeof(struct ether_header) + ETHER_MIN_DATA_SIZE)
 #define ETHER_MAX_FRAME_SIZE (sizeof(struct ether_header) + ETHER_MAX_DATA_SIZE + ETHER_FCS_SIZE)
 
 #define ETHER_BROADCAST_ADDR "\xff\xff\xff\xff\xff\xff"

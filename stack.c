@@ -231,7 +231,7 @@ int handle_ethernet_frame(struct interface *iface)
 	uint8_t *payload;
 	int payload_len;
 	int ether_dst_addr_results;
-
+	int check_fcs = 1;
 	
 	// Read frame from interface  
 	frame_len = receive_ethernet_frame(iface->in_fd, frame);
@@ -241,22 +241,40 @@ int handle_ethernet_frame(struct interface *iface)
 	curr_frame = (struct ether_header *) frame;
 
 	// Verify length of frame 
-	if(is_valid_frame_len(frame_len) == 0) {
+	if (is_valid_frame_len(frame_len) == 0) {
 	
 		return -1;
 
 	}
+	
+	// Check Ethernet type 
+	if (memcmp(curr_frame->type, ETHER_TYPE_ARP, 2) == 0) {
+		check_fcs = 0;
+	} else if (memcmp(curr_frame->type, ETHER_TYPE_IP, 2) == 0) {
+		printf("TYPE IP\n");
+		if (((struct ip_header *)(frame + sizeof(struct ether_header)))->protocol == IP_TCP_PROTOCOL) {
+			check_fcs = 0;
+		}
+	}
 
 	// Verify fcs
-	if (is_valid_fcs(frame, frame_len) == 0) {
+	if (check_fcs) {
+		if (is_valid_fcs(frame, frame_len) == 0) {
 	
-		return -1;
+			return -1;
 
+		}
 	}
 
 	// Set payload 
 	payload = frame + sizeof(struct ether_header);
-	payload_len = frame_len - sizeof(struct ether_header) - ETHER_FCS_SIZE;
+	
+	// Set the frame length 
+	if (check_fcs) {	
+		payload_len = frame_len - sizeof(struct ether_header) - ETHER_FCS_SIZE;
+	} else {
+		payload_len = frame_len - sizeof(struct ether_header);
+	}
 	
 	// Acknowledge broadcasts and set ether_dst_addr_results
 	ether_dst_addr_results = check_ether_dst_addr(curr_frame, frame_len, *iface);
@@ -333,7 +351,6 @@ int is_valid_frame_len(ssize_t frame_len)
 	}
 
 }
-
 
 
 /*
@@ -1279,8 +1296,5 @@ int is_valid_tcp_checksum(struct connection *curr_connection, uint8_t *curr_tcp_
 
 	return 1;
 	// PADDING??? IS IT HANDLED FOR US? 
-
-
-
 
 }
