@@ -251,7 +251,6 @@ int handle_ethernet_frame(struct interface *iface)
 	if (memcmp(curr_frame->type, ETHER_TYPE_ARP, 2) == 0) {
 		check_fcs = 0;
 	} else if (memcmp(curr_frame->type, ETHER_TYPE_IP, 2) == 0) {
-		printf("TYPE IP\n");
 		if (((struct ip_header *)(frame + sizeof(struct ether_header)))->protocol == IP_TCP_PROTOCOL) {
 			check_fcs = 0;
 		}
@@ -1242,7 +1241,7 @@ struct connection *add_connection(uint8_t ip_src[4], uint8_t ip_dst[4], struct t
 	
 	num_connections += 1;
 
-	return &connections[num_connections];
+	return &connections[num_connections - 1];
 
 	// How should we determine where this new connection will go? 
 	// Should we just add it to the end of the array? 
@@ -1257,21 +1256,25 @@ struct connection *add_connection(uint8_t ip_src[4], uint8_t ip_dst[4], struct t
  */
 int is_valid_tcp_checksum(struct connection *curr_connection, uint8_t *curr_tcp_packet, int tcp_length)
 {
+	
 	struct tcp_pseudo_header pseudo_header;
 	struct tcp_header *curr_tcp_header;
 	uint16_t original_checksum;
 	uint16_t calculated_checksum;
 	int total_length = sizeof(struct tcp_pseudo_header) + tcp_length;
+	total_length = (total_length % 2) ? total_length : total_length + 1; 
 	uint8_t tcp_text[total_length];
+
+	memset(tcp_text, '\0', total_length);
 
 	// Create a psuedo header for TCP packet
 	memset(&pseudo_header, '\0', sizeof(struct tcp_pseudo_header));
-	// CHECK THIS SHIT 
 	memcpy(pseudo_header.ip_src, curr_connection->ip_src, 4);
 	memcpy(pseudo_header.ip_dst, curr_connection->ip_dst, 4);
 	pseudo_header.zeros = 0;
 	pseudo_header.ptcl = IP_TCP_PROTOCOL;
-	pseudo_header.tcp_length = tcp_length;
+	pseudo_header.tcp_length = htons(tcp_length); 
+	// NOTE: We switch to network endianess bc tcp header will be in network endianess 
 	
 	// Interpret beginning of packet as TCP header 
 	curr_tcp_header = (struct tcp_header *) curr_tcp_packet;
@@ -1288,6 +1291,9 @@ int is_valid_tcp_checksum(struct connection *curr_connection, uint8_t *curr_tcp_
 
 	// Calculate the checksum using the data in tcp_text buffer 
 	calculated_checksum = checksum(tcp_text, total_length);
+	
+	//printf("CALCULATED CHECKSUM: %x\n", calculated_checksum);
+	//printf("ORIGINAL CHECKSUM:   %x\n", original_checksum);
 
 	if (calculated_checksum != original_checksum) {
 		printf("        dropping TCP packet (bad checksum)\n");
