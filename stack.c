@@ -1072,7 +1072,7 @@ struct arp_entry *determine_mac_arp(uint8_t *ip_addr)
  */
 int send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_len, uint8_t type, uint8_t code)
 {
-
+	
 	struct icmp_header new_icmp_header; 
 	uint8_t icmp_packet[sizeof(struct icmp_header) + ICMP_MAX_DATA_SIZE];
 	size_t icmp_packet_len;
@@ -1144,38 +1144,59 @@ int send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_len
 }
 
 /*
+ * Handle and check integrity of TCP packet 
+ *
+ * Return -1 for invalid packets 
+ * Return 0 otherwise
  */
 int handle_tcp_packet(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *packet, int packet_len)
 {
+	
 	struct tcp_header *curr_tcp_header;
 	struct connection *curr_connection; 
 
-	printf("   received TCP packet\n");
+	printf("    received TCP packet\n");
 	
 	curr_tcp_header = (struct tcp_header *) packet;
 
 	// REMEMBER THAT WE ALREADY KNOW THIS PACKET IS FOR US!!! 
-	
+
+	// See if connection already exists 
 	if ((curr_connection = determine_connection(ip_src, ip_dst, curr_tcp_header)) == NULL) {
 		
 		printf("      No existing connection found. Creating new connection.\n");
 		curr_connection = add_connection(ip_src, ip_dst, curr_tcp_header);
-	}
-
-	if (curr_connection == NULL) {
-		printf("      Dropping TCP packet?\n");
-		return -1;
+	
 	}
 	
-	// INSPECT WHETHER THE CONNECTION WAS SUCCESSFULLY ADDED!!!!!! 
-
+	// Add connection if it doesn't exist 
+	if (curr_connection == NULL) {
+		
+		printf("      Dropping TCP packet?\n");
+		return -1;
+	
+	}
+	
 	// Verify checksum  
-	is_valid_tcp_checksum(curr_connection, packet, packet_len);
+	if (is_valid_tcp_checksum(curr_connection, packet, packet_len) == 0) {
+		
+		return -1;	
+	
+	}
+
+	// Verify port number 
+	if (curr_tcp_header->dst_port != ntohs(TCP_LISTENING_PORT)) {
+		
+		printf("      dropping TCP packet (not listening on dst port)\n");
+		return -1;
+
+	}
 
 	// do something with determining the state 
 	// in that determining the state we would also need to check the flags to determine what to do 
 	
 	return 0; 
+
 }
 
 
@@ -1188,9 +1209,9 @@ int handle_tcp_packet(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *packet, int
  */
 struct connection *determine_connection(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_header *curr_tcp_header)
 {	
-
+	
 	for (int i = 0; i < num_connections; i++) { 
-
+		
 		// Continue if given IP src, IP dst, src port, or dst port do no match the connection
 		
 		if (memcmp(ip_src, connections[i].ip_src, 4) != 0) {
@@ -1212,24 +1233,30 @@ struct connection *determine_connection(uint8_t ip_src[4], uint8_t ip_dst[4], st
 	}
 	
 	return NULL;
-
 }
 
 
 /*
+ * Add connection to connections array 
+ *
+ * Return pointer to new connection created 
+ * Return NULL if MAX_CONECTIONS have already been reached
  */
 struct connection *add_connection(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_header *curr_tcp_header)
 {
+	
 	/*
 	 * THINGS WRONG WITH THIS 
-	 * - Does not check for if it has reached max connections 
-	 * - Not super space efficient 
+	 * - Not super space efficient (not overwriting closed connections)
+	 * - Can't add past MAX_CONNECTIONS
 	 */
 
 	// No more space for connections
 	if (num_connections >= MAX_CONNECTIONS) {
+		
 		printf("        Reached max number of connections.\n");
 		return NULL;
+	
 	}
 
 	// Add new connection at the end of the array
@@ -1244,15 +1271,20 @@ struct connection *add_connection(uint8_t ip_src[4], uint8_t ip_dst[4], struct t
 	return &connections[num_connections - 1];
 
 	// How should we determine where this new connection will go? 
-	// Should we just add it to the end of the array? 
 	// Or should we check the connection state and see if any are closed? 
 	// But does that mean that we have to initialized all the structs in the array to have a closed connection? 
 	// Meaning that we would have to do that at the beginning of the code? 
-	// LOOK BACK AT HIS IMPLEMENTATION!!! 
+
 }
 
 
 /*
+ * Verify whether TCP checksum is correct 
+ *
+ * Return 1 if TCP checksum is correct 
+ * Return 0 otherwise 
+ *
+ * NOTE: Double check padding 
  */
 int is_valid_tcp_checksum(struct connection *curr_connection, uint8_t *curr_tcp_packet, int tcp_length)
 {
@@ -1262,6 +1294,7 @@ int is_valid_tcp_checksum(struct connection *curr_connection, uint8_t *curr_tcp_
 	uint16_t original_checksum;
 	uint16_t calculated_checksum;
 	int total_length = sizeof(struct tcp_pseudo_header) + tcp_length;
+	// Edit total_length if there needs to be padding
 	total_length = (total_length % 2) ? total_length : total_length + 1; 
 	uint8_t tcp_text[total_length];
 
@@ -1292,15 +1325,11 @@ int is_valid_tcp_checksum(struct connection *curr_connection, uint8_t *curr_tcp_
 	// Calculate the checksum using the data in tcp_text buffer 
 	calculated_checksum = checksum(tcp_text, total_length);
 	
-	//printf("CALCULATED CHECKSUM: %x\n", calculated_checksum);
-	//printf("ORIGINAL CHECKSUM:   %x\n", original_checksum);
-
 	if (calculated_checksum != original_checksum) {
 		printf("        dropping TCP packet (bad checksum)\n");
 		return 0;
 	}
 
 	return 1;
-	// PADDING??? IS IT HANDLED FOR US? 
 
 }

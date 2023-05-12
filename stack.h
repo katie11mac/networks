@@ -48,12 +48,13 @@
 #define ICMP_MAX_DATA_SIZE         sizeof(struct ip_header) + ICMP_IP_ORIGINAL_DATA_SIZE
 
 // TCP
-#define TCP_URG_FLAG 32
-#define TCP_ACK_FLAG 16
-#define TCP_PSH_FLAG 8
-#define TCP_RST_FLAG 4
-#define TCP_SYN_FLAG 2
-#define TCP_FIN_FLAG 1
+#define TCP_LISTENING_PORT 12345
+#define TCP_URG_FLAG       32
+#define TCP_ACK_FLAG       16
+#define TCP_PSH_FLAG       8
+#define TCP_RST_FLAG       4
+#define TCP_SYN_FLAG       2
+#define TCP_FIN_FLAG       1
 
 // Stack
 #define RECEIVING_INTERFACE 0
