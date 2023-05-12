@@ -1201,6 +1201,8 @@ int handle_tcp_packet(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *packet, int
 	set_tcp_flags(&curr_connection->flags, curr_tcp_header);
 	
 	// RIGHT NOW THE SET UP IS FOR THE FLAGS TO BE THE MOST RECENT GIVEN FLAGS IN THE CONNECTION
+	
+	update_connection(curr_connection, curr_tcp_header);
 
 	// do something with determining the state 
 	// in that determining the state we would also need to check the flags to determine what to do 
@@ -1251,6 +1253,8 @@ struct connection *determine_connection(uint8_t ip_src[4], uint8_t ip_dst[4], st
  *
  * Return pointer to new connection created 
  * Return NULL if MAX_CONECTIONS have already been reached
+ *
+ * NOTE: DOUBLE CHECK THE STATE CONNECTION SET TO
  */
 struct connection *add_connection(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_header *curr_tcp_header)
 {
@@ -1274,7 +1278,7 @@ struct connection *add_connection(uint8_t ip_src[4], uint8_t ip_dst[4], struct t
 	memcpy(connections[num_connections].ip_dst, ip_dst, 4);
 	connections[num_connections].src_port = ntohs(curr_tcp_header->src_port);
 	connections[num_connections].dst_port = ntohs(curr_tcp_header->dst_port);
-	connections[num_connections].state = CLOSED;
+	connections[num_connections].state = LISTEN; // DOUBLE CHECK THIS???
 	
 	num_connections += 1;
 
@@ -1389,4 +1393,78 @@ void set_tcp_flags(struct tcp_flags *flags, struct tcp_header *curr_tcp_header)
 		flags->FIN = 0;
 	}
 	
+}
+
+/*
+ */
+void update_connection(struct connection *curr_connection, struct tcp_header *curr_tcp_header) 
+{
+	
+	printf("      updating TCP connection\n");
+	char *print = "      current state: "; 
+	
+	// MINDSET 
+	// Check the current state 
+	// look at if you received what diagram said 
+	// do the action diagram says 
+	// update state of the connection
+	switch (curr_connection->state) {
+		
+		case LISTEN: {
+			
+			printf("%s LISTEN\n", print); 
+			if (curr_connection->flags.SYN) {
+				printf("received SYN\n");
+				// SEND PACKET
+				// UPDATE STATE TO SYN_RECEIVED
+			}
+
+		} break;
+		
+		case SYN_SENT: {
+			printf("%s SYN_SENT\n", print);
+		} break;
+
+		case SYN_RECEIVED: {
+			printf("%s SYN_RECEIVED\n", print);
+		} break;
+
+		case ESTABLISHED: {
+			printf("%s ESTABLISHED\n", print);
+		} break;
+
+		case FIN_WAIT_1: {
+			printf("%s FIN_WAIT_1\n", print);
+		} break;
+
+		case FIN_WAIT_2: {
+			printf("%s FIN_WAIT_2\n", print);
+		} break;
+
+		case CLOSE_WAIT: {
+			printf("%s CLOSE_WAIT\n", print);
+		} break;
+
+		case CLOSING: {
+			printf("%s CLOSING\n", print);
+		} break;
+
+		case LAST_ACK: {
+			printf("%s LAST_ACK\n", print);
+		} break;
+		
+		case TIME_WAIT: {
+			printf("%s TIME_WAIT\n", print);
+		} break;
+
+		case CLOSED: {
+			printf("%s CLOSED\n", print);
+		} break;
+
+		// UNSURE ABOUT THIS DEFAULT CASE 
+		default: 
+			break;
+
+	}
+
 }
