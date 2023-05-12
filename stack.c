@@ -688,7 +688,7 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_len)
  * Return -1 if no route is found
  * Return 0 otherwise
  */
-int route_ip_packet(uint8_t *packet, size_t packet_len, int is_icmp)
+int route_ip_packet(uint8_t *packet, size_t packet_len, int is_process)
 {
 	
 	// Variables for routing
@@ -718,7 +718,7 @@ int route_ip_packet(uint8_t *packet, size_t packet_len, int is_icmp)
 																			       curr_ip_header->dst_addr[1], 
 																			       curr_ip_header->dst_addr[2], 
 																			       curr_ip_header->dst_addr[3]);
-		if (!is_icmp) {
+		if (!is_process) {
 			
 			send_icmp_message(packet, packet_len, 3, 0);
 
@@ -754,7 +754,7 @@ int route_ip_packet(uint8_t *packet, size_t packet_len, int is_icmp)
 																			     curr_ip_header->dst_addr[1], 
 																			     curr_ip_header->dst_addr[2], 
 																			     curr_ip_header->dst_addr[3]);
-		if (!is_icmp) {
+		if (!is_process) {
 		
 			send_icmp_message(packet, packet_len, 3, 1);
 
@@ -772,7 +772,7 @@ int route_ip_packet(uint8_t *packet, size_t packet_len, int is_icmp)
 	memcpy(new_ether_header.type, ETHER_TYPE_IP, 2);
 
 	// Update the TTL if it is not an ICMP message 
-	if (!is_icmp) {
+	if (!is_process) {
 	
 		curr_ip_header->ttl = curr_ip_header->ttl - 1;
 		
@@ -1468,3 +1468,14 @@ void update_connection(struct connection *curr_connection, struct tcp_header *cu
 	}
 
 }
+
+void send_tcp_packet() 
+{
+	// compose the tcp packet 
+	// we are going to need to generate a random sequence number 
+
+	// compose the ip packet 
+	// compose the ethernet frame 
+	// send ethernet frame
+}
+

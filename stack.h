@@ -83,7 +83,7 @@ int send_arp_reply(uint8_t *src, struct interface *iface, uint8_t *packet, int p
 
 // IP functions
 int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_len);
-int route_ip_packet(uint8_t *packet, size_t packet_len, int is_icmp);
+int route_ip_packet(uint8_t *packet, size_t packet_len, int is_process);
 int compose_ip_packet(uint8_t *packet, struct ip_header *ip_header, uint8_t *payload, size_t payload_len);
 int is_valid_ip_checksum(struct ip_header *curr_ip_header);
 int is_valid_ihl(struct ip_header *curr_ip_header);
