@@ -1154,7 +1154,9 @@ int handle_tcp_packet(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *packet, int
 	
 	struct tcp_header *curr_tcp_header;
 	struct connection *curr_connection; 
-
+	
+	//struct tcp_flags *given_flags; // MIGHT WANT TO MOVE THIS TO THE CONNECTION STRUCT
+	
 	printf("    received TCP packet\n");
 	
 	curr_tcp_header = (struct tcp_header *) packet;
@@ -1191,6 +1193,14 @@ int handle_tcp_packet(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *packet, int
 		return -1;
 
 	}
+
+	// CHECK SEQ NUMBER 
+	// CHECK ACK NUMBER 
+	// CHECK FLAGS AND STATE 
+	
+	set_tcp_flags(&curr_connection->flags, curr_tcp_header);
+	
+	// RIGHT NOW THE SET UP IS FOR THE FLAGS TO BE THE MOST RECENT GIVEN FLAGS IN THE CONNECTION
 
 	// do something with determining the state 
 	// in that determining the state we would also need to check the flags to determine what to do 
@@ -1332,4 +1342,51 @@ int is_valid_tcp_checksum(struct connection *curr_connection, uint8_t *curr_tcp_
 
 	return 1;
 
+}
+
+/*
+ * Set the flags in given tcp_flags to reflect which flags were given in a TCP header
+ *
+ * Return void
+ */
+void set_tcp_flags(struct tcp_flags *flags, struct tcp_header *curr_tcp_header)
+{
+	// NOTE: Have else statements to ensure that previous flags do not roll over
+
+	if (ntohs(curr_tcp_header->offset_reserved_control) & TCP_URG_FLAG) {
+		flags->URG = 1;
+	} else {
+		flags->URG = 0;
+	}
+
+	if (ntohs(curr_tcp_header->offset_reserved_control) & TCP_ACK_FLAG) {
+		flags->ACK = 1;
+	} else {
+		flags->ACK = 0;
+	}
+
+	if (ntohs(curr_tcp_header->offset_reserved_control) & TCP_PSH_FLAG) {
+		flags->PSH = 1;
+	} else {
+		flags->PSH = 0;
+	}
+	
+	if (ntohs(curr_tcp_header->offset_reserved_control) & TCP_RST_FLAG) {
+		flags->RST = 1;
+	} else {
+		flags->RST = 0;
+	}
+	
+	if (ntohs(curr_tcp_header->offset_reserved_control) & TCP_SYN_FLAG) {
+		flags->SYN = 1;
+	} else {
+		flags->SYN = 0;
+	}
+	
+	if (ntohs(curr_tcp_header->offset_reserved_control) & TCP_FIN_FLAG) {
+		flags->FIN = 1;
+	} else {
+		flags->FIN = 0;
+	}
+	
 }

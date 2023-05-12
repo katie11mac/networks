@@ -94,14 +94,27 @@ enum connection_state {
 	CLOSED      // initial state
 };
 
+struct tcp_flags {
+	uint8_t URG; 
+	uint8_t ACK; 
+	uint8_t PSH; 
+	uint8_t RST; 
+	uint8_t SYN; 
+	uint8_t FIN;
+};
+
 struct connection {
 	uint8_t ip_src[4];
 	uint8_t ip_dst[4];
 	uint16_t src_port; 
 	uint16_t dst_port;
+	uint32_t seq_num;
+	uint32_t ack_num;
+	uint16_t window;
+	struct tcp_flags flags; 
 	enum connection_state state;	
-	// IS_ACTIVE CONNECTION REDUNDANT? 	
 	// ASSUMPTION: SEGMENTS NEVER ARRIVE OUT OF ORDER OR GO MISSING
+	// WHICH PERSPECTIVE WILL THIS BE FROM: LAST RECEIVED OR EXPECTING? 
 };
 
 
