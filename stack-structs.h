@@ -68,7 +68,7 @@ struct tcp_header {
 	uint16_t offset_reserved_control;
 	uint16_t window; 
 	uint16_t checksum;
-	uint16_t urgen_ptr; 
+	uint16_t urgent_ptr; 
 	// OPTIONS, PADDING, DATA?? 
 };
 
