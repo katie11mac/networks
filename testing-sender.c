@@ -348,8 +348,8 @@ int main(int argc, char *argv[])
 	fcs = crc32(0, frame, frame_len);  
 	memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
 	frame_len += sizeof(uint32_t);
-    //printf("10) sending frame, length %ld\n", frame_len);
-    //send_ethernet_frame(fds[1], frame, frame_len);
+    printf("10) sending frame, length %ld\n", frame_len);
+    send_ethernet_frame(fds[1], frame, frame_len);
 
 	
 	/*
@@ -396,8 +396,8 @@ int main(int argc, char *argv[])
 	fcs = crc32(0, frame, frame_len);  
 	memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
 	frame_len += sizeof(uint32_t);
-    //printf("11) sending frame, length %ld\n", frame_len);
-    //send_ethernet_frame(fds[1], frame, frame_len);
+    printf("11) sending frame, length %ld\n", frame_len);
+    send_ethernet_frame(fds[1], frame, frame_len);
 
 
 	/*
@@ -443,8 +443,8 @@ int main(int argc, char *argv[])
     fcs = crc32(0, frame, frame_len);
     memcpy(frame + frame_len, &fcs, sizeof(uint32_t));
     frame_len += sizeof(uint32_t);
-    //printf("12) sending frame, length %ld\n", frame_len);
-    //send_ethernet_frame(fds[1], frame, frame_len);
+    printf("12) sending frame, length %ld\n", frame_len);
+    send_ethernet_frame(fds[1], frame, frame_len);
 
 
 	/*
