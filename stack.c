@@ -210,7 +210,10 @@ void init_arp_cache()
 	// Router 1 (connected to I3) 
 	memcpy(arp_cache[2].ether_addr, "\xdd\xee\xff\x11\xff\xff", 6);
 	memcpy(arp_cache[2].ip_addr, "\x0d\x0e\x0f\x11", 4);
-
+	
+	// tap0 FreeBSD
+	memcpy(arp_cache[3].ether_addr, "\x58\x9c\xfc\x00\x07\x6b", 6);
+	memcpy(arp_cache[3].ip_addr, "\x01\x02\x03\xff", 4);
 }
 
 /*
@@ -1212,7 +1215,7 @@ int handle_tcp_packet(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *packet, int
 	}
 	*/
 
-	update_tcp_state(curr_tcb, curr_tcp_header);
+	update_tcp_state(curr_tcb, packet, packet_len);
 
 	// do something with determining the state 
 	// in that determining the state we would also need to check the flags to determine what to do 
@@ -1310,21 +1313,16 @@ struct tcb *add_tcb(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_header *cur
 
 }
 
-
 /*
- * Verify whether TCP checksum is correct 
+ * Calculate and return the tcp checksum of a tcp packet in network byte order 
  *
- * Return 1 if TCP checksum is correct 
- * Return 0 otherwise 
- *
- * NOTE: Double check padding 
+ * Return calculated checksum in network byte order
  */
-int is_valid_tcp_checksum(struct tcb *curr_tcb, uint8_t *curr_tcp_packet, int tcp_length)
+uint16_t calculate_tcp_checksum(struct tcb *curr_tcb, uint8_t *curr_tcp_packet, int tcp_length)
 {
 	
 	struct tcp_pseudo_header pseudo_header;
 	struct tcp_header *curr_tcp_header;
-	uint16_t original_checksum;
 	uint16_t calculated_checksum;
 	int total_length = sizeof(struct tcp_pseudo_header) + tcp_length;
 	// Edit total_length if there needs to be padding
@@ -1345,9 +1343,6 @@ int is_valid_tcp_checksum(struct tcb *curr_tcb, uint8_t *curr_tcp_packet, int tc
 	// Interpret beginning of packet as TCP header 
 	curr_tcp_header = (struct tcp_header *) curr_tcp_packet;
 
-	// Save original checksum
-	original_checksum = curr_tcp_header->checksum;
-
 	// Reset the checksum 
 	curr_tcp_header->checksum = 0;
 
@@ -1358,6 +1353,40 @@ int is_valid_tcp_checksum(struct tcb *curr_tcb, uint8_t *curr_tcp_packet, int tc
 	// Calculate the checksum using the data in tcp_text buffer 
 	calculated_checksum = checksum(tcp_text, total_length);
 	
+	return calculated_checksum;
+
+}
+
+/*
+ * Verify whether TCP checksum is correct 
+ *
+ * Return 1 if TCP checksum is correct 
+ * Return 0 otherwise 
+ *
+ * NOTE: Double check padding 
+ */
+int is_valid_tcp_checksum(struct tcb *curr_tcb, uint8_t *curr_tcp_packet, int tcp_length)
+{
+	
+	struct tcp_header *curr_tcp_header;
+	uint16_t original_checksum;
+	uint16_t calculated_checksum;
+	int total_length = sizeof(struct tcp_pseudo_header) + tcp_length;
+	// Edit total_length if there needs to be padding
+	total_length = (total_length % 2) ? total_length : total_length + 1; 
+		
+	// Interpret beginning of packet as TCP header 
+	curr_tcp_header = (struct tcp_header *) curr_tcp_packet;
+
+	// Save original checksum
+	original_checksum = curr_tcp_header->checksum;
+
+	// Calculate the checksum using the data in tcp_text buffer 
+	calculated_checksum = calculate_tcp_checksum(curr_tcb, curr_tcp_packet, tcp_length);
+
+	//printf("ORIGINAL CHECKSUM:   %x\n", original_checksum);
+	//printf("CALCULATED CHECKSUM: %x\n", calculated_checksum);
+
 	if (calculated_checksum != original_checksum) {
 		printf("        dropping TCP packet (bad checksum)\n");
 		return 0;
@@ -1456,10 +1485,11 @@ int is_valid_seq_and_ack(struct tcb *curr_tcb, struct tcp_header *curr_tcp_heade
 
 /*
  */
-void update_tcp_state(struct tcb *curr_tcb, struct tcp_header *curr_tcp_header) 
+void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_packet, int packet_len) 
 {
 	
 	char *print = "      current state: "; 
+	struct tcp_header *curr_tcp_header = (struct tcp_header *)curr_tcp_packet;
 	struct tcp_flags given_tcp_flags; 
 
 	set_tcp_flags(&given_tcp_flags, curr_tcp_header);
@@ -1476,6 +1506,9 @@ void update_tcp_state(struct tcb *curr_tcb, struct tcp_header *curr_tcp_header)
 			printf("%s LISTEN\n", print); 
 			if (given_tcp_flags.SYN) {
 				printf("received SYN\n");
+				
+				send_tcp_packet(curr_tcb, TCP_SYN_FLAG | TCP_ACK_FLAG, curr_tcp_packet, packet_len);
+
 				// SEND PACKET
 				// UPDATE STATE TO SYN_RECEIVED
 			}
@@ -1530,13 +1563,52 @@ void update_tcp_state(struct tcb *curr_tcb, struct tcp_header *curr_tcp_header)
 
 }
 
-void send_tcp_packet() 
+int send_tcp_packet(struct tcb *curr_tcb, uint8_t flags, uint8_t *original_tcp_packet, int original_packet_len) 
 {
-	// compose the tcp packet 
-	// we are going to need to generate a random sequence number 
+	struct tcp_header new_tcp_header; 
+	uint16_t new_offset_reserved_control;
+	// DO I NEED A PACKET BUFFER??? 
+	
+	struct tcp_header *original_tcp_header = (struct tcp_header *) original_tcp_packet;
+	uint16_t original_tcp_offset = ntohs(original_tcp_header->offset_reserved_control) >> 12; // DOUBLE CHECK!!!  
+	printf("original tcp offset: %u\n", original_tcp_offset);
+	uint32_t original_payload_len = original_packet_len - (original_tcp_offset * 4);
+	printf("original payload len: %u\n", original_payload_len);
 
-	// compose the ip packet 
-	// compose the ethernet frame 
-	// send ethernet frame
+	// Set TCP ports
+	new_tcp_header.src_port = original_tcp_header->dst_port;
+	new_tcp_header.dst_port = original_tcp_header->src_port; 
+
+	// Set sequence number
+	// NOTE: THIS IS BUGGY !!!!!!!  
+	if (ntohl(original_tcp_header->ack_num) == 0) {
+		new_tcp_header.seq_num = htonl(curr_tcb->seq_num);
+	} else {
+		new_tcp_header.seq_num = original_tcp_header->ack_num;
+	}
+
+	// Set acknowledgement number
+	new_tcp_header.ack_num = htonl(ntohl(original_tcp_header->seq_num) + original_payload_len + 1); 
+
+	// Set offset, reserved, and control (flags) 
+	new_offset_reserved_control = TCP_DEFAULT_OFFSET << 12; 
+	new_offset_reserved_control |= flags; 
+	new_tcp_header.offset_reserved_control = htons(new_offset_reserved_control); 
+
+	// Set the window 
+	new_tcp_header.window = original_tcp_header->window; 
+
+	// Set the urgent pointer 
+	new_tcp_header.urgent_ptr = 0;
+
+	// Set the checksum 
+	new_tcp_header.checksum = calculate_tcp_checksum(curr_tcb, (uint8_t *)&new_tcp_header, TCP_DEFAULT_OFFSET * 4);	
+
+	// UNDER THE ASSUMPTION THAT THERE WILL BE NO PAYLOAD HERE 
+
+	// NEED TO UPDATE THE TCB
+
+	return send_ip_packet(IP_TCP_PROTOCOL, curr_tcb->ip_src, (uint8_t *)&new_tcp_header, TCP_DEFAULT_OFFSET * 4);
+
 }
 
