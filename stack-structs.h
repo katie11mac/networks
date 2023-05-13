@@ -103,6 +103,7 @@ struct tcp_flags {
 	uint8_t FIN;
 };
 
+// FROM OUR OWN PERSPECTIVE 
 struct connection {
 	uint8_t ip_src[4];
 	uint8_t ip_dst[4];

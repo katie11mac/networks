@@ -103,6 +103,7 @@ struct connection *determine_connection(uint8_t ip_src[4], uint8_t ip_dst[4], st
 struct connection *add_connection(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_header *curr_tcp_header);
 int is_valid_tcp_checksum(struct connection *curr_connection, uint8_t *curr_tcp_packet, int tcp_length);
 void set_tcp_flags(struct tcp_flags *flags, struct tcp_header *curr_tcp_header);
+int is_valid_seq_and_ack(struct connection *curr_connection, struct tcp_header *curr_tcp_header); 
 void update_connection(struct connection *curr_connection, struct tcp_header *curr_tcp_header);
 
 #endif /* __STACK_H */

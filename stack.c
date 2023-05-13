@@ -1194,12 +1194,18 @@ int handle_tcp_packet(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *packet, int
 
 	}
 
-	// CHECK SEQ NUMBER 
-	// CHECK ACK NUMBER 
-	// CHECK FLAGS AND STATE 
-	
+	// Set the flags of the received packet 
 	set_tcp_flags(&curr_connection->flags, curr_tcp_header);
+
+	// Verify sequence and acknowledgement numbers 
+	if (is_valid_seq_and_ack(curr_connection, curr_tcp_header) == 0) {
+		
+		return -1;
 	
+	}
+	
+
+
 	// RIGHT NOW THE SET UP IS FOR THE FLAGS TO BE THE MOST RECENT GIVEN FLAGS IN THE CONNECTION
 	
 	update_connection(curr_connection, curr_tcp_header);
@@ -1396,11 +1402,56 @@ void set_tcp_flags(struct tcp_flags *flags, struct tcp_header *curr_tcp_header)
 }
 
 /*
+ * Verify whether the given sequence and acknowledgement numbers are the expected ones 
+ *
+ * Return 1 if they are the expected numbers or if received a SYN packet  
+ * Return 0 otherwise 
+ *
+ * NOTE: The seq and ack numbers in the connection should be the ones it expects next
+ * CHECK THIS!!!! 
+ */
+int is_valid_seq_and_ack(struct connection *curr_connection, struct tcp_header *curr_tcp_header) 
+{
+
+	// If the packet is not exclusively SYN, check the seq and ack nums 
+	if ( !( (curr_connection->flags.URG == 0) && 
+			(curr_connection->flags.ACK == 0) &&
+			(curr_connection->flags.PSH == 0) && 
+			(curr_connection->flags.RST == 0) && 
+			(curr_connection->flags.SYN == 1) &&
+			(curr_connection->flags.FIN == 0) ) ) {
+		
+		// UNSURE OF THIS CHECK!!!!!
+		if (curr_connection->seq_num != ntohl(curr_tcp_header->seq_num)) {
+		
+			printf("ignoring TCP packet (unexpected sequence number)\n");
+			return 0;
+		
+		}
+
+		if (curr_connection->ack_num != ntohl(curr_tcp_header->ack_num)) {
+			
+			printf("ignoring TCP packet (unexpected acknowledgement number)\n");
+			return 0;
+		
+		}
+
+	} else {
+		
+		printf("      *ONLY RECEIVED SYN FLAG*\n");
+	
+	}
+
+	return 1;
+
+}
+
+
+/*
  */
 void update_connection(struct connection *curr_connection, struct tcp_header *curr_tcp_header) 
 {
 	
-	printf("      updating TCP connection\n");
 	char *print = "      current state: "; 
 	
 	// MINDSET 
