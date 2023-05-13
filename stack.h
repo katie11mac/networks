@@ -85,7 +85,6 @@ int send_arp_reply(uint8_t *src, struct interface *iface, uint8_t *packet, int p
 int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_len);
 int route_ip_packet(uint8_t *packet, size_t packet_len, int is_process);
 int compose_ip_packet(uint8_t *packet, struct ip_header *ip_header, uint8_t *payload, size_t payload_len);
-int send_ip_packet(uint8_t protocol, uint8_t dst_addr[4], uint8_t *payload, size_t payload_len);
 int is_valid_ip_checksum(struct ip_header *curr_ip_header);
 int is_valid_ihl(struct ip_header *curr_ip_header);
 int is_valid_ip_version(struct ip_header *curr_ip_header);
@@ -94,6 +93,7 @@ struct interface *determine_local_interface(struct ip_header *curr_ip_header);
 uint32_t array_to_uint32(uint8_t array[4]);
 struct route *determine_route(struct ip_header *curr_ip_header);
 struct arp_entry *determine_mac_arp(uint8_t *ip_addr);
+int send_ip_packet(uint8_t protocol, uint8_t dst_addr[4], uint8_t *payload, size_t payload_len);
 
 // ICMP functions
 int send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_len, uint8_t type, uint8_t code);
