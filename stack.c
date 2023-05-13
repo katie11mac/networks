@@ -1163,23 +1163,32 @@ int handle_tcp_packet(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *packet, int
 	struct tcp_header *curr_tcp_header;
 	struct tcb *curr_tcb; 
 	
-	//struct tcp_flags *given_flags; // MIGHT WANT TO MOVE THIS TO THE CONNECTION STRUCT
-	
 	printf("    received TCP packet\n");
 	
 	curr_tcp_header = (struct tcp_header *) packet;
 
 	// REMEMBER THAT WE ALREADY KNOW THIS PACKET IS FOR US!!! 
 
+	
+
+	// Verify port number 
+	if (curr_tcp_header->dst_port != ntohs(TCP_LISTENING_PORT)) {
+		
+		printf("      dropping TCP packet (not listening on dst port)\n");
+		return -1;
+
+	}
+
 	// See if connection already exists 
 	if ((curr_tcb = determine_tcb(ip_src, ip_dst, curr_tcp_header)) == NULL) {
 		
+		// Add connection if it doesn't exist
 		printf("      No existing connection found. Creating new connection.\n");
 		curr_tcb = add_tcb(ip_src, ip_dst, curr_tcp_header);
 	
 	}
 	
-	// Add connection if it doesn't exist 
+	// Could not create a new connection
 	if (curr_tcb == NULL) {
 		
 		printf("      Dropping TCP packet?\n");
@@ -1193,27 +1202,16 @@ int handle_tcp_packet(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *packet, int
 		return -1;	
 	
 	}
-
-	// Verify port number 
-	if (curr_tcp_header->dst_port != ntohs(TCP_LISTENING_PORT)) {
-		
-		printf("      dropping TCP packet (not listening on dst port)\n");
-		return -1;
-
-	}
-
-	// Set the flags of the received packet 
-	set_tcp_flags(&curr_tcb->flags, curr_tcp_header);
-
+	
+	/*
 	// Verify sequence and acknowledgement numbers 
 	if (is_valid_seq_and_ack(curr_tcb, curr_tcp_header) == 0) {
 		
 		return -1;
 	
 	}
+	*/
 
-	// RIGHT NOW THE SET UP IS FOR THE FLAGS TO BE THE MOST RECENT GIVEN FLAGS IN THE CONNECTION
-	
 	update_tcp_state(curr_tcb, curr_tcp_header);
 
 	// do something with determining the state 
@@ -1266,7 +1264,7 @@ struct tcb *determine_tcb(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_heade
  * Return pointer to new tcb created 
  * Return NULL if MAX_CONECTIONS have already been reached
  *
- * NOTE: DOUBLE CHECK THE STATE CONNECTION SET TO
+ * NOTE: DOUBLE CHECK THE STATE CONNECTION SET TO AND WHETHER TO SET OTHER DEFAULT VALUES
  */
 struct tcb *add_tcb(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_header *curr_tcp_header)
 {
@@ -1276,6 +1274,7 @@ struct tcb *add_tcb(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_header *cur
 	 * - Not super space efficient (not overwriting closed connections)
 	 * - Can't add past MAX_CONNECTIONS
 	 */
+	uint32_t random_seq_num; 
 
 	// No more space for connections
 	if (num_connections >= MAX_CONNECTIONS) {
@@ -1290,6 +1289,14 @@ struct tcb *add_tcb(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_header *cur
 	memcpy(connections[num_connections].ip_dst, ip_dst, 4);
 	connections[num_connections].src_port = ntohs(curr_tcp_header->src_port);
 	connections[num_connections].dst_port = ntohs(curr_tcp_header->dst_port);
+	
+	// Set random sequence number 
+    if(getrandom(&random_seq_num, sizeof(random_seq_num), 0) == -1) {
+        perror("getrandom");
+    }	
+
+	connections[num_connections].seq_num = random_seq_num; // RANDOMLY GENERATE IT HERE? 
+	connections[num_connections].ack_num = 0;
 	connections[num_connections].state = LISTEN; // DOUBLE CHECK THIS???
 	
 	num_connections += 1;
@@ -1419,14 +1426,12 @@ void set_tcp_flags(struct tcp_flags *flags, struct tcp_header *curr_tcp_header)
 int is_valid_seq_and_ack(struct tcb *curr_tcb, struct tcp_header *curr_tcp_header) 
 {
 
-	// If the packet is not exclusively SYN, check the seq and ack nums 
-	if ( !( (curr_tcb->flags.URG == 0) && 
-			(curr_tcb->flags.ACK == 0) &&
-			(curr_tcb->flags.PSH == 0) && 
-			(curr_tcb->flags.RST == 0) && 
-			(curr_tcb->flags.SYN == 1) &&
-			(curr_tcb->flags.FIN == 0) ) ) {
+	// If connection has not been established yet, do not verify seq or ack nums
+	if ((curr_tcb->ack_num == 0)) {
 		
+		printf("      *NEW CONNECTION (no seq or ack checks)*\n");
+
+	} else {
 		// UNSURE OF THIS CHECK!!!!!
 		if (curr_tcb->seq_num != ntohl(curr_tcp_header->seq_num)) {
 		
@@ -1441,10 +1446,6 @@ int is_valid_seq_and_ack(struct tcb *curr_tcb, struct tcp_header *curr_tcp_heade
 			return 0;
 		
 		}
-
-	} else {
-		
-		printf("      *ONLY RECEIVED SYN FLAG*\n");
 	
 	}
 
@@ -1459,7 +1460,10 @@ void update_tcp_state(struct tcb *curr_tcb, struct tcp_header *curr_tcp_header)
 {
 	
 	char *print = "      current state: "; 
-	
+	struct tcp_flags given_tcp_flags; 
+
+	set_tcp_flags(&given_tcp_flags, curr_tcp_header);
+
 	// MINDSET 
 	// Check the current state 
 	// look at if you received what diagram said 
@@ -1470,7 +1474,7 @@ void update_tcp_state(struct tcb *curr_tcb, struct tcp_header *curr_tcp_header)
 		case LISTEN: {
 			
 			printf("%s LISTEN\n", print); 
-			if (curr_tcb->flags.SYN) {
+			if (given_tcp_flags.SYN) {
 				printf("received SYN\n");
 				// SEND PACKET
 				// UPDATE STATE TO SYN_RECEIVED

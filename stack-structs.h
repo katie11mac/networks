@@ -111,8 +111,8 @@ struct tcb {
 	uint16_t dst_port;
 	uint32_t seq_num;
 	uint32_t ack_num;
-	uint16_t window;
-	struct tcp_flags flags; 
+	//uint16_t window;
+	//struct tcp_flags flags; 
 	enum connection_state state;	
 	// ASSUMPTION: SEGMENTS NEVER ARRIVE OUT OF ORDER OR GO MISSING
 	// WHICH PERSPECTIVE WILL THIS BE FROM: LAST RECEIVED OR EXPECTING? 

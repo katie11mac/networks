@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <arpa/inet.h>
 #include <poll.h>
+#include <sys/random.h>
 
 #include "util.h"
 #include "cs431vde.h"
