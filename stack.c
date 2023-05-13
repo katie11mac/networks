@@ -1063,6 +1063,43 @@ struct arp_entry *determine_mac_arp(uint8_t *ip_addr)
 
 }
 
+/*
+ */
+int send_ip_packet(uint8_t protocol, uint8_t dst_addr[4], uint8_t *payload, size_t payload_len) 
+{
+	struct ip_header new_ip_header;
+	uint8_t ip_packet[MAX_IP_PACKET_SIZE]; 	
+	int total_ip_len;
+	struct interface src_interface;
+	struct route *route_to_take;
+
+	// Construct new IP packet
+	memset(&new_ip_header, '\0', sizeof(struct ip_header));
+	memcpy(&new_ip_header.version_and_ihl, IP_INITIAL_VERSION_AND_IHL, 1);
+	new_ip_header.total_length = htons(sizeof(struct ip_header) + payload_len);
+	new_ip_header.ttl = IP_INITIAL_TTL;
+	new_ip_header.protocol = protocol;
+	memcpy(new_ip_header.dst_addr, dst_addr, 4);
+
+	// Determine the IP source (ie. which interface it will be leaving from) 
+	route_to_take = determine_route(&new_ip_header); 
+	
+	if (route_to_take == NULL) {
+		
+		printf("    cannot send IP packet (no route)\n");
+		return -1;
+	
+	}
+
+	src_interface = *(route_to_take->iface);
+	memcpy(new_ip_header.src_addr, src_interface.ip_addr, 4);
+	
+	total_ip_len = compose_ip_packet(ip_packet, &new_ip_header, payload, payload_len);
+
+	// Route the newly constructed IP packet
+	return route_ip_packet(ip_packet, total_ip_len, 1);
+
+}
 
 /*
  * Send ICMP message using the original_ip_packet (IP header + payload) 
@@ -1079,14 +1116,16 @@ int send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_len
 	size_t original_bytes_num;
 	size_t original_ip_data_len = original_ip_packet_len - sizeof(struct ip_header);
 	
-	struct ip_header new_ip_header;
 	struct ip_header *original_ip_header = (struct ip_header *) original_ip_packet;
+	
+	/*
+	struct ip_header new_ip_header;
 	uint8_t ip_packet[MAX_IP_PACKET_SIZE]; 	
 	int total_ip_len;
 	struct interface src_interface;
-
 	struct route *route_to_take;
-	
+	*/
+
 	printf("  sending ICMP message\n");
 
 	// Determine how many bytes to read of the original data 
@@ -1114,7 +1153,10 @@ int send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_len
 	memcpy(icmp_packet + sizeof(struct icmp_header), original_ip_packet, sizeof(struct ip_header) + original_bytes_num);
 	new_icmp_header.checksum = checksum(icmp_packet, icmp_packet_len); // does this need to be converted from hton
 	memcpy(icmp_packet, &new_icmp_header, sizeof(struct icmp_header)); // Redundant
+	
+	return send_ip_packet(IP_ICMP_PROTOCOL, original_ip_header->src_addr, icmp_packet, icmp_packet_len);	
 
+	/*
 	// Construct new IP packet
 	memset(&new_ip_header, '\0', sizeof(struct ip_header));
 	memcpy(&new_ip_header.version_and_ihl, IP_INITIAL_VERSION_AND_IHL, 1);
@@ -1122,7 +1164,7 @@ int send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_len
 	new_ip_header.ttl = IP_INITIAL_TTL;
 	new_ip_header.protocol = IP_ICMP_PROTOCOL;
 	memcpy(new_ip_header.dst_addr, original_ip_header->src_addr, 4);
-
+	
 	// Determine the IP source (ie. which interface it will be leaving from) 
 	route_to_take = determine_route(&new_ip_header); 
 	
@@ -1140,8 +1182,9 @@ int send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_len
 
 	// Route the newly constructed IP packet
 	return route_ip_packet(ip_packet, total_ip_len, 1);
-
+	*/
 }
+
 
 /*
  * Handle and check integrity of TCP packet 
@@ -1203,8 +1246,6 @@ int handle_tcp_packet(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *packet, int
 		return -1;
 	
 	}
-	
-
 
 	// RIGHT NOW THE SET UP IS FOR THE FLAGS TO BE THE MOST RECENT GIVEN FLAGS IN THE CONNECTION
 	
