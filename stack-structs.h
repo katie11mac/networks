@@ -104,7 +104,7 @@ struct tcp_flags {
 };
 
 // FROM OUR OWN PERSPECTIVE 
-struct connection {
+struct tcb {
 	uint8_t ip_src[4];
 	uint8_t ip_dst[4];
 	uint16_t src_port; 

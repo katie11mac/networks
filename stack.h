@@ -100,11 +100,11 @@ int send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_len
 
 // TCP functions 
 int handle_tcp_packet(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *packet, int packet_len);
-struct connection *determine_connection(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_header *curr_tcp_header);
-struct connection *add_connection(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_header *curr_tcp_header);
-int is_valid_tcp_checksum(struct connection *curr_connection, uint8_t *curr_tcp_packet, int tcp_length);
+struct tcb *determine_tcb(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_header *curr_tcp_header);
+struct tcb *add_tcb(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_header *curr_tcp_header);
+int is_valid_tcp_checksum(struct tcb *curr_tcb, uint8_t *curr_tcp_packet, int tcp_length);
 void set_tcp_flags(struct tcp_flags *flags, struct tcp_header *curr_tcp_header);
-int is_valid_seq_and_ack(struct connection *curr_connection, struct tcp_header *curr_tcp_header); 
-void update_connection(struct connection *curr_connection, struct tcp_header *curr_tcp_header);
+int is_valid_seq_and_ack(struct tcb *curr_tcb, struct tcp_header *curr_tcp_header); 
+void update_tcp_state(struct tcb *curr_tcb, struct tcp_header *curr_tcp_header);
 
 #endif /* __STACK_H */

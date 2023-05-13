@@ -17,7 +17,7 @@ struct arp_entry arp_cache[NUM_ARP_ENTRIES];
 struct route routing_table[NUM_ROUTES];
 int fds[NUM_INTERFACES][2];
 struct pollfd poll_fds[NUM_INTERFACES];
-struct connection connections[MAX_CONNECTIONS];
+struct tcb connections[MAX_CONNECTIONS];
 int num_connections = 0;
 
 
@@ -1117,14 +1117,6 @@ int send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_len
 	size_t original_ip_data_len = original_ip_packet_len - sizeof(struct ip_header);
 	
 	struct ip_header *original_ip_header = (struct ip_header *) original_ip_packet;
-	
-	/*
-	struct ip_header new_ip_header;
-	uint8_t ip_packet[MAX_IP_PACKET_SIZE]; 	
-	int total_ip_len;
-	struct interface src_interface;
-	struct route *route_to_take;
-	*/
 
 	printf("  sending ICMP message\n");
 
@@ -1156,33 +1148,6 @@ int send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_len
 	
 	return send_ip_packet(IP_ICMP_PROTOCOL, original_ip_header->src_addr, icmp_packet, icmp_packet_len);	
 
-	/*
-	// Construct new IP packet
-	memset(&new_ip_header, '\0', sizeof(struct ip_header));
-	memcpy(&new_ip_header.version_and_ihl, IP_INITIAL_VERSION_AND_IHL, 1);
-	new_ip_header.total_length = htons(sizeof(struct ip_header) + icmp_packet_len);
-	new_ip_header.ttl = IP_INITIAL_TTL;
-	new_ip_header.protocol = IP_ICMP_PROTOCOL;
-	memcpy(new_ip_header.dst_addr, original_ip_header->src_addr, 4);
-	
-	// Determine the IP source (ie. which interface it will be leaving from) 
-	route_to_take = determine_route(&new_ip_header); 
-	
-	if (route_to_take == NULL) {
-		
-		printf("    dropping ICMP message (no route)\n");
-		return -1;
-	
-	}
-
-	src_interface = *(route_to_take->iface);
-	memcpy(new_ip_header.src_addr, src_interface.ip_addr, 4);
-	
-	total_ip_len = compose_ip_packet(ip_packet, &new_ip_header, icmp_packet, icmp_packet_len);
-
-	// Route the newly constructed IP packet
-	return route_ip_packet(ip_packet, total_ip_len, 1);
-	*/
 }
 
 
@@ -1196,7 +1161,7 @@ int handle_tcp_packet(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *packet, int
 {
 	
 	struct tcp_header *curr_tcp_header;
-	struct connection *curr_connection; 
+	struct tcb *curr_tcb; 
 	
 	//struct tcp_flags *given_flags; // MIGHT WANT TO MOVE THIS TO THE CONNECTION STRUCT
 	
@@ -1207,15 +1172,15 @@ int handle_tcp_packet(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *packet, int
 	// REMEMBER THAT WE ALREADY KNOW THIS PACKET IS FOR US!!! 
 
 	// See if connection already exists 
-	if ((curr_connection = determine_connection(ip_src, ip_dst, curr_tcp_header)) == NULL) {
+	if ((curr_tcb = determine_tcb(ip_src, ip_dst, curr_tcp_header)) == NULL) {
 		
 		printf("      No existing connection found. Creating new connection.\n");
-		curr_connection = add_connection(ip_src, ip_dst, curr_tcp_header);
+		curr_tcb = add_tcb(ip_src, ip_dst, curr_tcp_header);
 	
 	}
 	
 	// Add connection if it doesn't exist 
-	if (curr_connection == NULL) {
+	if (curr_tcb == NULL) {
 		
 		printf("      Dropping TCP packet?\n");
 		return -1;
@@ -1223,7 +1188,7 @@ int handle_tcp_packet(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *packet, int
 	}
 	
 	// Verify checksum  
-	if (is_valid_tcp_checksum(curr_connection, packet, packet_len) == 0) {
+	if (is_valid_tcp_checksum(curr_tcb, packet, packet_len) == 0) {
 		
 		return -1;	
 	
@@ -1238,10 +1203,10 @@ int handle_tcp_packet(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *packet, int
 	}
 
 	// Set the flags of the received packet 
-	set_tcp_flags(&curr_connection->flags, curr_tcp_header);
+	set_tcp_flags(&curr_tcb->flags, curr_tcp_header);
 
 	// Verify sequence and acknowledgement numbers 
-	if (is_valid_seq_and_ack(curr_connection, curr_tcp_header) == 0) {
+	if (is_valid_seq_and_ack(curr_tcb, curr_tcp_header) == 0) {
 		
 		return -1;
 	
@@ -1249,7 +1214,7 @@ int handle_tcp_packet(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *packet, int
 
 	// RIGHT NOW THE SET UP IS FOR THE FLAGS TO BE THE MOST RECENT GIVEN FLAGS IN THE CONNECTION
 	
-	update_connection(curr_connection, curr_tcp_header);
+	update_tcp_state(curr_tcb, curr_tcp_header);
 
 	// do something with determining the state 
 	// in that determining the state we would also need to check the flags to determine what to do 
@@ -1263,10 +1228,10 @@ int handle_tcp_packet(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *packet, int
  * Determine whether a connection already exists based on 
  * IP src, IP dst, src port, and dst port of a TCP header
  *
- * Return pointer to connection if one already exists
- * Return NULL if connection does not yet exist 
+ * Return pointer to tcb if one already exists
+ * Return NULL if tcb does not yet exist 
  */
-struct connection *determine_connection(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_header *curr_tcp_header)
+struct tcb *determine_tcb(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_header *curr_tcp_header)
 {	
 	
 	for (int i = 0; i < num_connections; i++) { 
@@ -1296,14 +1261,14 @@ struct connection *determine_connection(uint8_t ip_src[4], uint8_t ip_dst[4], st
 
 
 /*
- * Add connection to connections array 
+ * Add tcb to connections array 
  *
- * Return pointer to new connection created 
+ * Return pointer to new tcb created 
  * Return NULL if MAX_CONECTIONS have already been reached
  *
  * NOTE: DOUBLE CHECK THE STATE CONNECTION SET TO
  */
-struct connection *add_connection(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_header *curr_tcp_header)
+struct tcb *add_tcb(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_header *curr_tcp_header)
 {
 	
 	/*
@@ -1320,7 +1285,7 @@ struct connection *add_connection(uint8_t ip_src[4], uint8_t ip_dst[4], struct t
 	
 	}
 
-	// Add new connection at the end of the array
+	// Add new tcb at the end of the array
 	memcpy(connections[num_connections].ip_src, ip_src, 4);
 	memcpy(connections[num_connections].ip_dst, ip_dst, 4);
 	connections[num_connections].src_port = ntohs(curr_tcp_header->src_port);
@@ -1347,7 +1312,7 @@ struct connection *add_connection(uint8_t ip_src[4], uint8_t ip_dst[4], struct t
  *
  * NOTE: Double check padding 
  */
-int is_valid_tcp_checksum(struct connection *curr_connection, uint8_t *curr_tcp_packet, int tcp_length)
+int is_valid_tcp_checksum(struct tcb *curr_tcb, uint8_t *curr_tcp_packet, int tcp_length)
 {
 	
 	struct tcp_pseudo_header pseudo_header;
@@ -1363,8 +1328,8 @@ int is_valid_tcp_checksum(struct connection *curr_connection, uint8_t *curr_tcp_
 
 	// Create a psuedo header for TCP packet
 	memset(&pseudo_header, '\0', sizeof(struct tcp_pseudo_header));
-	memcpy(pseudo_header.ip_src, curr_connection->ip_src, 4);
-	memcpy(pseudo_header.ip_dst, curr_connection->ip_dst, 4);
+	memcpy(pseudo_header.ip_src, curr_tcb->ip_src, 4);
+	memcpy(pseudo_header.ip_dst, curr_tcb->ip_dst, 4);
 	pseudo_header.zeros = 0;
 	pseudo_header.ptcl = IP_TCP_PROTOCOL;
 	pseudo_header.tcp_length = htons(tcp_length); 
@@ -1448,29 +1413,29 @@ void set_tcp_flags(struct tcp_flags *flags, struct tcp_header *curr_tcp_header)
  * Return 1 if they are the expected numbers or if received a SYN packet  
  * Return 0 otherwise 
  *
- * NOTE: The seq and ack numbers in the connection should be the ones it expects next
+ * NOTE: The seq and ack numbers in the tcb should be the ones it expects next
  * CHECK THIS!!!! 
  */
-int is_valid_seq_and_ack(struct connection *curr_connection, struct tcp_header *curr_tcp_header) 
+int is_valid_seq_and_ack(struct tcb *curr_tcb, struct tcp_header *curr_tcp_header) 
 {
 
 	// If the packet is not exclusively SYN, check the seq and ack nums 
-	if ( !( (curr_connection->flags.URG == 0) && 
-			(curr_connection->flags.ACK == 0) &&
-			(curr_connection->flags.PSH == 0) && 
-			(curr_connection->flags.RST == 0) && 
-			(curr_connection->flags.SYN == 1) &&
-			(curr_connection->flags.FIN == 0) ) ) {
+	if ( !( (curr_tcb->flags.URG == 0) && 
+			(curr_tcb->flags.ACK == 0) &&
+			(curr_tcb->flags.PSH == 0) && 
+			(curr_tcb->flags.RST == 0) && 
+			(curr_tcb->flags.SYN == 1) &&
+			(curr_tcb->flags.FIN == 0) ) ) {
 		
 		// UNSURE OF THIS CHECK!!!!!
-		if (curr_connection->seq_num != ntohl(curr_tcp_header->seq_num)) {
+		if (curr_tcb->seq_num != ntohl(curr_tcp_header->seq_num)) {
 		
 			printf("ignoring TCP packet (unexpected sequence number)\n");
 			return 0;
 		
 		}
 
-		if (curr_connection->ack_num != ntohl(curr_tcp_header->ack_num)) {
+		if (curr_tcb->ack_num != ntohl(curr_tcp_header->ack_num)) {
 			
 			printf("ignoring TCP packet (unexpected acknowledgement number)\n");
 			return 0;
@@ -1490,7 +1455,7 @@ int is_valid_seq_and_ack(struct connection *curr_connection, struct tcp_header *
 
 /*
  */
-void update_connection(struct connection *curr_connection, struct tcp_header *curr_tcp_header) 
+void update_tcp_state(struct tcb *curr_tcb, struct tcp_header *curr_tcp_header) 
 {
 	
 	char *print = "      current state: "; 
@@ -1499,13 +1464,13 @@ void update_connection(struct connection *curr_connection, struct tcp_header *cu
 	// Check the current state 
 	// look at if you received what diagram said 
 	// do the action diagram says 
-	// update state of the connection
-	switch (curr_connection->state) {
+	// update state of the tcb
+	switch (curr_tcb->state) {
 		
 		case LISTEN: {
 			
 			printf("%s LISTEN\n", print); 
-			if (curr_connection->flags.SYN) {
+			if (curr_tcb->flags.SYN) {
 				printf("received SYN\n");
 				// SEND PACKET
 				// UPDATE STATE TO SYN_RECEIVED
