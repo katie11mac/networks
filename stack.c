@@ -239,7 +239,10 @@ int handle_ethernet_frame(struct interface *iface)
 	
 	// Read frame from interface  
 	frame_len = receive_ethernet_frame(iface->in_fd, frame);
-	printf("received %ld-byte frame on interface 0\n", frame_len);
+	printf("\nreceived %ld-byte frame on interface 0\n", frame_len);
+	
+	// DEBUGGING
+	printf("%s", binary_to_hex(frame, frame_len));
 
 	// Set header information
 	curr_frame = (struct ether_header *) frame;
@@ -273,10 +276,14 @@ int handle_ethernet_frame(struct interface *iface)
 	payload = frame + sizeof(struct ether_header);
 	
 	// Set the frame length 
-	if (check_fcs) {	
+	if (check_fcs) {
+		printf("CHECKING THE FCS\n");
 		payload_len = frame_len - sizeof(struct ether_header) - ETHER_FCS_SIZE;
 	} else {
+		printf("NOT CHECKING THE FCS\n");
 		payload_len = frame_len - sizeof(struct ether_header);
+		printf("FRAME LENGTH: %ld (%lx)\n", frame_len, frame_len);
+		printf("PAYLOAD LENGTH: %d (%x)\n", payload_len, payload_len);
 	}
 	
 	// Acknowledge broadcasts and set ether_dst_addr_results
@@ -601,13 +608,15 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_len)
 	uint8_t *payload; 
 	int payload_len;
 
-
 	// Interpret data as IPv4 header
 	curr_ip_header = (struct ip_header *) packet;
 	
+	printf("    PACKET_LEN: %d %x\n", packet_len, packet_len);	
+	printf("    GIVEN PACKET LEN: %d %x\n", ntohs(curr_ip_header->total_length), ntohs(curr_ip_header->total_length));
+	
+	/*
 	// Check if total length is correct 
 	if (packet_len != ntohs(curr_ip_header->total_length)) {
-		
 		printf("    dropping packet from %u.%u.%u.%u (wrong length)\n", curr_ip_header->src_addr[0],
 																	    curr_ip_header->src_addr[1],
 																	    curr_ip_header->src_addr[2],
@@ -616,6 +625,7 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_len)
 		return -1;
 	
 	}
+	*/
 
 	// Check if the header checksum is correct 
 	if (is_valid_ip_checksum(curr_ip_header) == 0) {
@@ -1506,10 +1516,11 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_packet, int packet
 			
 			printf("%s LISTEN\n", print); 
 			if (given_tcp_flags.SYN) {
-				printf("received SYN\n");
+				printf("      received SYN\n");
 				
 				send_tcp_packet(curr_tcb, TCP_SYN_FLAG | TCP_ACK_FLAG, curr_tcp_packet, packet_len);
-
+				
+				curr_tcb->state = SYN_RECEIVED;
 				// SEND PACKET
 				// UPDATE STATE TO SYN_RECEIVED
 			}
@@ -1566,15 +1577,16 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_packet, int packet
 
 int send_tcp_packet(struct tcb *curr_tcb, uint8_t flags, uint8_t *original_tcp_packet, int original_packet_len) 
 {
+	
 	struct tcp_header new_tcp_header; 
 	uint16_t new_offset_reserved_control;
 	// DO I NEED A PACKET BUFFER??? 
 	
 	struct tcp_header *original_tcp_header = (struct tcp_header *) original_tcp_packet;
 	uint16_t original_tcp_offset = ntohs(original_tcp_header->offset_reserved_control) >> 12; // DOUBLE CHECK!!!  
-	printf("original tcp offset: %u\n", original_tcp_offset);
+	printf("      original tcp offset: %u\n", original_tcp_offset);
 	uint32_t original_payload_len = original_packet_len - (original_tcp_offset * 4);
-	printf("original payload len: %u\n", original_payload_len);
+	printf("      original payload len: %u\n", original_payload_len);
 
 	// Set TCP ports
 	new_tcp_header.src_port = original_tcp_header->dst_port;
@@ -1608,8 +1620,8 @@ int send_tcp_packet(struct tcb *curr_tcb, uint8_t flags, uint8_t *original_tcp_p
 	// UNDER THE ASSUMPTION THAT THERE WILL BE NO PAYLOAD HERE 
 
 	// NEED TO UPDATE THE TCB
-	//curr_tcb->seq_num = ntohl(new_tcp_header.ack_num);
-	//curr_tcb->ack_num = 0; 
+	curr_tcb->seq_num = ntohl(new_tcp_header.ack_num);
+	curr_tcb->ack_num = ntohl(new_tcp_header.seq_num); // NOT TAKING A BODY  
 
 	return send_ip_packet(IP_TCP_PROTOCOL, curr_tcb->ip_src, (uint8_t *)&new_tcp_header, TCP_DEFAULT_OFFSET * 4);
 
