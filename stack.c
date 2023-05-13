@@ -102,8 +102,9 @@ void init_interfaces()
 {
 	
     // Interface 0 - WILL BE RECIEVING IN PART I
-    memcpy(interfaces[0].ether_addr, "\x01\x02\x03\x04\xff\xff", 6);
-    memcpy(interfaces[0].ip_addr, "\x01\x02\x03\x04", 4);
+	//memcpy(interfaces[0].ether_addr, "\x01\x02\x03\x04\xff\xff", 6);
+	memcpy(interfaces[0].ether_addr, "\x06\xdd\x79\xe0\x8b\x4d", 6);
+	memcpy(interfaces[0].ip_addr, "\x01\x02\x03\x04", 4);
 	interfaces[0].name = "i0";
 	interfaces[0].in_fd = fds[0][0];
 	interfaces[0].out_fd = fds[0][1];
@@ -1607,6 +1608,8 @@ int send_tcp_packet(struct tcb *curr_tcb, uint8_t flags, uint8_t *original_tcp_p
 	// UNDER THE ASSUMPTION THAT THERE WILL BE NO PAYLOAD HERE 
 
 	// NEED TO UPDATE THE TCB
+	//curr_tcb->seq_num = ntohl(new_tcp_header.ack_num);
+	//curr_tcb->ack_num = 0; 
 
 	return send_ip_packet(IP_TCP_PROTOCOL, curr_tcb->ip_src, (uint8_t *)&new_tcp_header, TCP_DEFAULT_OFFSET * 4);
 
