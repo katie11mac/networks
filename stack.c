@@ -1329,7 +1329,7 @@ struct tcb *add_tcb(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_header *cur
  *
  * Return calculated checksum in network byte order
  */
-uint16_t calculate_tcp_checksum(struct tcb *curr_tcb, uint8_t *curr_tcp_packet, int tcp_length)
+uint16_t calculate_tcp_checksum(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int tcp_length)
 {
 	
 	struct tcp_pseudo_header pseudo_header;
@@ -1342,7 +1342,7 @@ uint16_t calculate_tcp_checksum(struct tcb *curr_tcb, uint8_t *curr_tcp_packet, 
 
 	memset(tcp_text, '\0', total_length);
 
-	// Create a psuedo header for TCP packet
+	// Create a psuedo header for TCP segment
 	memset(&pseudo_header, '\0', sizeof(struct tcp_pseudo_header));
 	memcpy(pseudo_header.ip_src, curr_tcb->ip_src, 4);
 	memcpy(pseudo_header.ip_dst, curr_tcb->ip_dst, 4);
@@ -1352,15 +1352,15 @@ uint16_t calculate_tcp_checksum(struct tcb *curr_tcb, uint8_t *curr_tcp_packet, 
 	pseudo_header.tcp_length = htons(tcp_length); 
 	// NOTE: We switch to network endianess bc tcp header will be in network endianess 
 	
-	// Interpret beginning of packet as TCP header 
-	curr_tcp_header = (struct tcp_header *) curr_tcp_packet;
+	// Interpret beginning of segment as TCP header 
+	curr_tcp_header = (struct tcp_header *) curr_tcp_segment;
 
 	// Reset the checksum 
 	curr_tcp_header->checksum = 0;
 
-	// Write psuedo header and TCP packet into the tcp_text buffer
+	// Write psuedo header and TCP segment into the tcp_text buffer
 	memcpy(tcp_text, &pseudo_header, sizeof(struct tcp_pseudo_header));
-	memcpy(tcp_text + sizeof(struct tcp_pseudo_header), curr_tcp_packet, tcp_length);
+	memcpy(tcp_text + sizeof(struct tcp_pseudo_header), curr_tcp_segment, tcp_length);
 
 	// Calculate the checksum using the data in tcp_text buffer 
 	calculated_checksum = checksum(tcp_text, total_length);
@@ -1377,7 +1377,7 @@ uint16_t calculate_tcp_checksum(struct tcb *curr_tcb, uint8_t *curr_tcp_packet, 
  *
  * NOTE: Double check padding 
  */
-int is_valid_tcp_checksum(struct tcb *curr_tcb, uint8_t *curr_tcp_packet, int tcp_length)
+int is_valid_tcp_checksum(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int tcp_length)
 {
 	
 	struct tcp_header *curr_tcp_header;
@@ -1387,20 +1387,20 @@ int is_valid_tcp_checksum(struct tcb *curr_tcb, uint8_t *curr_tcp_packet, int tc
 	// Edit total_length if there needs to be padding
 	total_length = (total_length % 2) ? total_length : total_length + 1; 
 		
-	// Interpret beginning of packet as TCP header 
-	curr_tcp_header = (struct tcp_header *) curr_tcp_packet;
+	// Interpret beginning of segment as TCP header 
+	curr_tcp_header = (struct tcp_header *) curr_tcp_segment;
 
 	// Save original checksum
 	original_checksum = curr_tcp_header->checksum;
 
 	// Calculate the checksum using the data in tcp_text buffer 
-	calculated_checksum = calculate_tcp_checksum(curr_tcb, curr_tcp_packet, tcp_length);
+	calculated_checksum = calculate_tcp_checksum(curr_tcb, curr_tcp_segment, tcp_length);
 
 	//printf("ORIGINAL CHECKSUM:   %x\n", original_checksum);
 	//printf("CALCULATED CHECKSUM: %x\n", calculated_checksum);
 
 	if (calculated_checksum != original_checksum) {
-		printf("        dropping TCP packet (bad checksum)\n");
+		printf("        dropping TCP segment (bad checksum)\n");
 		return 0;
 	}
 
