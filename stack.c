@@ -242,7 +242,7 @@ int handle_ethernet_frame(struct interface *iface)
 	printf("\nreceived %ld-byte frame on interface 0\n", frame_len);
 	
 	// DEBUGGING
-	printf("%s", binary_to_hex(frame, frame_len));
+	//printf("%s", binary_to_hex(frame, frame_len));
 
 	// Set header information
 	curr_frame = (struct ether_header *) frame;
@@ -1214,15 +1214,8 @@ int handle_tcp_packet(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *packet, int
 	
 	}
 	
-	/*
-	// Verify sequence and acknowledgement numbers 
-	if (is_valid_seq_and_ack(curr_tcb, curr_tcp_header) == 0) {
-		
-		return -1;
+	print_connection_info(curr_tcb);
 	
-	}
-	*/
-
 	update_tcp_state(curr_tcb, packet, packet_len);
 
 	// do something with determining the state 
@@ -1232,6 +1225,16 @@ int handle_tcp_packet(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *packet, int
 
 }
 
+/*
+ */
+void print_connection_info(struct tcb *tcb) 
+{
+	printf("      Connection:\n");
+	printf("        ip src:   %d.%d.%d.%d\n", tcb->ip_src[0], tcb->ip_src[1], tcb->ip_src[2], tcb->ip_src[3]);
+	printf("        ip dst:   %d.%d.%d.%d\n", tcb->ip_dst[0], tcb->ip_dst[1], tcb->ip_dst[2], tcb->ip_dst[3]);
+	printf("        src port: %d\n", tcb->src_port); 
+	printf("        dst port: %d\n", tcb->dst_port); 
+}
 
 /*
  * Determine whether a connection already exists based on 
@@ -1517,7 +1520,7 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_packet, int packet
 			if (given_tcp_flags.SYN) {
 				
 				printf("      received SYN. sending SYN ACK.\n");
-				send_tcp_packet(curr_tcb, TCP_SYN_FLAG | TCP_ACK_FLAG, curr_tcp_packet, packet_len, NULL, 0);
+				send_tcp_packet(curr_tcb, TCP_SYN_FLAG | TCP_ACK_FLAG, curr_tcp_packet, packet_len, &given_tcp_flags, NULL, 0);
 				curr_tcb->state = SYN_RECEIVED;
 
 			}
@@ -1549,8 +1552,11 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_packet, int packet
 			// print out data 
 			print_tcp_data(curr_tcp_packet, packet_len);
 			
-			send_tcp_packet(curr_tcb, TCP_ACK_FLAG, curr_tcp_packet, packet_len, NULL, 0);
+			if (given_tcp_flags.FIN) {
+				curr_tcb->state = CLOSE_WAIT;
+			}
 
+			send_tcp_packet(curr_tcb, TCP_ACK_FLAG, curr_tcp_packet, packet_len, &given_tcp_flags, NULL, 0);
 			
 		} break;
 
@@ -1592,7 +1598,7 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_packet, int packet
 
 /*
  */
-int send_tcp_packet(struct tcb *curr_tcb, uint8_t flags, uint8_t *original_tcp_packet, int original_packet_len, uint8_t *payload, size_t payload_len) 
+int send_tcp_packet(struct tcb *curr_tcb, uint8_t flags, uint8_t *original_tcp_packet, int original_packet_len, struct tcp_flags *original_flags, uint8_t *payload, size_t payload_len) 
 {
 	struct tcp_header new_tcp_header; 
 	uint8_t tcp_packet[sizeof(struct tcp_header) + payload_len]; // ASSUMPTION: NO OPTIONS
@@ -1609,7 +1615,12 @@ int send_tcp_packet(struct tcb *curr_tcb, uint8_t flags, uint8_t *original_tcp_p
 	 * PROBLEMS: 
 	 * - What if you're not responding to a packet and you're just sending one out 
 	 */
-
+	
+	// Set the phantom byte 
+	if ((original_flags->SYN) || (original_flags->FIN)) {
+		original_payload_len += 1;
+	}
+	
 	// Set TCP ports
 	new_tcp_header.src_port = original_tcp_header->dst_port;
 	new_tcp_header.dst_port = original_tcp_header->src_port; 
@@ -1617,10 +1628,11 @@ int send_tcp_packet(struct tcb *curr_tcb, uint8_t flags, uint8_t *original_tcp_p
 	// Set sequence number
 	if (flags & TCP_SYN_FLAG) {
 		new_tcp_header.seq_num = htonl(curr_tcb->seq_num);
-		original_payload_len += 1;
 	} else {
 		new_tcp_header.seq_num = original_tcp_header->ack_num;
 	}
+	
+	
 
 	// Set acknowledgement number
 	new_tcp_header.ack_num = htonl(ntohl(original_tcp_header->seq_num) + original_payload_len); 

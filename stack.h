@@ -102,6 +102,7 @@ int send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_len
 
 // TCP functions 
 int handle_tcp_packet(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *packet, int packet_len);
+void print_connection_info(struct tcb *tcb);
 struct tcb *determine_tcb(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_header *curr_tcp_header);
 struct tcb *add_tcb(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_header *curr_tcp_header);
 uint16_t calculate_tcp_checksum(struct tcb *curr_tcb, uint8_t *curr_tcp_packet, int tcp_length);
@@ -109,7 +110,7 @@ int is_valid_tcp_checksum(struct tcb *curr_tcb, uint8_t *curr_tcp_packet, int tc
 void set_tcp_flags(struct tcp_flags *flags, struct tcp_header *curr_tcp_header);
 int is_valid_seq_and_ack(struct tcb *curr_tcb, struct tcp_header *curr_tcp_header); 
 void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_packet, int packet_len);
-int send_tcp_packet(struct tcb *curr_tcb, uint8_t flags, uint8_t *original_tcp_packet, int original_packet_len, uint8_t *payload, size_t payload_len);
+int send_tcp_packet(struct tcb *curr_tcb, uint8_t flags, uint8_t *original_tcp_packet, int original_packet_len, struct tcp_flags *original_flags, uint8_t *payload, size_t payload_len);
 void print_tcp_data(uint8_t *original_tcp_packet, int original_packet_len);
 
 #endif /* __STACK_H */
