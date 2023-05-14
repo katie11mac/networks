@@ -680,7 +680,7 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_len)
 		// Received a TCP packet for local interface
 		if (curr_ip_header->protocol == IP_TCP_PROTOCOL) {
 			
-			handle_tcp_packet(curr_ip_header->src_addr, curr_ip_header->dst_addr, payload, payload_len);
+			handle_tcp_segment(curr_ip_header->src_addr, curr_ip_header->dst_addr, payload, payload_len);
 		
 		}
 
@@ -1165,27 +1165,27 @@ int send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_len
 
 
 /*
- * Handle and check integrity of TCP packet 
+ * Handle and check integrity of TCP segment 
  *
- * Return -1 for invalid packets 
+ * Return -1 for invalid segments 
  * Return 0 otherwise
  */
-int handle_tcp_packet(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *packet, int packet_len)
+int handle_tcp_segment(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *segment, int segment_len)
 {
 	
 	struct tcp_header *curr_tcp_header;
 	struct tcb *curr_tcb; 
 	
-	printf("    received TCP packet\n");
+	printf("    received TCP segment\n");
 	
-	curr_tcp_header = (struct tcp_header *) packet;
+	curr_tcp_header = (struct tcp_header *) segment;
 
 	// REMEMBER THAT WE ALREADY KNOW THIS PACKET IS FOR US!!! 
 
 	// Verify port number 
 	if (curr_tcp_header->dst_port != ntohs(TCP_LISTENING_PORT)) {
 		
-		printf("      dropping TCP packet (not listening on dst port)\n");
+		printf("      dropping TCP segment (not listening on dst port)\n");
 		return -1;
 
 	}
@@ -1202,13 +1202,13 @@ int handle_tcp_packet(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *packet, int
 	// Could not create a new connection
 	if (curr_tcb == NULL) {
 		
-		printf("      Dropping TCP packet?\n");
+		printf("      Dropping TCP segment (could no create new connection)\n");
 		return -1;
 	
 	}
 	
 	// Verify checksum  
-	if (is_valid_tcp_checksum(curr_tcb, packet, packet_len) == 0) {
+	if (is_valid_tcp_checksum(curr_tcb, segment, segment_len) == 0) {
 		
 		return -1;	
 	
@@ -1216,7 +1216,7 @@ int handle_tcp_packet(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *packet, int
 	
 	print_connection_info(curr_tcb);
 	
-	update_tcp_state(curr_tcb, packet, packet_len);
+	update_tcp_state(curr_tcb, segment, segment_len);
 
 	// do something with determining the state 
 	// in that determining the state we would also need to check the flags to determine what to do 
@@ -1325,7 +1325,7 @@ struct tcb *add_tcb(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_header *cur
 }
 
 /*
- * Calculate and return the tcp checksum of a tcp packet in network byte order 
+ * Calculate and return the tcp checksum of a tcp segment in network byte order 
  *
  * Return calculated checksum in network byte order
  */
@@ -1648,7 +1648,7 @@ int send_tcp_packet(struct tcb *curr_tcb, uint8_t flags, uint8_t *original_tcp_p
 	// Set the urgent pointer 
 	new_tcp_header.urgent_ptr = 0;
 
-	// Copy the new header and given payload into tcp packet 
+	// Copy the new header and given payload into tcp segment 
 	memcpy(tcp_packet, &new_tcp_header, sizeof(struct tcp_header));
 
 	if (payload_len > 0) {

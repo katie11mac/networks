@@ -101,7 +101,7 @@ int send_ip_packet(uint8_t protocol, uint8_t dst_addr[4], uint8_t *payload, size
 int send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_len, uint8_t type, uint8_t code);
 
 // TCP functions 
-int handle_tcp_packet(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *packet, int packet_len);
+int handle_tcp_segment(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *segment, int segment_len);
 void print_connection_info(struct tcb *tcb);
 struct tcb *determine_tcb(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_header *curr_tcp_header);
 struct tcb *add_tcb(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_header *curr_tcp_header);
