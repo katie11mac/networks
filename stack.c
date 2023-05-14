@@ -1534,8 +1534,8 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_packet, int packet
 			
 			if (given_tcp_flags.ACK) {
 			
-				printf("      received ACK to my SYN. Sending ACK.\n");
-				send_tcp_packet(curr_tcb, TCP_ACK_FLAG, curr_tcp_packet, packet_len, NULL, 0);
+				printf("      received ACK to my SYN. Moving to ESTABLISHED.\n");
+				// send_tcp_packet(curr_tcb, TCP_ACK_FLAG, curr_tcp_packet, packet_len, NULL, 0);
 				curr_tcb->state = ESTABLISHED;
 
 			}
@@ -1548,8 +1548,9 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_packet, int packet
 			
 			// print out data 
 			print_tcp_data(curr_tcp_packet, packet_len);
+			
+			send_tcp_packet(curr_tcb, TCP_ACK_FLAG, curr_tcp_packet, packet_len, NULL, 0);
 
-			// CHECK IF RECEIVE SYN FLAG
 			
 		} break;
 
@@ -1600,9 +1601,9 @@ int send_tcp_packet(struct tcb *curr_tcb, uint8_t flags, uint8_t *original_tcp_p
 
 	struct tcp_header *original_tcp_header = (struct tcp_header *) original_tcp_packet;
 	uint16_t original_tcp_offset = ntohs(original_tcp_header->offset_reserved_control) >> 12; // DOUBLE CHECK!!!  
-	printf("      original tcp offset: %u\n", original_tcp_offset);
+	//printf("      original tcp offset: %u\n", original_tcp_offset);
 	uint32_t original_payload_len = original_packet_len - (original_tcp_offset * 4);
-	printf("      original payload len: %u\n", original_payload_len);
+	//printf("      original payload len: %u\n", original_payload_len);
 
 	/*
 	 * PROBLEMS: 
@@ -1614,15 +1615,15 @@ int send_tcp_packet(struct tcb *curr_tcb, uint8_t flags, uint8_t *original_tcp_p
 	new_tcp_header.dst_port = original_tcp_header->src_port; 
 
 	// Set sequence number
-	// NOTE: THIS IS BUGGY !!!!!!!  
-	if (ntohl(original_tcp_header->ack_num) == 0) {
+	if (flags & TCP_SYN_FLAG) {
 		new_tcp_header.seq_num = htonl(curr_tcb->seq_num);
+		original_payload_len += 1;
 	} else {
 		new_tcp_header.seq_num = original_tcp_header->ack_num;
 	}
 
 	// Set acknowledgement number
-	new_tcp_header.ack_num = htonl(ntohl(original_tcp_header->seq_num) + original_payload_len + 1); 
+	new_tcp_header.ack_num = htonl(ntohl(original_tcp_header->seq_num) + original_payload_len); 
 
 	// Set offset, reserved, and control (flags) 
 	new_offset_reserved_control = TCP_DEFAULT_OFFSET << 12; 
@@ -1648,11 +1649,10 @@ int send_tcp_packet(struct tcb *curr_tcb, uint8_t flags, uint8_t *original_tcp_p
 
 	// NEED TO UPDATE THE TCB
 	// CONTAINS INFORMATION ABOUT US!!!! 
-	// I think that the following should actually be switched!!!!! 
-	// If you had to check #s, then the received ack should be our seq and the received seq should be right after our ack
 	curr_tcb->seq_num = ntohl(new_tcp_header.seq_num) + payload_len; // DOUBLE CHECK!!!!  
 	curr_tcb->ack_num = ntohl(new_tcp_header.ack_num);
-
+	
+	printf("  sending TCP segment\n");
 	return send_ip_packet(IP_TCP_PROTOCOL, curr_tcb->ip_src, tcp_packet, sizeof(tcp_packet));
 
 }
@@ -1664,6 +1664,7 @@ void print_tcp_data(uint8_t *original_tcp_packet, int original_packet_len)
 {
 	struct tcp_header *original_tcp_header = (struct tcp_header *) original_tcp_packet;
 	uint16_t original_tcp_offset = ntohs(original_tcp_header->offset_reserved_control) >> 12;
+	char tcp_data[original_packet_len - (original_tcp_offset * 4) + 1]; 
 
 	// Entire TCP packet is just the header
 	if (original_tcp_offset * 4 == original_packet_len) {
@@ -1673,8 +1674,9 @@ void print_tcp_data(uint8_t *original_tcp_packet, int original_packet_len)
 	// TCP packet has data 
 	} else {
 		
-		printf("      TCP DATA: %s\n", original_tcp_packet + sizeof(struct tcp_header));
-	
+		printf("      TCP DATA: \n");
+		snprintf(tcp_data, sizeof(tcp_data), "%s", original_tcp_packet + sizeof(struct tcp_header));
+		printf("        %s", tcp_data);
 	}
 
 }
