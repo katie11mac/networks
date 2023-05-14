@@ -277,7 +277,7 @@ int handle_ethernet_frame(struct interface *iface)
 	
 	// Set the frame length 
 	if (check_fcs) {
-		printf("CHECKING THE FCS\n");
+		//printf("CHECKING THE FCS\n");
 		payload_len = frame_len - sizeof(struct ether_header) - ETHER_FCS_SIZE;
 	} else {
 		//printf("NOT CHECKING THE FCS\n");
@@ -611,8 +611,8 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_len)
 	// Interpret data as IPv4 header
 	curr_ip_header = (struct ip_header *) packet;
 	
-	printf("    PACKET_LEN: %d %x\n", packet_len, packet_len);	
-	printf("    GIVEN PACKET LEN: %d %x\n", ntohs(curr_ip_header->total_length), ntohs(curr_ip_header->total_length));
+	//printf("    PACKET_LEN: %d %x\n", packet_len, packet_len);	
+	//printf("    GIVEN PACKET LEN: %d %x\n", ntohs(curr_ip_header->total_length), ntohs(curr_ip_header->total_length));
 	
 	// Check if total length is correct 
 	if (packet_len < ntohs(curr_ip_header->total_length)) {
@@ -1345,7 +1345,7 @@ uint16_t calculate_tcp_checksum(struct tcb *curr_tcb, uint8_t *curr_tcp_packet, 
 	memcpy(pseudo_header.ip_dst, curr_tcb->ip_dst, 4);
 	pseudo_header.zeros = 0;
 	pseudo_header.ptcl = IP_TCP_PROTOCOL;
-	printf("      TCP LENGTH (checksum): %d (%x)\n", tcp_length, tcp_length);
+	//printf("      TCP LENGTH (checksum): %d (%x)\n", tcp_length, tcp_length);
 	pseudo_header.tcp_length = htons(tcp_length); 
 	// NOTE: We switch to network endianess bc tcp header will be in network endianess 
 	
