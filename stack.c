@@ -1458,7 +1458,7 @@ void set_tcp_flags(struct tcp_flags *flags, struct tcp_header *curr_tcp_header)
 /*
  * Verify whether the given sequence and acknowledgement numbers are the expected ones 
  *
- * Return 1 if they are the expected numbers or if received a SYN packet  
+ * Return 1 if they are the expected numbers or if received a SYN segment  
  * Return 0 otherwise 
  *
  * NOTE: The seq and ack numbers in the tcb should be the ones it expects next
@@ -1476,14 +1476,14 @@ int is_valid_seq_and_ack(struct tcb *curr_tcb, struct tcp_header *curr_tcp_heade
 		// UNSURE OF THIS CHECK!!!!!
 		if (curr_tcb->seq_num != ntohl(curr_tcp_header->seq_num)) {
 		
-			printf("ignoring TCP packet (unexpected sequence number)\n");
+			printf("ignoring TCP segment (unexpected sequence number)\n");
 			return 0;
 		
 		}
 
 		if (curr_tcb->ack_num != ntohl(curr_tcp_header->ack_num)) {
 			
-			printf("ignoring TCP packet (unexpected acknowledgement number)\n");
+			printf("ignoring TCP segment (unexpected acknowledgement number)\n");
 			return 0;
 		
 		}
@@ -1497,11 +1497,11 @@ int is_valid_seq_and_ack(struct tcb *curr_tcb, struct tcp_header *curr_tcp_heade
 
 /*
  */
-void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_packet, int packet_len) 
+void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segment_len) 
 {
 	
 	char *print = "      current state: "; 
-	struct tcp_header *curr_tcp_header = (struct tcp_header *)curr_tcp_packet;
+	struct tcp_header *curr_tcp_header = (struct tcp_header *)curr_tcp_segment;
 	struct tcp_flags given_tcp_flags; 
 
 	set_tcp_flags(&given_tcp_flags, curr_tcp_header);
@@ -1520,7 +1520,7 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_packet, int packet
 			if (given_tcp_flags.SYN) {
 				
 				printf("      received SYN. sending SYN ACK.\n");
-				send_tcp_packet(curr_tcb, TCP_SYN_FLAG | TCP_ACK_FLAG, curr_tcp_packet, packet_len, &given_tcp_flags, NULL, 0);
+				send_tcp_segment(curr_tcb, TCP_SYN_FLAG | TCP_ACK_FLAG, curr_tcp_segment, segment_len, &given_tcp_flags, NULL, 0);
 				curr_tcb->state = SYN_RECEIVED;
 
 			}
@@ -1538,7 +1538,6 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_packet, int packet
 			if (given_tcp_flags.ACK) {
 			
 				printf("      received ACK to my SYN. Moving to ESTABLISHED.\n");
-				// send_tcp_packet(curr_tcb, TCP_ACK_FLAG, curr_tcp_packet, packet_len, NULL, 0);
 				curr_tcb->state = ESTABLISHED;
 
 			}
@@ -1550,13 +1549,13 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_packet, int packet
 			printf("%s ESTABLISHED\n", print);
 			
 			// print out data 
-			print_tcp_data(curr_tcp_packet, packet_len);
+			print_tcp_data(curr_tcp_segment, segment_len);
 			
 			if (given_tcp_flags.FIN) {
 				curr_tcb->state = CLOSE_WAIT;
 			}
 
-			send_tcp_packet(curr_tcb, TCP_ACK_FLAG, curr_tcp_packet, packet_len, &given_tcp_flags, NULL, 0);
+			send_tcp_segment(curr_tcb, TCP_ACK_FLAG, curr_tcp_segment, segment_len, &given_tcp_flags, NULL, 0);
 			
 		} break;
 
@@ -1598,22 +1597,22 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_packet, int packet
 
 /*
  */
-int send_tcp_packet(struct tcb *curr_tcb, uint8_t flags, uint8_t *original_tcp_packet, int original_packet_len, struct tcp_flags *original_flags, uint8_t *payload, size_t payload_len) 
+int send_tcp_segment(struct tcb *curr_tcb, uint8_t flags, uint8_t *original_tcp_segment, int original_segment_len, struct tcp_flags *original_flags, uint8_t *payload, size_t payload_len) 
 {
 	struct tcp_header new_tcp_header; 
-	uint8_t tcp_packet[sizeof(struct tcp_header) + payload_len]; // ASSUMPTION: NO OPTIONS
+	uint8_t tcp_segment[sizeof(struct tcp_header) + payload_len]; // ASSUMPTION: NO OPTIONS
 
 	uint16_t new_offset_reserved_control;
 
-	struct tcp_header *original_tcp_header = (struct tcp_header *) original_tcp_packet;
+	struct tcp_header *original_tcp_header = (struct tcp_header *) original_tcp_segment;
 	uint16_t original_tcp_offset = ntohs(original_tcp_header->offset_reserved_control) >> 12; // DOUBLE CHECK!!!  
 	//printf("      original tcp offset: %u\n", original_tcp_offset);
-	uint32_t original_payload_len = original_packet_len - (original_tcp_offset * 4);
+	uint32_t original_payload_len = original_segment_len - (original_tcp_offset * 4);
 	//printf("      original payload len: %u\n", original_payload_len);
 
 	/*
 	 * PROBLEMS: 
-	 * - What if you're not responding to a packet and you're just sending one out 
+	 * - What if you're not responding to a segment and you're just sending one out 
 	 */
 	
 	// Set the phantom byte 
@@ -1649,15 +1648,15 @@ int send_tcp_packet(struct tcb *curr_tcb, uint8_t flags, uint8_t *original_tcp_p
 	new_tcp_header.urgent_ptr = 0;
 
 	// Copy the new header and given payload into tcp segment 
-	memcpy(tcp_packet, &new_tcp_header, sizeof(struct tcp_header));
+	memcpy(tcp_segment, &new_tcp_header, sizeof(struct tcp_header));
 
 	if (payload_len > 0) {
-		memcpy(tcp_packet + sizeof(struct tcp_header), payload, payload_len);
+		memcpy(tcp_segment + sizeof(struct tcp_header), payload, payload_len);
 	}
 
 	// Set the checksum 
-	new_tcp_header.checksum = calculate_tcp_checksum(curr_tcb, tcp_packet, sizeof(tcp_packet)); // ASSUMPTION: NO OPTIONS
-	memcpy(tcp_packet, &new_tcp_header, sizeof(struct tcp_header));
+	new_tcp_header.checksum = calculate_tcp_checksum(curr_tcb, tcp_segment, sizeof(tcp_segment)); // ASSUMPTION: NO OPTIONS
+	memcpy(tcp_segment, &new_tcp_header, sizeof(struct tcp_header));
 
 	// NEED TO UPDATE THE TCB
 	// CONTAINS INFORMATION ABOUT US!!!! 
@@ -1665,29 +1664,29 @@ int send_tcp_packet(struct tcb *curr_tcb, uint8_t flags, uint8_t *original_tcp_p
 	curr_tcb->ack_num = ntohl(new_tcp_header.ack_num);
 	
 	printf("  sending TCP segment\n");
-	return send_ip_packet(IP_TCP_PROTOCOL, curr_tcb->ip_src, tcp_packet, sizeof(tcp_packet));
+	return send_ip_packet(IP_TCP_PROTOCOL, curr_tcb->ip_src, tcp_segment, sizeof(tcp_segment));
 
 }
 
 
 /*
  */
-void print_tcp_data(uint8_t *original_tcp_packet, int original_packet_len) 
+void print_tcp_data(uint8_t *original_tcp_segment, int original_segment_len) 
 {
-	struct tcp_header *original_tcp_header = (struct tcp_header *) original_tcp_packet;
+	struct tcp_header *original_tcp_header = (struct tcp_header *) original_tcp_segment;
 	uint16_t original_tcp_offset = ntohs(original_tcp_header->offset_reserved_control) >> 12;
-	char tcp_data[original_packet_len - (original_tcp_offset * 4) + 1]; 
+	char tcp_data[original_segment_len - (original_tcp_offset * 4) + 1]; 
 
-	// Entire TCP packet is just the header
-	if (original_tcp_offset * 4 == original_packet_len) {
+	// Entire TCP segment is just the header
+	if (original_tcp_offset * 4 == original_segment_len) {
 		
-		printf("      No data in TCP packet.\n");
+		printf("      No data in TCP segment.\n");
 
-	// TCP packet has data 
+	// TCP segment has data 
 	} else {
 		
 		printf("      TCP DATA: \n");
-		snprintf(tcp_data, sizeof(tcp_data), "%s", original_tcp_packet + sizeof(struct tcp_header));
+		snprintf(tcp_data, sizeof(tcp_data), "%s", original_tcp_segment + sizeof(struct tcp_header));
 		printf("        %s", tcp_data);
 	}
 
