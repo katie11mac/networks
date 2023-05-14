@@ -103,14 +103,25 @@ struct tcp_flags {
 	uint8_t FIN;
 };
 
-// FROM OUR OWN PERSPECTIVE 
+/*
+ * The tcb struct contains information from our side of the connection 
+ *
+ * seq_num: 
+ *	Represents our side's sequence number. 
+ *	It stores the next sequence number that should be used for sending. 
+ *	The acknowledgement number of received packets should be this value. 
+ *
+ * ack_num: 
+ *  Represnts the last bytes we have received from the other side of our connection. 
+ *  The sequence number of received packets should be this value. 
+ */
 struct tcb {
 	uint8_t ip_src[4];
 	uint8_t ip_dst[4];
 	uint16_t src_port; 
 	uint16_t dst_port;
-	uint32_t seq_num;
-	uint32_t ack_num;
+	uint32_t seq_num; // our next sequence number for sending
+	uint32_t ack_num; // last bytes received from other side of connection
 	//uint16_t window;
 	//struct tcp_flags flags; 
 	enum connection_state state;	
