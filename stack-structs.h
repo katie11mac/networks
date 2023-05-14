@@ -122,7 +122,7 @@ struct tcb {
 	uint16_t dst_port;
 	uint32_t seq_num; // our next sequence number for sending
 	uint32_t ack_num; // last bytes received from other side of connection
-	//uint16_t window;
+	uint16_t window;
 	//struct tcp_flags flags; 
 	enum connection_state state;	
 	// ASSUMPTION: SEGMENTS NEVER ARRIVE OUT OF ORDER OR GO MISSING
