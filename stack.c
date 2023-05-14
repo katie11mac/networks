@@ -1592,7 +1592,7 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 }
 
 /*
- * NOTE: Should change the function name
+ * NOTE: Double check the updating of seq and ack in TCB
  */
 int respond_to_tcp_segment(struct tcb *curr_tcb, uint8_t flags, uint8_t *original_tcp_segment, int original_segment_len, struct tcp_flags *original_flags, uint8_t *payload, size_t payload_len) 
 {
@@ -1661,8 +1661,8 @@ int respond_to_tcp_segment(struct tcb *curr_tcb, uint8_t flags, uint8_t *origina
 	
 	curr_tcb->seq_num += payload_len; 
 	
-	printf("updated seq: %u\n", curr_tcb->seq_num);
-	printf("updated ack: %u\n", curr_tcb->ack_num);
+	//printf("updated seq: %u\n", curr_tcb->seq_num);
+	//printf("updated ack: %u\n", curr_tcb->ack_num);
 
 	printf("  sending TCP segment\n");
 	return send_ip_packet(IP_TCP_PROTOCOL, curr_tcb->ip_src, tcp_segment, sizeof(tcp_segment));
