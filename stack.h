@@ -108,9 +108,8 @@ struct tcb *add_tcb(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_header *cur
 uint16_t calculate_tcp_checksum(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int tcp_length);
 int is_valid_tcp_checksum(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int tcp_length);
 void set_tcp_flags(struct tcp_flags *flags, struct tcp_header *curr_tcp_header);
-int is_valid_seq_and_ack(struct tcb *curr_tcb, struct tcp_header *curr_tcp_header); 
 void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segment_len);
-int send_tcp_segment(struct tcb *curr_tcb, uint8_t flags, uint8_t *original_tcp_segment, int original_segment_len, struct tcp_flags *original_flags, uint8_t *payload, size_t payload_len);
+int respond_to_tcp_segment(struct tcb *curr_tcb, uint8_t flags, uint8_t *original_tcp_segment, int original_segment_len, struct tcp_flags *original_flags, uint8_t *payload, size_t payload_len);
 void print_tcp_data(uint8_t *original_tcp_segment, int original_segment_len);
 
 #endif /* __STACK_H */

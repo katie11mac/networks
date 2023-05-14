@@ -1478,13 +1478,12 @@ void set_tcp_flags(struct tcp_flags *flags, struct tcp_header *curr_tcp_header)
 void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segment_len) 
 {
 	
-	char *print = "      current state: "; 
+	char *print = "      current state:"; 
 	struct tcp_header *curr_tcp_header = (struct tcp_header *)curr_tcp_segment;
 	struct tcp_flags given_tcp_flags; 
 
 	set_tcp_flags(&given_tcp_flags, curr_tcp_header);
 
-	// MINDSET 
 	// Check the current state 
 	// look at if you received what diagram said 
 	// do the action diagram says 
@@ -1498,7 +1497,7 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 			if (given_tcp_flags.SYN) {
 				
 				printf("      received SYN. sending SYN ACK.\n");
-				send_tcp_segment(curr_tcb, TCP_SYN_FLAG | TCP_ACK_FLAG, curr_tcp_segment, segment_len, &given_tcp_flags, NULL, 0);
+				respond_to_tcp_segment(curr_tcb, TCP_SYN_FLAG | TCP_ACK_FLAG, curr_tcp_segment, segment_len, &given_tcp_flags, NULL, 0);
 				curr_tcb->state = SYN_RECEIVED;
 
 			}
@@ -1518,6 +1517,14 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 				printf("      received ACK to my SYN. Moving to ESTABLISHED.\n");
 				curr_tcb->state = ESTABLISHED;
 
+			// When would this even happen? 	
+			} else if (given_tcp_flags.FIN) {
+				
+				printf("      received FIN. Sending ACK, FIN. Moving to LAST_ACK.\n");
+				// Could do two separate packets, but need to create a new function
+				respond_to_tcp_segment(curr_tcb, TCP_ACK_FLAG | TCP_FIN_FLAG, curr_tcp_segment, segment_len, &given_tcp_flags, NULL, 0);
+				curr_tcb->state = LAST_ACK;
+	
 			}
 
 		} break;
@@ -1528,12 +1535,16 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 			
 			// print out data 
 			print_tcp_data(curr_tcp_segment, segment_len);
-			
+
 			if (given_tcp_flags.FIN) {
-				curr_tcb->state = CLOSE_WAIT;
+				printf("      received FIN. Sending ACK, FIN. Moving to LAST_ACK.\n");
+				// Could do two separate packets, but need to create a new function
+				respond_to_tcp_segment(curr_tcb, TCP_ACK_FLAG | TCP_FIN_FLAG, curr_tcp_segment, segment_len, &given_tcp_flags, NULL, 0);
+				curr_tcb->state = LAST_ACK;
+			} else {			
+				respond_to_tcp_segment(curr_tcb, TCP_ACK_FLAG, curr_tcp_segment, segment_len, &given_tcp_flags, NULL, 0);
 			}
 
-			send_tcp_segment(curr_tcb, TCP_ACK_FLAG, curr_tcp_segment, segment_len, &given_tcp_flags, NULL, 0);
 			
 		} break;
 
@@ -1554,7 +1565,14 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 		} break;
 
 		case LAST_ACK: {
+			
 			printf("%s LAST_ACK\n", print);
+			
+			if (given_tcp_flags.ACK) {
+				printf("      received ACK to my FIN. Moving to CLOSED\n");
+				curr_tcb->state = CLOSED;
+			}
+
 		} break;
 		
 		case TIME_WAIT: {
@@ -1574,8 +1592,9 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 }
 
 /*
+ * NOTE: Should change the function name
  */
-int send_tcp_segment(struct tcb *curr_tcb, uint8_t flags, uint8_t *original_tcp_segment, int original_segment_len, struct tcp_flags *original_flags, uint8_t *payload, size_t payload_len) 
+int respond_to_tcp_segment(struct tcb *curr_tcb, uint8_t flags, uint8_t *original_tcp_segment, int original_segment_len, struct tcp_flags *original_flags, uint8_t *payload, size_t payload_len) 
 {
 	
 	struct tcp_header new_tcp_header; 
@@ -1585,15 +1604,8 @@ int send_tcp_segment(struct tcb *curr_tcb, uint8_t flags, uint8_t *original_tcp_
 
 	struct tcp_header *original_tcp_header = (struct tcp_header *) original_tcp_segment;
 	uint16_t original_tcp_offset = ntohs(original_tcp_header->offset_reserved_control) >> 12; // DOUBLE CHECK!!!  
-	//printf("      original tcp offset: %u\n", original_tcp_offset);
 	uint32_t original_payload_len = original_segment_len - (original_tcp_offset * 4);
-	//printf("      original payload len: %u\n", original_payload_len);
 
-	/*
-	 * PROBLEMS: 
-	 * - What if you're not responding to a segment and you're just sending one out 
-	 */
-	
 	// Set the phantom byte 
 	if ((original_flags->SYN) || (original_flags->FIN)) {
 		original_payload_len += 1;
@@ -1609,11 +1621,14 @@ int send_tcp_segment(struct tcb *curr_tcb, uint8_t flags, uint8_t *original_tcp_
 	} else {
 		new_tcp_header.seq_num = original_tcp_header->ack_num;
 	}
-	
-	
 
-	// Set acknowledgement number
-	new_tcp_header.ack_num = htonl(ntohl(original_tcp_header->seq_num) + original_payload_len); 
+	// Set acknowledgement number and update it in TCB 
+	if (flags & TCP_ACK_FLAG) {
+		new_tcp_header.ack_num = htonl(ntohl(original_tcp_header->seq_num) + original_payload_len);
+		curr_tcb->ack_num = ntohl(original_tcp_header->seq_num) + original_payload_len; 
+	} else {
+		new_tcp_header.ack_num = 0;	
+	}
 
 	// Set offset, reserved, and control (flags) 
 	new_offset_reserved_control = TCP_DEFAULT_OFFSET << 12; 
@@ -1636,12 +1651,19 @@ int send_tcp_segment(struct tcb *curr_tcb, uint8_t flags, uint8_t *original_tcp_
 	// Set the checksum 
 	new_tcp_header.checksum = calculate_tcp_checksum(curr_tcb, tcp_segment, sizeof(tcp_segment)); // ASSUMPTION: NO OPTIONS
 	memcpy(tcp_segment, &new_tcp_header, sizeof(struct tcp_header));
-
-	// NEED TO UPDATE THE TCB
-	// CONTAINS INFORMATION ABOUT US!!!! 
-	curr_tcb->seq_num = ntohl(new_tcp_header.seq_num) + payload_len; // DOUBLE CHECK!!!!  
-	curr_tcb->ack_num = ntohl(new_tcp_header.ack_num);
 	
+	// Update the seq num in TCB
+	
+	// Set phantom byte
+	if ((flags & TCP_SYN_FLAG) || (flags & TCP_FIN_FLAG)) {
+		payload_len += 1;
+	}
+	
+	curr_tcb->seq_num += payload_len; 
+	
+	printf("updated seq: %u\n", curr_tcb->seq_num);
+	printf("updated ack: %u\n", curr_tcb->ack_num);
+
 	printf("  sending TCP segment\n");
 	return send_ip_packet(IP_TCP_PROTOCOL, curr_tcb->ip_src, tcp_segment, sizeof(tcp_segment));
 
