@@ -120,13 +120,12 @@ struct tcb {
 	uint8_t ip_dst[4];
 	uint16_t src_port; 
 	uint16_t dst_port;
-	uint32_t seq_num; // our next sequence number for sending
-	uint32_t ack_num; // last bytes received from other side of connection
+	uint32_t seq_num; 
+	uint32_t ack_num; 	
 	uint16_t window;
 	//struct tcp_flags flags; 
 	enum connection_state state;	
 	// ASSUMPTION: SEGMENTS NEVER ARRIVE OUT OF ORDER OR GO MISSING
-	// WHICH PERSPECTIVE WILL THIS BE FROM: LAST RECEIVED OR EXPECTING? 
 };
 
 
