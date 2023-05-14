@@ -16,7 +16,7 @@ struct interface interfaces[NUM_INTERFACES];
 struct arp_entry arp_cache[NUM_ARP_ENTRIES];
 struct route routing_table[NUM_ROUTES];
 int fds[NUM_INTERFACES][2];
-struct pollfd poll_fds[NUM_INTERFACES];
+struct pollfd poll_fds[NUM_POLL_FDS];
 struct tcb connections[MAX_CONNECTIONS];
 int num_connections = 0;
 
@@ -25,6 +25,7 @@ int main(int argc, char *argv[])
 {
 
 	int poll_results;
+	char buffer[BUFFER_SIZE];
 
 	init_fds();
 	init_interfaces();
@@ -35,7 +36,7 @@ int main(int argc, char *argv[])
 	// Process frames until user terminates with Control-C
 	while(1) {
 		
-		poll_results = poll(poll_fds, NUM_INTERFACES, INFTIM);
+		poll_results = poll(poll_fds, NUM_POLL_FDS, INFTIM);
 		
 		if (poll_results == -1) {
 
@@ -43,12 +44,46 @@ int main(int argc, char *argv[])
 		
 		}
 		
-		for (int i = 0; i < NUM_INTERFACES; i++) {
+		for (int i = 0; i < NUM_POLL_FDS; i++) {
 			
 			if (poll_fds[i].revents & POLLIN) {
-		
-				handle_ethernet_frame(&interfaces[i]);
+				
+				if (poll_fds[i].fd == STDIN_FILENO) {
+					
+					// Use fgets because it can differentiate by new lines or end of file 
+					fgets(buffer, BUFFER_SIZE, stdin);
+					printf("received something\n");
+					
+					/*
+					 * IDEA 
+					 * - When you receive any user input go to a function that handles user input
+					 * - Set up a convention for sending information
+					 * - Maybe print all connections can send to after back to this waiting state  
+					 *
+					 * - When you receive any user input you are stuck in this function until they 
+					 *   enter control-D? 
+					 * - When in this function we prompt the user with what they want to do 
+					 *		- 1: Create new connection 
+					 *		- 2: Send to existing connection 
+					 * - Function for 1
+					 *		- Going to have to implement the other part of the state machine 
+					 * - Function for 2
+					 *		- Use our existing respond_to_tcp_segment and modify it so that we can send 
+					 *		data out 
+					 *
+					 * QUESTIONS 
+					 * - What if you are in this mode where the user wants to send, but then 
+					 *   you receive something from another connection? Does it block and 
+					 *   bad things happen? 
+					 * - 
+					 */
 
+				} else {
+					
+					handle_ethernet_frame(&interfaces[i]);
+				
+				}
+			
 			}	
 		
 		}
@@ -146,6 +181,10 @@ void init_poll_fds()
 		poll_fds[i].events = POLLIN;
 
 	}
+
+	// Add fd for reading from STDIN
+	poll_fds[NUM_POLL_FDS - 1].fd = STDIN_FILENO;
+	poll_fds[NUM_POLL_FDS - 1].events = POLLIN;
 
 }
 
@@ -1517,14 +1556,6 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 				printf("      received ACK to my SYN. Moving to ESTABLISHED.\n");
 				curr_tcb->state = ESTABLISHED;
 
-			// When would this even happen? 	
-			} else if (given_tcp_flags.FIN) {
-				
-				printf("      received FIN. Sending ACK, FIN. Moving to LAST_ACK.\n");
-				// Could do two separate packets, but need to create a new function
-				respond_to_tcp_segment(curr_tcb, TCP_ACK_FLAG | TCP_FIN_FLAG, curr_tcp_segment, segment_len, &given_tcp_flags, NULL, 0);
-				curr_tcb->state = LAST_ACK;
-	
 			}
 
 		} break;
@@ -1537,12 +1568,18 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 			print_tcp_data(curr_tcp_segment, segment_len);
 
 			if (given_tcp_flags.FIN) {
-				printf("      received FIN. Sending ACK, FIN. Moving to LAST_ACK.\n");
-				// Could do two separate packets, but need to create a new function
-				respond_to_tcp_segment(curr_tcb, TCP_ACK_FLAG | TCP_FIN_FLAG, curr_tcp_segment, segment_len, &given_tcp_flags, NULL, 0);
-				curr_tcb->state = LAST_ACK;
-			} else {			
+				
+				printf("      received FIN. Sending ACK. Then sending FIN. Moving to LAST_ACK.\n");
+				
 				respond_to_tcp_segment(curr_tcb, TCP_ACK_FLAG, curr_tcp_segment, segment_len, &given_tcp_flags, NULL, 0);
+				send_tcp_segment(curr_tcb, TCP_ACK_FLAG | TCP_FIN_FLAG, NULL, 0);
+
+				curr_tcb->state = LAST_ACK;
+			
+			} else {			
+				
+				respond_to_tcp_segment(curr_tcb, TCP_ACK_FLAG, curr_tcp_segment, segment_len, &given_tcp_flags, NULL, 0);
+			
 			}
 
 			
@@ -1569,8 +1606,10 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 			printf("%s LAST_ACK\n", print);
 			
 			if (given_tcp_flags.ACK) {
+				
 				printf("      received ACK to my FIN. Moving to CLOSED\n");
 				curr_tcb->state = CLOSED;
+			
 			}
 
 		} break;
@@ -1635,8 +1674,9 @@ int respond_to_tcp_segment(struct tcb *curr_tcb, uint8_t flags, uint8_t *origina
 	new_offset_reserved_control |= flags; 
 	new_tcp_header.offset_reserved_control = htons(new_offset_reserved_control); 
 
-	// Set the window 
+	// Set the window and update the window 
 	new_tcp_header.window = original_tcp_header->window; 
+	curr_tcb->window = ntohs(original_tcp_header->window);
 
 	// Set the urgent pointer 
 	new_tcp_header.urgent_ptr = 0;
@@ -1669,6 +1709,68 @@ int respond_to_tcp_segment(struct tcb *curr_tcb, uint8_t flags, uint8_t *origina
 
 }
 
+/*
+ */
+int send_tcp_segment(struct tcb *curr_tcb, uint8_t flags, uint8_t *payload, size_t payload_len) 
+{
+	
+	struct tcp_header new_tcp_header; 
+	uint8_t tcp_segment[sizeof(struct tcp_header) + payload_len]; // ASSUMPTION: NO OPTIONS
+
+	uint16_t new_offset_reserved_control;
+
+	// Set TCP ports
+	new_tcp_header.src_port = htons(curr_tcb->dst_port);
+	new_tcp_header.dst_port = htons(curr_tcb->src_port); 
+
+	// Set sequence number
+	new_tcp_header.seq_num = htonl(curr_tcb->seq_num);
+
+	// Set acknowledgement number and update it in TCB 
+	if (flags & TCP_ACK_FLAG) {
+		new_tcp_header.ack_num = htonl(curr_tcb->ack_num);
+	} else {
+		new_tcp_header.ack_num = 0;	
+	}
+
+	// Set offset, reserved, and control (flags) 
+	new_offset_reserved_control = TCP_DEFAULT_OFFSET << 12; 
+	new_offset_reserved_control |= flags; 
+	new_tcp_header.offset_reserved_control = htons(new_offset_reserved_control); 
+
+	// Set the window 
+	new_tcp_header.window = htons(curr_tcb->window); 
+
+	// Set the urgent pointer 
+	new_tcp_header.urgent_ptr = 0;
+
+	// Copy the new header and given payload into tcp segment 
+	memcpy(tcp_segment, &new_tcp_header, sizeof(struct tcp_header));
+
+	if (payload_len > 0) {
+		memcpy(tcp_segment + sizeof(struct tcp_header), payload, payload_len);
+	}
+
+	// Set the checksum 
+	new_tcp_header.checksum = calculate_tcp_checksum(curr_tcb, tcp_segment, sizeof(tcp_segment)); // ASSUMPTION: NO OPTIONS
+	memcpy(tcp_segment, &new_tcp_header, sizeof(struct tcp_header));
+	
+	// Update the seq num in TCB
+	
+	// Set phantom byte
+	if ((flags & TCP_SYN_FLAG) || (flags & TCP_FIN_FLAG)) {
+		payload_len += 1;
+	}
+	
+	curr_tcb->seq_num += payload_len; 
+	
+	//printf("updated seq: %u\n", curr_tcb->seq_num);
+	//printf("updated ack: %u\n", curr_tcb->ack_num);
+
+	printf("  sending TCP segment\n");
+	return send_ip_packet(IP_TCP_PROTOCOL, curr_tcb->ip_src, tcp_segment, sizeof(tcp_segment));
+
+}
 
 /*
  * Print the data in a TCP segment. Note if there is no data in TCP segment. 

@@ -63,7 +63,9 @@
 #define NUM_INTERFACES      4
 #define NUM_ARP_ENTRIES     4
 #define NUM_ROUTES          6
-#define MAX_CONNECTIONS     10 // CHECK THIS!!!!!!!!!!!
+#define NUM_POLL_FDS        NUM_INTERFACES + 1
+#define MAX_CONNECTIONS     10
+#define BUFFER_SIZE         512 // Based on common MSS standards
 
 // Initializing global variables
 void init_fds();
@@ -110,6 +112,7 @@ int is_valid_tcp_checksum(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int t
 void set_tcp_flags(struct tcp_flags *flags, struct tcp_header *curr_tcp_header);
 void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segment_len);
 int respond_to_tcp_segment(struct tcb *curr_tcb, uint8_t flags, uint8_t *original_tcp_segment, int original_segment_len, struct tcp_flags *original_flags, uint8_t *payload, size_t payload_len);
+int send_tcp_segment(struct tcb *curr_tcb, uint8_t flags, uint8_t *payload, size_t payload_len);
 void print_tcp_data(uint8_t *original_tcp_segment, int original_segment_len);
 
 #endif /* __STACK_H */
