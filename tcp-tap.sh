@@ -8,7 +8,7 @@ netmask="255.255.255.0"
 
 vde_switch_ctrl_file="/tmp/net0.vde"
 tap_device="tap0"
-kernel_endpoint_ip="1.2.3.255"
+kernel_endpoint_ip="1.2.3.45"
 
 # Use -hub so Wireshark can see unicast frames.
 vde_switch -sock "$vde_switch_ctrl_file" -hub -daemon
