@@ -395,8 +395,6 @@ int is_valid_fcs (uint8_t *frame, size_t frame_len)
 
 }
 
-
-
 /*
  * Check whether ethernet destination address in curr_frame is for interface iface
  *
@@ -558,11 +556,11 @@ int send_arp_reply(uint8_t *src, struct interface *iface, uint8_t *packet, int p
 
 	curr_arp_header = (struct arp_header *) packet;
 
-	// DO WE HAVE TO VERIFY ANYTHING ABOUT THE TARGET OR SOURCE IP ADDRS? 
-
 	// Only respond to ARP requests that corresponds to my listening interface
 	if (memcmp(curr_arp_header->target_ip_addr, iface->ip_addr, 4) == 0) {
 		
+		printf("    sending ARP reply\n");
+
 		// Rewrite ethernet frame
 		memcpy(new_ether_header.dst, src, 6);
 		memcpy(new_ether_header.src, iface->ether_addr, 6);
@@ -815,6 +813,7 @@ int route_ip_packet(uint8_t *packet, size_t packet_len, int is_process)
 
 }
 
+
 /*      
  * Copy data from ip_header and payload to packet and set the checksum to create a 
  * new IP packet. 
@@ -904,6 +903,7 @@ int is_valid_ihl(struct ip_header *curr_ip_header)
 	return 1;
 
 }
+
 
 /*
  * Check if given TTL is valid 
@@ -1002,6 +1002,7 @@ uint32_t array_to_uint32(uint8_t array[4])
 	return result;
 }
 
+
 /*
  * Determine the route the curr_ip_header should take. 
  * 
@@ -1076,10 +1077,17 @@ struct arp_entry *determine_mac_arp(uint8_t *ip_addr)
 
 }
 
+
 /*
+ * Construct and send an IP packet given its protocol, destination address, 
+ * payload, and payload length 
+ *
+ * Return -1 if unable to send 
+ * Return 0 otherwise
  */
 int send_ip_packet(uint8_t protocol, uint8_t dst_addr[4], uint8_t *payload, size_t payload_len) 
 {
+
 	struct ip_header new_ip_header;
 	uint8_t ip_packet[MAX_IP_PACKET_SIZE]; 	
 	int total_ip_len;
@@ -1113,6 +1121,7 @@ int send_ip_packet(uint8_t protocol, uint8_t dst_addr[4], uint8_t *payload, size
 	return route_ip_packet(ip_packet, total_ip_len, 1);
 
 }
+
 
 /*
  * Send ICMP message using the original_ip_packet (IP header + payload) 
@@ -1225,16 +1234,24 @@ int handle_tcp_segment(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *segment, i
 
 }
 
+
 /*
+ * Print the information that identifies a unique connection 
+ * give a tcb struct (ie. IP src, IP dst, src port, dst port)
+ *
+ * Return void
  */
 void print_connection_info(struct tcb *tcb) 
 {
+
 	printf("      Connection:\n");
 	printf("        ip src:   %d.%d.%d.%d\n", tcb->ip_src[0], tcb->ip_src[1], tcb->ip_src[2], tcb->ip_src[3]);
 	printf("        ip dst:   %d.%d.%d.%d\n", tcb->ip_dst[0], tcb->ip_dst[1], tcb->ip_dst[2], tcb->ip_dst[3]);
 	printf("        src port: %d\n", tcb->src_port); 
 	printf("        dst port: %d\n", tcb->dst_port); 
+
 }
+
 
 /*
  * Determine whether a connection already exists based on 
@@ -1269,6 +1286,7 @@ struct tcb *determine_tcb(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_heade
 	}
 	
 	return NULL;
+
 }
 
 
@@ -1278,16 +1296,15 @@ struct tcb *determine_tcb(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_heade
  * Return pointer to new tcb created 
  * Return NULL if MAX_CONECTIONS have already been reached
  *
- * NOTE: DOUBLE CHECK THE STATE CONNECTION SET TO AND WHETHER TO SET OTHER DEFAULT VALUES
+ * NOTES
+ * - Randomly generatees new sequence number, but should be done in state machine 
+ * - Not super space efficient (no overwriting closed connections, 
+ *   adds connnections to end of array) 
+ * - Can't add past MAX_CONNECTIONS
  */
 struct tcb *add_tcb(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_header *curr_tcp_header)
 {
 	
-	/*
-	 * THINGS WRONG WITH THIS 
-	 * - Not super space efficient (not overwriting closed connections)
-	 * - Can't add past MAX_CONNECTIONS
-	 */
 	uint32_t random_seq_num; 
 
 	// No more space for connections
@@ -1305,27 +1322,24 @@ struct tcb *add_tcb(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_header *cur
 	connections[num_connections].dst_port = ntohs(curr_tcp_header->dst_port);
 	
 	// Set random sequence number 
-    if(getrandom(&random_seq_num, sizeof(random_seq_num), 0) == -1) {
+    // NOTE: This should technically be in the state machine portion
+	if(getrandom(&random_seq_num, sizeof(random_seq_num), 0) == -1) {
         perror("getrandom");
     }	
 
 	connections[num_connections].seq_num = random_seq_num; // RANDOMLY GENERATE IT HERE? 
 	connections[num_connections].ack_num = 0;
-	connections[num_connections].state = LISTEN; // DOUBLE CHECK THIS???
+	connections[num_connections].state = LISTEN;
 	
 	num_connections += 1;
 
 	return &connections[num_connections - 1];
 
-	// How should we determine where this new connection will go? 
-	// Or should we check the connection state and see if any are closed? 
-	// But does that mean that we have to initialized all the structs in the array to have a closed connection? 
-	// Meaning that we would have to do that at the beginning of the code? 
-
 }
 
+
 /*
- * Calculate and return the tcp checksum of a tcp segment in network byte order 
+ * Calculate and return the TCP checksum of a TCP segment in network byte order 
  *
  * Return calculated checksum in network byte order
  */
@@ -1400,8 +1414,10 @@ int is_valid_tcp_checksum(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int t
 	//printf("CALCULATED CHECKSUM: %x\n", calculated_checksum);
 
 	if (calculated_checksum != original_checksum) {
+		
 		printf("        dropping TCP segment (bad checksum)\n");
 		return 0;
+	
 	}
 
 	return 1;
@@ -1415,6 +1431,7 @@ int is_valid_tcp_checksum(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int t
  */
 void set_tcp_flags(struct tcp_flags *flags, struct tcp_header *curr_tcp_header)
 {
+	
 	// NOTE: Have else statements to ensure that previous flags do not roll over
 
 	if (ntohs(curr_tcp_header->offset_reserved_control) & TCP_URG_FLAG) {
@@ -1453,45 +1470,6 @@ void set_tcp_flags(struct tcp_flags *flags, struct tcp_header *curr_tcp_header)
 		flags->FIN = 0;
 	}
 	
-}
-
-/*
- * Verify whether the given sequence and acknowledgement numbers are the expected ones 
- *
- * Return 1 if they are the expected numbers or if received a SYN segment  
- * Return 0 otherwise 
- *
- * NOTE: The seq and ack numbers in the tcb should be the ones it expects next
- * CHECK THIS!!!! 
- */
-int is_valid_seq_and_ack(struct tcb *curr_tcb, struct tcp_header *curr_tcp_header) 
-{
-
-	// If connection has not been established yet, do not verify seq or ack nums
-	if ((curr_tcb->ack_num == 0)) {
-		
-		printf("      *NEW CONNECTION (no seq or ack checks)*\n");
-
-	} else {
-		// UNSURE OF THIS CHECK!!!!!
-		if (curr_tcb->seq_num != ntohl(curr_tcp_header->seq_num)) {
-		
-			printf("ignoring TCP segment (unexpected sequence number)\n");
-			return 0;
-		
-		}
-
-		if (curr_tcb->ack_num != ntohl(curr_tcp_header->ack_num)) {
-			
-			printf("ignoring TCP segment (unexpected acknowledgement number)\n");
-			return 0;
-		
-		}
-	
-	}
-
-	return 1;
-
 }
 
 
@@ -1599,6 +1577,7 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
  */
 int send_tcp_segment(struct tcb *curr_tcb, uint8_t flags, uint8_t *original_tcp_segment, int original_segment_len, struct tcp_flags *original_flags, uint8_t *payload, size_t payload_len) 
 {
+	
 	struct tcp_header new_tcp_header; 
 	uint8_t tcp_segment[sizeof(struct tcp_header) + payload_len]; // ASSUMPTION: NO OPTIONS
 
@@ -1670,12 +1649,16 @@ int send_tcp_segment(struct tcb *curr_tcb, uint8_t flags, uint8_t *original_tcp_
 
 
 /*
+ * Print the data in a TCP segment. Note if there is no data in TCP segment. 
+ *
+ * Return void
  */
 void print_tcp_data(uint8_t *original_tcp_segment, int original_segment_len) 
 {
+
 	struct tcp_header *original_tcp_header = (struct tcp_header *) original_tcp_segment;
 	uint16_t original_tcp_offset = ntohs(original_tcp_header->offset_reserved_control) >> 12;
-	char tcp_data[original_segment_len - (original_tcp_offset * 4) + 1]; 
+	char tcp_data[original_segment_len - (original_tcp_offset * 4) + 1]; // +1 for null byte 
 
 	// Entire TCP segment is just the header
 	if (original_tcp_offset * 4 == original_segment_len) {
@@ -1688,6 +1671,7 @@ void print_tcp_data(uint8_t *original_tcp_segment, int original_segment_len)
 		printf("      TCP DATA: \n");
 		snprintf(tcp_data, sizeof(tcp_data), "%s", original_tcp_segment + sizeof(struct tcp_header));
 		printf("        %s", tcp_data);
+	
 	}
 
 }
