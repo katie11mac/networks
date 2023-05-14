@@ -74,6 +74,9 @@ void init_poll_fds();
 void init_routing_table();
 void init_arp_cache();
 
+// User input functions
+int handle_user_input();
+
 // Ethernet functions
 int handle_ethernet_frame(struct interface *iface);
 int is_valid_frame_len(ssize_t frame_len);
@@ -104,6 +107,7 @@ int send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_len
 
 // TCP functions 
 int handle_tcp_segment(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *segment, int segment_len);
+void print_all_connections_info();
 void print_connection_info(struct tcb *tcb);
 struct tcb *determine_tcb(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_header *curr_tcp_header);
 struct tcb *add_tcb(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_header *curr_tcp_header);

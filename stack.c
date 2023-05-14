@@ -25,13 +25,20 @@ int main(int argc, char *argv[])
 {
 
 	int poll_results;
-	char buffer[BUFFER_SIZE];
 
 	init_fds();
 	init_interfaces();
 	init_poll_fds();
 	init_routing_table();
 	init_arp_cache(); 
+
+	printf("***THIS HAS NOT BEEN IMPLEMENTED YET***\n");
+	printf("DIRECTIONS FOR SENDING TO CONNECTION: \n");
+	printf("  Every time we receive a frame, information on active connections will be printed.\n");
+	printf("  To send to an established connection please enter data in the following format.\n");
+	printf("      [number connection]: [data]\\n\n");
+	printf("  EXAMPLE: \n    0: hello there\n");
+	printf("    Sends \"hello there\" to connection 0. Note that \\n is added when you press Return.\n");
 
 	// Process frames until user terminates with Control-C
 	while(1) {
@@ -49,34 +56,8 @@ int main(int argc, char *argv[])
 			if (poll_fds[i].revents & POLLIN) {
 				
 				if (poll_fds[i].fd == STDIN_FILENO) {
-					
-					// Use fgets because it can differentiate by new lines or end of file 
-					fgets(buffer, BUFFER_SIZE, stdin);
-					printf("received something\n");
-					
-					/*
-					 * IDEA 
-					 * - When you receive any user input go to a function that handles user input
-					 * - Set up a convention for sending information
-					 * - Maybe print all connections can send to after back to this waiting state  
-					 *
-					 * - When you receive any user input you are stuck in this function until they 
-					 *   enter control-D? 
-					 * - When in this function we prompt the user with what they want to do 
-					 *		- 1: Create new connection 
-					 *		- 2: Send to existing connection 
-					 * - Function for 1
-					 *		- Going to have to implement the other part of the state machine 
-					 * - Function for 2
-					 *		- Use our existing respond_to_tcp_segment and modify it so that we can send 
-					 *		data out 
-					 *
-					 * QUESTIONS 
-					 * - What if you are in this mode where the user wants to send, but then 
-					 *   you receive something from another connection? Does it block and 
-					 *   bad things happen? 
-					 * - 
-					 */
+				
+					handle_user_input();		
 
 				} else {
 					
@@ -93,6 +74,7 @@ int main(int argc, char *argv[])
     return 0;
 
 }
+
 
 /*
  * Initialize the fds for sending and receiving
@@ -188,6 +170,7 @@ void init_poll_fds()
 
 }
 
+
 /*
  * Initialize routing table with hard coded routes 
  */
@@ -254,7 +237,44 @@ void init_arp_cache()
 	// tap0 FreeBSD
 	memcpy(arp_cache[3].ether_addr, "\x58\x9c\xfc\x00\x07\x6b", 6);
 	memcpy(arp_cache[3].ip_addr, "\x01\x02\x03\x2d", 4);
+
 }
+
+
+/*
+ */
+int handle_user_input() 
+{
+
+	char buffer[BUFFER_SIZE];
+	
+	// Use fgets because it can differentiate by new lines or end of file 
+	fgets(buffer, BUFFER_SIZE, stdin);
+	printf("received something\n");
+	printf("%s", buffer);
+
+
+	return 0;
+	/*
+	 * IDEA 
+	 * - Set up a convention for sending information
+	 * - Maybe print all connections can send to after back to this waiting state  
+	 *
+	 * - When you receive any user input you are stuck in this function until they 
+	 *   enter control-D? 
+	 * - When in this function we prompt the user with what they want to do 
+	 *		- 1: Create new connection 
+	 *		- 2: Send to existing connection 
+	 * - Function for 1
+	 *		- Going to have to implement the other part of the state machine 
+	 * - Function for 2
+	 *		- Use our existing respond_to_tcp_segment and modify it so that we can send 
+	 *		data out 
+	 *
+	 */
+
+}
+
 
 /*
  * Check the integrity of an ethernet frame received on interface iface
@@ -434,6 +454,7 @@ int is_valid_fcs (uint8_t *frame, size_t frame_len)
 
 }
 
+
 /*
  * Check whether ethernet destination address in curr_frame is for interface iface
  *
@@ -464,6 +485,7 @@ int check_ether_dst_addr(struct ether_header *curr_frame, ssize_t frame_len, str
 	return -1;
 
 }
+
 
 /*
  * Copy data from new_ether_header and data to frame and set the fcs to create a 
@@ -500,6 +522,7 @@ int compose_ether_frame(uint8_t *frame, struct ether_header *new_ether_header, u
 	return sizeof(*new_ether_header) + data_size + ETHER_FCS_SIZE;
 
 }
+
 
 /*
  * Handle and check integrity of ARP packet received on interface iface
@@ -577,6 +600,7 @@ int handle_arp_packet(uint8_t *src, struct interface *iface, uint8_t *packet, in
 
 }
 
+
 /*
  * Send ARP reply if the ARP request corresponds with interface iface
  *
@@ -628,7 +652,6 @@ int send_arp_reply(uint8_t *src, struct interface *iface, uint8_t *packet, int p
 	return -1;
 
 }
-
 
 
 /*
@@ -1262,14 +1285,41 @@ int handle_tcp_segment(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *segment, i
 	
 	}
 	
+	printf("      Connection:\n");
 	print_connection_info(curr_tcb);
 	
 	update_tcp_state(curr_tcb, segment, segment_len);
-
-	// do something with determining the state 
-	// in that determining the state we would also need to check the flags to determine what to do 
 	
+	printf("\nEstablished Connections to Send To:\n");
+	print_all_connections_info();	
+
 	return 0; 
+
+}
+
+
+/*
+ * Print the information identifying established connections. 
+ * This is used for the user to identify which connection they 
+ * would like to send data to.
+ *
+ * Return void
+ */
+void print_all_connections_info() 
+{
+
+	for (int i = 0; i < num_connections; i++) {
+		
+		if (connections[i].state == ESTABLISHED) {
+			
+			printf("Connection %d:\n", i);
+			print_connection_info(&connections[i]);
+		
+		}
+	
+	}
+
+	printf("\n");
 
 }
 
@@ -1283,7 +1333,6 @@ int handle_tcp_segment(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *segment, i
 void print_connection_info(struct tcb *tcb) 
 {
 
-	printf("      Connection:\n");
 	printf("        ip src:   %d.%d.%d.%d\n", tcb->ip_src[0], tcb->ip_src[1], tcb->ip_src[2], tcb->ip_src[3]);
 	printf("        ip dst:   %d.%d.%d.%d\n", tcb->ip_dst[0], tcb->ip_dst[1], tcb->ip_dst[2], tcb->ip_dst[3]);
 	printf("        src port: %d\n", tcb->src_port); 
