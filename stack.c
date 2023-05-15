@@ -34,11 +34,11 @@ int main(int argc, char *argv[])
 
 	printf("\nDIRECTIONS FOR INTERACTING WITH CONNECTIONS: \n");
 	printf("  \nEvery time we receive a frame, information on active connections will be printed.\n");
-	printf("  \nTo SEND to an established connection, please enter data in the following format:\n");
+	printf("  \nTo SEND to an ESTABLISHED connection, please enter data in the following format:\n");
 	printf("    [number connection] [data]\\n\n");
 	printf("    EXAMPLE: \n      0 hello there\n");
 	printf("      Sends \"hello there\" to connection 0.\n");
-	printf("  \nTo CLOSE an established connection, please enter command in the following format:\n");
+	printf("  \nTo CLOSE an ESTABLISHED or CLOSE WAIT connection, please enter command in the following format:\n");
 	printf("    [number connection] /CLOSE\\n\n");
 	printf("    EXAMPLE: \n      0 /CLOSE\n");
 	printf("      Closes our side of connection 0.\n");
@@ -280,7 +280,7 @@ int handle_user_input()
 	// Ensure user put at least one character after the space
 	if (*(data_ptr + 1) == '\0') {
 	
-		printf("please make sure connection number if followed by data\n");
+		printf("please enter data in the format \"[connection number] [data]\\n\"\n");
 		return -1;
 
 	}
@@ -1361,7 +1361,7 @@ int handle_tcp_segment(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *segment, i
 	if ((curr_tcb = determine_tcb(ip_src, ip_dst, curr_tcp_header)) == NULL) {
 		
 		// Add connection if it doesn't exist
-		printf("      No existing connection found. Creating new connection.\n");
+		printf("      no existing connection found. creating new connection.\n");
 		curr_tcb = add_tcb(ip_src, ip_dst, curr_tcp_header);
 	
 	}
@@ -1369,7 +1369,7 @@ int handle_tcp_segment(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *segment, i
 	// Could not create a new connection
 	if (curr_tcb == NULL) {
 		
-		printf("      Dropping TCP segment (could no create new connection)\n");
+		printf("      dropping TCP segment (could not create new connection)\n");
 		return -1;
 	
 	}
@@ -1381,12 +1381,12 @@ int handle_tcp_segment(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *segment, i
 	
 	}
 	
-	printf("      Connection:\n");
+	printf("      connection:\n");
 	print_connection_info(curr_tcb);
 	
 	update_tcp_state(curr_tcb, segment, segment_len);
 	
-	printf("\nConnection Information:\n");
+	printf("\nInformation on Connections:\n");
 	print_all_connections_info();	
 
 	return 0; 
@@ -1437,6 +1437,7 @@ void print_connection_info(struct tcb *tcb)
  */
 char *get_connection_state_str(struct tcb *tcb) 
 {
+
 	enum connection_state state = tcb->state;
 	
 	if (state == LISTEN)       return "LISTEN";
@@ -1512,7 +1513,7 @@ struct tcb *add_tcb(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_header *cur
 	// No more space for connections
 	if (num_connections >= MAX_CONNECTIONS) {
 		
-		printf("        Reached max number of connections.\n");
+		printf("        reached max number of connections.\n");
 		return NULL;
 	
 	}
@@ -1708,7 +1709,7 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 
 			if (given_tcp_flags.ACK) {
 			
-				printf("      received ACK to my SYN. Moving to ESTABLISHED.\n");
+				printf("      received ACK to my SYN. moving to ESTABLISHED.\n");
 				curr_tcb->state = ESTABLISHED;
 
 			}
@@ -1723,7 +1724,7 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 			if (given_tcp_flags.FIN) {
 				
 				//printf("      received FIN. Sending ACK. Then sending FIN. Moving to LAST_ACK.\n");
-				printf("      received FIN. Sending ACK. Moving to CLOSE_WAIT.\n");
+				printf("      received FIN. sending ACK. moving to CLOSE_WAIT.\n");
 				
 				update_tcb(curr_tcb, curr_tcp_segment, segment_len, &given_tcp_flags);
 				send_tcp_segment(curr_tcb, TCP_ACK_FLAG, NULL, 0);
@@ -1749,12 +1750,12 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 			
 			if (given_tcp_flags.FIN) {
 				
-				printf("      received FIN. Sending ACK. Moving to CLOSING.\n");
+				printf("      received FIN. sending ACK. moving to CLOSING.\n");
 				curr_tcb->state = CLOSING;
 	
 			} else if (given_tcp_flags.ACK) {
 				
-				printf("      received ACK to my FIN. Moving to FIN_WAIT_2\n");
+				printf("      received ACK to my FIN. moving to FIN_WAIT_2.\n");
 				curr_tcb->state = FIN_WAIT_2;
 
 			}
@@ -1765,7 +1766,7 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 		
 			if (given_tcp_flags.FIN) {
 				
-				printf("      received FIN. Sending ACK. Moving to CLOSED.\n");
+				printf("      received FIN. sending ACK. moving to CLOSED.\n");
 				
 				update_tcb(curr_tcb, curr_tcp_segment, segment_len, &given_tcp_flags);
 				send_tcp_segment(curr_tcb, TCP_ACK_FLAG, NULL, 0);
@@ -1783,7 +1784,8 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 		} break;
 
 		case CLOSE_WAIT: {
-			/* No implementation (shouldn't be receiving from other side of connection since they closed)
+			/* 
+			 * No implementation (shouldn't be receiving from other side of connection since they closed)
 			 * Look at handling user input
 			 */
 			;
@@ -1793,7 +1795,7 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 			
 			if (given_tcp_flags.ACK) {
 
-				printf("      received ACK to my FIN. Moving to CLOSED\n");
+				printf("      received ACK to my FIN. moving to CLOSED.\n");
 				curr_tcb->state = CLOSED;
 			
 			}
@@ -1804,7 +1806,7 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 			
 			if (given_tcp_flags.ACK) {
 				
-				printf("      received ACK to my FIN. Moving to CLOSED\n");
+				printf("      received ACK to my FIN. moving to CLOSED.\n");
 				curr_tcb->state = CLOSED;
 			
 			}
@@ -1847,13 +1849,13 @@ int update_tcb(struct tcb *curr_tcb, uint8_t *original_tcp_segment, int original
 		original_payload_len += 1;
 	}
 	
-	// Update the acknowledgement number in the TCb
+	// Update the acknowledgement number in the TCB
 	curr_tcb->ack_num = ntohl(original_tcp_header->seq_num) + original_payload_len;
 
 	// Update the window size 	
 	curr_tcb->window = ntohs(original_tcp_header->window);
 	
-	if (original_flags->SYN) {
+	if ((original_flags->SYN) || (original_flags->FIN)) {
 		return 1;
 	} else {
 		return curr_tcb->ack_num - original_ack_num;
