@@ -277,6 +277,14 @@ int handle_user_input()
 	
 	}
 
+	// Ensure user put at least one character after the space
+	if (*(data_ptr + 1) == '\0') {
+	
+		printf("please make sure connection number if followed by data\n");
+		return -1;
+
+	}
+
 	// Verify specified connection number
 	if (connection_num > num_connections - 1) {
 		
@@ -304,6 +312,7 @@ int handle_user_input()
 			} else {
 				
 				printf("sending your data to connection %ld\n", connection_num);
+				// Use PSH and ACK flags to mimic netcat behavior
 				// +1 and -1 for the preceeding space in the user input	
 				send_tcp_segment(curr_tcb, TCP_PSH_FLAG | TCP_ACK_FLAG, (uint8_t *)data_ptr + 1, strlen(data_ptr) - 1);
 		
@@ -342,10 +351,6 @@ int handle_user_input()
 			
 			} else {
 				
-				//printf("sending your data to connection %ld\n", connection_num);
-				// +1 and -1 for the preceeding space in the user input	
-				//send_tcp_segment(curr_tcb, TCP_PSH_FLAG | TCP_ACK_FLAG, (uint8_t *)data_ptr + 1, strlen(data_ptr) - 1);
-
 				printf("cannot send data (connection %ld is not ESTABLISHED)\n", connection_num);
 
 			}
