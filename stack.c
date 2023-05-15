@@ -246,6 +246,14 @@ void init_arp_cache()
 
 
 /*
+ * Handle input given by the user in the format of [connection number] [data]
+ *
+ * Verify whether information was given in the correct format, whether data can 
+ * be sent to the connection, and whether the user wants to close a specific 
+ * connection using the command [connection number] /CLOSE
+ *
+ * Return 0 if it was able to send data 
+ * Return -1 otherwise 
  */
 int handle_user_input() 
 {
@@ -334,6 +342,10 @@ int handle_user_input()
 			
 			} else {
 				
+				//printf("sending your data to connection %ld\n", connection_num);
+				// +1 and -1 for the preceeding space in the user input	
+				//send_tcp_segment(curr_tcb, TCP_PSH_FLAG | TCP_ACK_FLAG, (uint8_t *)data_ptr + 1, strlen(data_ptr) - 1);
+
 				printf("cannot send data (connection %ld is not ESTABLISHED)\n", connection_num);
 
 			}
@@ -343,7 +355,6 @@ int handle_user_input()
 		default: {
 			
 			printf("cannot send data (connection %ld is not ESTABLISHED)\n", connection_num);
-			return -1;
 		
 		} break;
 
@@ -1318,7 +1329,7 @@ int send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_len
 /*
  * Handle and check integrity of TCP segment 
  *
- * Return -1 for invalid segments 
+ * Return -1 for invalid segments or if creating new connection failed 
  * Return 0 otherwise
  */
 int handle_tcp_segment(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *segment, int segment_len)
@@ -1379,7 +1390,7 @@ int handle_tcp_segment(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *segment, i
 
 
 /*
- * Print the information identifying established connections. 
+ * Print the information identifying all created connections. 
  * This is used for the user to identify which connection they 
  * would like to send data to.
  *
@@ -1401,8 +1412,8 @@ void print_all_connections_info()
 
 
 /*
- * Print the information that identifies a unique connection 
- * give a tcb struct (ie. IP src, IP dst, src port, dst port)
+ * Print the state of and information that identifies a unique connection 
+ * given a tcb struct (ie. IP src, IP dst, src port, dst port)
  *
  * Return void
  */
@@ -1417,6 +1428,7 @@ void print_connection_info(struct tcb *tcb)
 }
 
 /*
+ * Return the string form of a connection state enum
  */
 char *get_connection_state_str(struct tcb *tcb) 
 {
@@ -1512,7 +1524,7 @@ struct tcb *add_tcb(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_header *cur
         perror("getrandom");
     }	
 
-	connections[num_connections].seq_num = random_seq_num; // RANDOMLY GENERATE IT HERE? 
+	connections[num_connections].seq_num = random_seq_num;  
 	connections[num_connections].ack_num = 0;
 	connections[num_connections].state = LISTEN;
 	
