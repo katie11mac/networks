@@ -261,10 +261,12 @@ int handle_user_input()
 	// Get connection number from input based on specified format
 	connection_num = strtol(user_input, &data_ptr, 10); 
 	
-	// Make sure the user specifies a connection number
+	// Ensure user specifies a connection number
 	if (user_input == data_ptr) {
+		
 		printf("please enter data in the format \"[connection number] [data]\\n\"\n");
 		return -1;
+	
 	}
 
 	// Verify specified connection number
@@ -294,7 +296,7 @@ int handle_user_input()
 			} else {
 				
 				printf("sending your data to connection %ld\n", connection_num);
-				// add one and minus one for the space	
+				// +1 and -1 for the preceeding space in the user input	
 				send_tcp_segment(curr_tcb, TCP_PSH_FLAG | TCP_ACK_FLAG, (uint8_t *)data_ptr + 1, strlen(data_ptr) - 1);
 		
 			}
