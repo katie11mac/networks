@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
 	printf("DIRECTIONS FOR SENDING TO CONNECTION: \n");
 	printf("  Every time we receive a frame, information on active connections will be printed.\n");
 	printf("  To send to an established connection please enter data in the following format.\n");
-	printf("      [number connection]: [data]\\n\n");
+	printf("    [number connection]: [data]\\n\n");
 	printf("  EXAMPLE: \n    0: hello there\n");
 	printf("    Sends \"hello there\" to connection 0. Note that \\n is added when you press Return.\n");
 
@@ -246,12 +246,47 @@ void init_arp_cache()
 int handle_user_input() 
 {
 
-	char buffer[BUFFER_SIZE];
-	
+	char user_input[BUFFER_SIZE];
+	long int connection_num;
+	char *data_ptr;
+
+	/*
+	 * HOW DO WE HANDLE BAD FORMAT?!?!?!
+	 *
+	 * no number 
+	 * only string
+	 */
+
 	// Use fgets because it can differentiate by new lines or end of file 
-	fgets(buffer, BUFFER_SIZE, stdin);
-	printf("received something\n");
-	printf("%s", buffer);
+	// NOTE THAT NEW LINE IS INCLUDED IN THE BUFFER!!!!!! 
+	fgets(user_input, BUFFER_SIZE, stdin);
+	printf("%s", user_input);
+
+	// Get connection number from input based on specified format
+	connection_num = strtol(user_input, &data_ptr, 10); 
+
+	printf("connection num (long int): %ld\n", connection_num);
+	
+	// Verify specified connection number
+	if (connection_num > num_connections - 1) {
+		printf("cannot send data (connection %ld is outside of connection number range)\n", connection_num);
+		return -1;
+	}
+
+	if (connections[connection_num].state != ESTABLISHED) {
+		printf("cannot send data (connection %ld is not ESTABLISHED)\n", connection_num);
+		return -1;
+	}
+
+
+
+	// Check data (should probably handle the closing here too) 
+	printf("%s", data_ptr);
+	send_tcp_segment(&connections[connection_num], TCP_PSH_FLAG | TCP_ACK_FLAG, (uint8_t *)data_ptr, strlen(data_ptr) - 1);
+	// add one and minus one for the space	
+	
+	// NEED TO HANDLE WHEN THEY WANT TO END A CONNECTION 
+	
 
 
 	return 0;
@@ -260,16 +295,8 @@ int handle_user_input()
 	 * - Set up a convention for sending information
 	 * - Maybe print all connections can send to after back to this waiting state  
 	 *
-	 * - When you receive any user input you are stuck in this function until they 
-	 *   enter control-D? 
-	 * - When in this function we prompt the user with what they want to do 
-	 *		- 1: Create new connection 
-	 *		- 2: Send to existing connection 
-	 * - Function for 1
-	 *		- Going to have to implement the other part of the state machine 
-	 * - Function for 2
-	 *		- Use our existing respond_to_tcp_segment and modify it so that we can send 
-	 *		data out 
+	 *	- Use our existing respond_to_tcp_segment and modify it so that we can send 
+	 *	  data out 
 	 *
 	 */
 
@@ -900,6 +927,7 @@ int compose_ip_packet(uint8_t *packet, struct ip_header *ip_header, uint8_t *pay
 	((struct ip_header *) packet)->header_checksum = header_checksum;
 
 	return total_len;
+
 }
 
 
@@ -1062,6 +1090,7 @@ uint32_t array_to_uint32(uint8_t array[4])
 					| ((uint32_t)array[3]);
 	
 	return result;
+
 }
 
 
@@ -1312,7 +1341,7 @@ void print_all_connections_info()
 		
 		if (connections[i].state == ESTABLISHED) {
 			
-			printf("Connection %d:\n", i);
+			printf("  Connection %d:\n", i);
 			print_connection_info(&connections[i]);
 		
 		}
@@ -1628,7 +1657,6 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 			} else {			
 				
 				respond_to_tcp_segment(curr_tcb, TCP_ACK_FLAG, curr_tcp_segment, segment_len, &given_tcp_flags, NULL, 0);
-			
 			}
 
 			
@@ -1681,6 +1709,9 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 
 /*
  * NOTE: Double check the updating of seq and ack in TCB
+ *
+ * THIS COULD USE SOME CLEANING ... 
+ * SOMETIMES IT DETERMINES WHETHER IT SHOULD SEND A SEGMENT, THAT SHOULD BE DONE BEFORE
  */
 int respond_to_tcp_segment(struct tcb *curr_tcb, uint8_t flags, uint8_t *original_tcp_segment, int original_segment_len, struct tcp_flags *original_flags, uint8_t *payload, size_t payload_len) 
 {
@@ -1699,6 +1730,11 @@ int respond_to_tcp_segment(struct tcb *curr_tcb, uint8_t flags, uint8_t *origina
 		original_payload_len += 1;
 	}
 	
+	// Don't need to respond to a segment if there is no new data to acknowledge
+	if (original_payload_len == 0) {
+		return -1;
+	}
+
 	// Set TCP ports
 	new_tcp_header.src_port = original_tcp_header->dst_port;
 	new_tcp_header.dst_port = original_tcp_header->src_port; 
