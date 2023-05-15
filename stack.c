@@ -1863,9 +1863,6 @@ int respond_to_tcp_segment(struct tcb *curr_tcb, uint8_t flags, uint8_t *origina
 	
 	curr_tcb->seq_num += payload_len; 
 	
-	//printf("updated seq: %u\n", curr_tcb->seq_num);
-	//printf("updated ack: %u\n", curr_tcb->ack_num);
-
 	printf("  sending TCP segment\n");
 	return send_ip_packet(IP_TCP_PROTOCOL, curr_tcb->ip_src, tcp_segment, sizeof(tcp_segment));
 
@@ -1926,9 +1923,6 @@ int send_tcp_segment(struct tcb *curr_tcb, uint8_t flags, uint8_t *payload, size
 	
 	curr_tcb->seq_num += payload_len; 
 	
-	//printf("updated seq: %u\n", curr_tcb->seq_num);
-	//printf("updated ack: %u\n", curr_tcb->ack_num);
-
 	printf("  sending TCP segment\n");
 	return send_ip_packet(IP_TCP_PROTOCOL, curr_tcb->ip_src, tcp_segment, sizeof(tcp_segment));
 
