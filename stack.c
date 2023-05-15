@@ -35,10 +35,15 @@ int main(int argc, char *argv[])
 	printf("***THIS HAS NOT BEEN IMPLEMENTED YET***\n");
 	printf("DIRECTIONS FOR SENDING TO CONNECTION: \n");
 	printf("  Every time we receive a frame, information on active connections will be printed.\n");
-	printf("  To send to an established connection please enter data in the following format.\n");
-	printf("    [number connection]: [data]\\n\n");
-	printf("  EXAMPLE: \n    0: hello there\n");
-	printf("    Sends \"hello there\" to connection 0. Note that \\n is added when you press Return.\n");
+	printf("  To send to an established connection please enter data in the following format:\n");
+	printf("    [number connection] [data]\\n\n");
+	printf("    EXAMPLE: \n    0 hello there\n");
+	printf("      Sends \"hello there\" to connection 0.\n");
+	printf("  To close an established connection please enter command in the following format:\n");
+	printf("    [number connection] /CLOSE\\n\n");
+	printf("    EXAMPLE: \n    0 /CLOSE\n");
+	printf("      Closes our side of connection 0\n");
+	printf("PLEASE NOTE THAT THESE DIRECTIONS ARE SPACE AND CASE SENSITIVE\n");
 
 	// Process frames until user terminates with Control-C
 	while(1) {
@@ -248,57 +253,82 @@ int handle_user_input()
 
 	char user_input[BUFFER_SIZE];
 	long int connection_num;
+	struct tcb *curr_tcb;
 	char *data_ptr;
 
 	/*
-	 * HOW DO WE HANDLE BAD FORMAT?!?!?!
-	 *
-	 * no number 
-	 * only string
+	 * Bugs
+	 * - Bad format 
+	 *		- no number specified sends to connection 0 
 	 */
-
-	// Use fgets because it can differentiate by new lines or end of file 
-	// NOTE THAT NEW LINE IS INCLUDED IN THE BUFFER!!!!!! 
+	
+	// Use fgets (differentiates new lines or end of file) 
 	fgets(user_input, BUFFER_SIZE, stdin);
-	printf("%s", user_input);
 
 	// Get connection number from input based on specified format
 	connection_num = strtol(user_input, &data_ptr, 10); 
-
-	printf("connection num (long int): %ld\n", connection_num);
 	
 	// Verify specified connection number
 	if (connection_num > num_connections - 1) {
+		
 		printf("cannot send data (connection %ld is outside of connection number range)\n", connection_num);
 		return -1;
-	}
-
-	if (connections[connection_num].state != ESTABLISHED) {
-		printf("cannot send data (connection %ld is not ESTABLISHED)\n", connection_num);
-		return -1;
-	}
-
-
-
-	// Check data (should probably handle the closing here too) 
-	printf("%s", data_ptr);
-	send_tcp_segment(&connections[connection_num], TCP_PSH_FLAG | TCP_ACK_FLAG, (uint8_t *)data_ptr, strlen(data_ptr) - 1);
-	// add one and minus one for the space	
 	
-	// NEED TO HANDLE WHEN THEY WANT TO END A CONNECTION 
+	}
 	
+	// Store current connection information
+	curr_tcb = &connections[connection_num];
+	
+	switch (curr_tcb->state) {
+		
+		case ESTABLISHED: {
+			
+			// Check whether user wants to close our side of the connection 
+			if (strcmp(data_ptr + 1, CLOSE_CONNECTION_COMMAND) == 0) {
 
+				printf("closing our side of connection %ld\n", connection_num);
+				send_tcp_segment(curr_tcb, TCP_FIN_FLAG | TCP_ACK_FLAG, NULL, 0);
+				
+				curr_tcb->state = FIN_WAIT_1;
 
+		
+			} else {
+		
+				// add one and minus one for the space	
+				send_tcp_segment(curr_tcb, TCP_PSH_FLAG | TCP_ACK_FLAG, (uint8_t *)data_ptr + 1, strlen(data_ptr) - 1);
+		
+			}
+
+		} break;
+
+		case CLOSE_WAIT: {
+		
+			// Check whether user wants to close our side of the connection 
+			if (strcmp(data_ptr + 1, CLOSE_CONNECTION_COMMAND) == 0) {
+
+				printf("closing our side of connection %ld\n", connection_num);
+				send_tcp_segment(curr_tcb, TCP_FIN_FLAG | TCP_ACK_FLAG, NULL, 0);
+				
+				curr_tcb->state = LAST_ACK;
+			
+			} else {
+				
+				printf("cannot send data (connection %ld is not ESTABLISHED)\n", connection_num);
+
+			}
+
+		} break;
+		
+		default: {
+			
+			printf("cannot send data (connection %ld is not ESTABLISHED)\n", connection_num);
+			return -1;
+		
+		} break;
+
+	}
+	
 	return 0;
-	/*
-	 * IDEA 
-	 * - Set up a convention for sending information
-	 * - Maybe print all connections can send to after back to this waiting state  
-	 *
-	 *	- Use our existing respond_to_tcp_segment and modify it so that we can send 
-	 *	  data out 
-	 *
-	 */
 
 }
 
@@ -1647,12 +1677,14 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 
 			if (given_tcp_flags.FIN) {
 				
-				printf("      received FIN. Sending ACK. Then sending FIN. Moving to LAST_ACK.\n");
-				
-				respond_to_tcp_segment(curr_tcb, TCP_ACK_FLAG, curr_tcp_segment, segment_len, &given_tcp_flags, NULL, 0);
-				send_tcp_segment(curr_tcb, TCP_ACK_FLAG | TCP_FIN_FLAG, NULL, 0);
+				//printf("      received FIN. Sending ACK. Then sending FIN. Moving to LAST_ACK.\n");
+				printf("      received FIN. Sending ACK. Moving to CLOSE_WAIT.\n");
 
-				curr_tcb->state = LAST_ACK;
+				respond_to_tcp_segment(curr_tcb, TCP_ACK_FLAG, curr_tcp_segment, segment_len, &given_tcp_flags, NULL, 0);
+				//send_tcp_segment(curr_tcb, TCP_ACK_FLAG | TCP_FIN_FLAG, NULL, 0);
+
+				//curr_tcb->state = LAST_ACK;
+				curr_tcb->state = CLOSE_WAIT;
 			
 			} else {			
 				
@@ -1664,14 +1696,37 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 
 		case FIN_WAIT_1: {
 			printf("%s FIN_WAIT_1\n", print);
+			
+			if (given_tcp_flags.ACK) {
+				
+				printf("      received ACK to my FIN. Moving to FIN_WAIT_2\n");
+				curr_tcb->state = FIN_WAIT_2;
+
+			}
+
 		} break;
 
 		case FIN_WAIT_2: {
 			printf("%s FIN_WAIT_2\n", print);
+		
+			if (given_tcp_flags.FIN) {
+				
+				printf("      received FIN. Sending ACK. Moving to CLOSED.\n");
+				
+				respond_to_tcp_segment(curr_tcb, TCP_ACK_FLAG, curr_tcp_segment, segment_len, &given_tcp_flags, NULL, 0);
+				curr_tcb->state = CLOSED;
+			
+			} else {
+				
+				respond_to_tcp_segment(curr_tcb, TCP_ACK_FLAG, curr_tcp_segment, segment_len, &given_tcp_flags, NULL, 0);
+
+			}
+
 		} break;
 
 		case CLOSE_WAIT: {
 			printf("%s CLOSE_WAIT\n", print);
+			
 		} break;
 
 		case CLOSING: {

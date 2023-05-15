@@ -67,6 +67,8 @@
 #define MAX_CONNECTIONS     10
 #define BUFFER_SIZE         512 // Based on common MSS standards
 
+#define CLOSE_CONNECTION_COMMAND "/CLOSE\n" 
+
 // Initializing global variables
 void init_fds();
 void init_interfaces();
