@@ -302,6 +302,25 @@ int handle_user_input()
 			}
 
 		} break;
+		
+		case SYN_RECEIVED: {
+		
+			// Check whether user wants to close our side of the connection 
+			if (strcmp(data_ptr + 1, CLOSE_CONNECTION_COMMAND) == 0) {
+
+				printf("closing our side of connection %ld\n", connection_num);
+				send_tcp_segment(curr_tcb, TCP_FIN_FLAG | TCP_ACK_FLAG, NULL, 0);
+				
+				curr_tcb->state = FIN_WAIT_1;
+			
+			} else {
+				
+				printf("cannot send data (connection %ld is not ESTABLISHED)\n", connection_num);
+
+			}
+
+		} break; 		
+
 
 		case CLOSE_WAIT: {
 		
@@ -1649,10 +1668,6 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 
 	set_tcp_flags(&given_tcp_flags, curr_tcp_header);
 
-	// Check the current state 
-	// look at if you received what diagram said 
-	// do the action diagram says 
-	// update state of the tcb
 	switch (curr_tcb->state) {
 		
 		case LISTEN: {
