@@ -1687,7 +1687,6 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 			if (given_tcp_flags.SYN) {
 				
 				printf("      received SYN. sending SYN ACK.\n");
-				//respond_to_tcp_segment(curr_tcb, TCP_SYN_FLAG | TCP_ACK_FLAG, curr_tcp_segment, segment_len, &given_tcp_flags, NULL, 0);
 				update_tcb(curr_tcb, curr_tcp_segment, segment_len, &given_tcp_flags);
 				send_tcp_segment(curr_tcb, TCP_SYN_FLAG | TCP_ACK_FLAG, NULL, 0);
 				curr_tcb->state = SYN_RECEIVED;
@@ -1725,7 +1724,6 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 				send_tcp_segment(curr_tcb, TCP_ACK_FLAG, NULL, 0);
 				
 
-				//respond_to_tcp_segment(curr_tcb, TCP_ACK_FLAG, curr_tcp_segment, segment_len, &given_tcp_flags, NULL, 0);
 				//send_tcp_segment(curr_tcb, TCP_ACK_FLAG | TCP_FIN_FLAG, NULL, 0); // part II 
 
 				//curr_tcb->state = LAST_ACK;
@@ -1737,7 +1735,6 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 					send_tcp_segment(curr_tcb, TCP_ACK_FLAG, NULL, 0);
 				}
 
-				//respond_to_tcp_segment(curr_tcb, TCP_ACK_FLAG, curr_tcp_segment, segment_len, &given_tcp_flags, NULL, 0);
 			}
 
 			
@@ -1768,7 +1765,6 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 				update_tcb(curr_tcb, curr_tcp_segment, segment_len, &given_tcp_flags);
 				send_tcp_segment(curr_tcb, TCP_ACK_FLAG, NULL, 0);
 				
-				//respond_to_tcp_segment(curr_tcb, TCP_ACK_FLAG, curr_tcp_segment, segment_len, &given_tcp_flags, NULL, 0);
 				curr_tcb->state = CLOSED;
 			
 			} else {
@@ -1776,8 +1772,6 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 				if (update_tcb(curr_tcb, curr_tcp_segment, segment_len, &given_tcp_flags) > 0) {
 					send_tcp_segment(curr_tcb, TCP_ACK_FLAG, NULL, 0);
 				}
-
-				//respond_to_tcp_segment(curr_tcb, TCP_ACK_FLAG, curr_tcp_segment, segment_len, &given_tcp_flags, NULL, 0);
 
 			}
 
@@ -1829,15 +1823,14 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 }
 
 /*
+ * Update the current tcb struct based on a received tcp segment
  *
- * maybe return the difference between the original seq num and the current seq num
- *
+ * Return how many bytes we have received (ie. the difference between original 
+ * and updated ack number) 
  */
 int update_tcb(struct tcb *curr_tcb, uint8_t *original_tcp_segment, int original_segment_len, struct tcp_flags *original_flags) 
 {
 	
-	uint16_t new_offset_reserved_control;
-
 	struct tcp_header *original_tcp_header = (struct tcp_header *) original_tcp_segment;
 	uint16_t original_tcp_offset = ntohs(original_tcp_header->offset_reserved_control) >> 12; // DOUBLE CHECK!!!  
 	uint32_t original_payload_len = original_segment_len - (original_tcp_offset * 4);
@@ -1856,98 +1849,11 @@ int update_tcb(struct tcb *curr_tcb, uint8_t *original_tcp_segment, int original
 	curr_tcb->window = ntohs(original_tcp_header->window);
 	
 	if (original_flags->SYN) {
-		printf("1\n");
 		return 1;
 	} else {
-		printf("%d\n", curr_tcb->ack_num - original_ack_num);
 		return curr_tcb->ack_num - original_ack_num;
 	}
 	
-}
-
-
-/*
- * NOTE: Double check the updating of seq and ack in TCB
- *
- * THIS COULD USE SOME CLEANING ... 
- * SOMETIMES IT DETERMINES WHETHER IT SHOULD SEND A SEGMENT, THAT SHOULD BE DONE BEFORE
- */
-int respond_to_tcp_segment(struct tcb *curr_tcb, uint8_t flags, uint8_t *original_tcp_segment, int original_segment_len, struct tcp_flags *original_flags, uint8_t *payload, size_t payload_len) 
-{
-	
-	struct tcp_header new_tcp_header; 
-	uint8_t tcp_segment[sizeof(struct tcp_header) + payload_len]; // ASSUMPTION: NO OPTIONS
-
-	uint16_t new_offset_reserved_control;
-
-	struct tcp_header *original_tcp_header = (struct tcp_header *) original_tcp_segment;
-	uint16_t original_tcp_offset = ntohs(original_tcp_header->offset_reserved_control) >> 12; // DOUBLE CHECK!!!  
-	uint32_t original_payload_len = original_segment_len - (original_tcp_offset * 4);
-
-	// Set the phantom byte 
-	if ((original_flags->SYN) || (original_flags->FIN)) {
-		original_payload_len += 1;
-	}
-	
-	// Don't need to respond to a segment if there is no new data to acknowledge
-	if (original_payload_len == 0) {
-		return -1;
-	}
-
-	// Set TCP ports
-	new_tcp_header.src_port = original_tcp_header->dst_port;
-	new_tcp_header.dst_port = original_tcp_header->src_port; 
-
-	// Set sequence number
-	if (flags & TCP_SYN_FLAG) {
-		new_tcp_header.seq_num = htonl(curr_tcb->seq_num);
-	} else {
-		new_tcp_header.seq_num = original_tcp_header->ack_num;
-	}
-
-	// Set acknowledgement number and update it in TCB 
-	if (flags & TCP_ACK_FLAG) {
-		new_tcp_header.ack_num = htonl(ntohl(original_tcp_header->seq_num) + original_payload_len);
-		curr_tcb->ack_num = ntohl(original_tcp_header->seq_num) + original_payload_len; 
-	} else {
-		new_tcp_header.ack_num = 0;	
-	}
-
-	// Set offset, reserved, and control (flags) 
-	new_offset_reserved_control = TCP_DEFAULT_OFFSET << 12; 
-	new_offset_reserved_control |= flags; 
-	new_tcp_header.offset_reserved_control = htons(new_offset_reserved_control); 
-
-	// Set the window and update the window 
-	new_tcp_header.window = original_tcp_header->window; 
-	curr_tcb->window = ntohs(original_tcp_header->window);
-
-	// Set the urgent pointer 
-	new_tcp_header.urgent_ptr = 0;
-
-	// Copy the new header and given payload into tcp segment 
-	memcpy(tcp_segment, &new_tcp_header, sizeof(struct tcp_header));
-
-	if (payload_len > 0) {
-		memcpy(tcp_segment + sizeof(struct tcp_header), payload, payload_len);
-	}
-
-	// Set the checksum 
-	new_tcp_header.checksum = calculate_tcp_checksum(curr_tcb, tcp_segment, sizeof(tcp_segment)); // ASSUMPTION: NO OPTIONS
-	memcpy(tcp_segment, &new_tcp_header, sizeof(struct tcp_header));
-	
-	// Update the seq num in TCB
-	
-	// Set phantom byte
-	if ((flags & TCP_SYN_FLAG) || (flags & TCP_FIN_FLAG)) {
-		payload_len += 1;
-	}
-	
-	curr_tcb->seq_num += payload_len; 
-	
-	printf("  sending TCP segment\n");
-	return send_ip_packet(IP_TCP_PROTOCOL, curr_tcb->ip_src, tcp_segment, sizeof(tcp_segment));
-
 }
 
 /*
