@@ -1349,7 +1349,7 @@ int handle_tcp_segment(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *segment, i
 	
 	update_tcp_state(curr_tcb, segment, segment_len);
 	
-	printf("\nEstablished Connections to Send To:\n");
+	printf("\nConnection Information:\n");
 	print_all_connections_info();	
 
 	return 0; 
@@ -1369,12 +1369,8 @@ void print_all_connections_info()
 
 	for (int i = 0; i < num_connections; i++) {
 		
-		if (connections[i].state == ESTABLISHED) {
-			
-			printf("  Connection %d:\n", i);
-			print_connection_info(&connections[i]);
-		
-		}
+		printf("  Connection %d:\n", i);
+		print_connection_info(&connections[i]);
 	
 	}
 
@@ -1391,7 +1387,7 @@ void print_all_connections_info()
  */
 void print_connection_info(struct tcb *tcb) 
 {
-
+	printf("        state:    %s\n", get_connection_state_str(tcb));
 	printf("        ip src:   %d.%d.%d.%d\n", tcb->ip_src[0], tcb->ip_src[1], tcb->ip_src[2], tcb->ip_src[3]);
 	printf("        ip dst:   %d.%d.%d.%d\n", tcb->ip_dst[0], tcb->ip_dst[1], tcb->ip_dst[2], tcb->ip_dst[3]);
 	printf("        src port: %d\n", tcb->src_port); 
@@ -1399,6 +1395,27 @@ void print_connection_info(struct tcb *tcb)
 
 }
 
+/*
+ */
+char *get_connection_state_str(struct tcb *tcb) 
+{
+	enum connection_state state = tcb->state;
+	
+	if (state == LISTEN)       return "LISTEN";
+	if (state == SYN_SENT)     return "SYN_SENT";
+	if (state == SYN_RECEIVED) return "SYN_RECEIVED";
+	if (state == ESTABLISHED)  return "ESTABLISHED";
+	if (state == FIN_WAIT_1)   return "FIN_WAIT_1";
+	if (state == FIN_WAIT_2)   return "FIN_WAIT_2";
+	if (state == CLOSE_WAIT)   return "CLOSE_WAIT";
+	if (state == CLOSING)      return "CLOSING";
+	if (state == LAST_ACK)     return "LAST_ACK";
+	if (state == TIME_WAIT)    return "TIME_WAIT";
+	if (state == CLOSED)       return "CLOSED";
+	
+	return NULL;
+
+}
 
 /*
  * Determine whether a connection already exists based on 

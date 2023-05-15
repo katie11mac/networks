@@ -111,6 +111,7 @@ int send_icmp_message(uint8_t *original_ip_packet, size_t original_ip_packet_len
 int handle_tcp_segment(uint8_t ip_src[4], uint8_t ip_dst[4], uint8_t *segment, int segment_len);
 void print_all_connections_info();
 void print_connection_info(struct tcb *tcb);
+char *get_connection_state_str(struct tcb *tcb);
 struct tcb *determine_tcb(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_header *curr_tcp_header);
 struct tcb *add_tcb(uint8_t ip_src[4], uint8_t ip_dst[4], struct tcp_header *curr_tcp_header);
 uint16_t calculate_tcp_checksum(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int tcp_length);
