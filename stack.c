@@ -1735,7 +1735,12 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 
 		case FIN_WAIT_1: {
 			
-			if (given_tcp_flags.ACK) {
+			if (given_tcp_flags.FIN) {
+				
+				printf("      received FIN. Sending ACK. Moving to CLOSING.\n");
+				curr_tcb->state = CLOSING;
+	
+			} else if (given_tcp_flags.ACK) {
 				
 				printf("      received ACK to my FIN. Moving to FIN_WAIT_2\n");
 				curr_tcb->state = FIN_WAIT_2;
@@ -1762,11 +1767,21 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 		} break;
 
 		case CLOSE_WAIT: {
-			;	
+			/* No implementation (shouldn't be receiving from other side of connection since they closed)
+			 * Look at handling user input
+			 */
+			;
 		} break;
 
 		case CLOSING: {
-			;
+			
+			if (given_tcp_flags.ACK) {
+
+				printf("      received ACK to my FIN. Moving to CLOSED\n");
+				curr_tcb->state = CLOSED;
+			
+			}
+			
 		} break;
 
 		case LAST_ACK: {
