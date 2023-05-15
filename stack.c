@@ -32,18 +32,17 @@ int main(int argc, char *argv[])
 	init_routing_table();
 	init_arp_cache(); 
 
-	printf("***THIS HAS NOT BEEN IMPLEMENTED YET***\n");
-	printf("DIRECTIONS FOR SENDING TO CONNECTION: \n");
-	printf("  Every time we receive a frame, information on active connections will be printed.\n");
-	printf("  To send to an established connection please enter data in the following format:\n");
+	printf("\nDIRECTIONS FOR INTERACTING WITH CONNECTIONS: \n");
+	printf("  \nEvery time we receive a frame, information on active connections will be printed.\n");
+	printf("  \nTo SEND to an established connection, please enter data in the following format:\n");
 	printf("    [number connection] [data]\\n\n");
-	printf("    EXAMPLE: \n    0 hello there\n");
+	printf("    EXAMPLE: \n      0 hello there\n");
 	printf("      Sends \"hello there\" to connection 0.\n");
-	printf("  To close an established connection please enter command in the following format:\n");
+	printf("  \nTo CLOSE an established connection, please enter command in the following format:\n");
 	printf("    [number connection] /CLOSE\\n\n");
-	printf("    EXAMPLE: \n    0 /CLOSE\n");
-	printf("      Closes our side of connection 0\n");
-	printf("PLEASE NOTE THAT THESE DIRECTIONS ARE SPACE AND CASE SENSITIVE\n");
+	printf("    EXAMPLE: \n      0 /CLOSE\n");
+	printf("      Closes our side of connection 0.\n");
+	printf("\n***PLEASE NOTE THAT THESE COMMANDS ARE SPACE AND CASE SENSITIVE***\n\n");
 
 	// Process frames until user terminates with Control-C
 	while(1) {
@@ -256,18 +255,18 @@ int handle_user_input()
 	struct tcb *curr_tcb;
 	char *data_ptr;
 
-	/*
-	 * Bugs
-	 * - Bad format 
-	 *		- no number specified sends to connection 0 
-	 */
-	
 	// Use fgets (differentiates new lines or end of file) 
 	fgets(user_input, BUFFER_SIZE, stdin);
 
 	// Get connection number from input based on specified format
 	connection_num = strtol(user_input, &data_ptr, 10); 
 	
+	// Make sure the user specifies a connection number
+	if (user_input == data_ptr) {
+		printf("please enter data in the format \"[connection number] [data]\\n\"\n");
+		return -1;
+	}
+
 	// Verify specified connection number
 	if (connection_num > num_connections - 1) {
 		
@@ -293,7 +292,8 @@ int handle_user_input()
 
 		
 			} else {
-		
+				
+				printf("sending your data to connection %ld\n", connection_num);
 				// add one and minus one for the space	
 				send_tcp_segment(curr_tcb, TCP_PSH_FLAG | TCP_ACK_FLAG, (uint8_t *)data_ptr + 1, strlen(data_ptr) - 1);
 		
@@ -1642,7 +1642,6 @@ void set_tcp_flags(struct tcp_flags *flags, struct tcp_header *curr_tcp_header)
 void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segment_len) 
 {
 	
-	char *print = "      current state:"; 
 	struct tcp_header *curr_tcp_header = (struct tcp_header *)curr_tcp_segment;
 	struct tcp_flags given_tcp_flags; 
 
@@ -1656,8 +1655,6 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 		
 		case LISTEN: {
 			
-			printf("%s LISTEN\n", print); 
-			
 			if (given_tcp_flags.SYN) {
 				
 				printf("      received SYN. sending SYN ACK.\n");
@@ -1669,13 +1666,11 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 		} break;
 		
 		case SYN_SENT: {
-			printf("%s SYN_SENT\n", print);
+			;
 		} break;
 
 		case SYN_RECEIVED: {
 
-			printf("%s SYN_RECEIVED\n", print);
-			
 			if (given_tcp_flags.ACK) {
 			
 				printf("      received ACK to my SYN. Moving to ESTABLISHED.\n");
@@ -1686,8 +1681,6 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 		} break;
 
 		case ESTABLISHED: {
-			
-			printf("%s ESTABLISHED\n", print);
 			
 			// print out data 
 			print_tcp_data(curr_tcp_segment, segment_len);
@@ -1712,7 +1705,6 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 		} break;
 
 		case FIN_WAIT_1: {
-			printf("%s FIN_WAIT_1\n", print);
 			
 			if (given_tcp_flags.ACK) {
 				
@@ -1724,7 +1716,6 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 		} break;
 
 		case FIN_WAIT_2: {
-			printf("%s FIN_WAIT_2\n", print);
 		
 			if (given_tcp_flags.FIN) {
 				
@@ -1742,17 +1733,14 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 		} break;
 
 		case CLOSE_WAIT: {
-			printf("%s CLOSE_WAIT\n", print);
-			
+			;	
 		} break;
 
 		case CLOSING: {
-			printf("%s CLOSING\n", print);
+			;
 		} break;
 
 		case LAST_ACK: {
-			
-			printf("%s LAST_ACK\n", print);
 			
 			if (given_tcp_flags.ACK) {
 				
@@ -1764,11 +1752,11 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 		} break;
 		
 		case TIME_WAIT: {
-			printf("%s TIME_WAIT\n", print);
+			;
 		} break;
 
 		case CLOSED: {
-			printf("%s CLOSED\n", print);
+			;
 		} break;
 
 		// UNSURE ABOUT THIS DEFAULT CASE 
