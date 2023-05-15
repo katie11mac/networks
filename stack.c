@@ -1687,7 +1687,9 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 			if (given_tcp_flags.SYN) {
 				
 				printf("      received SYN. sending SYN ACK.\n");
-				respond_to_tcp_segment(curr_tcb, TCP_SYN_FLAG | TCP_ACK_FLAG, curr_tcp_segment, segment_len, &given_tcp_flags, NULL, 0);
+				//respond_to_tcp_segment(curr_tcb, TCP_SYN_FLAG | TCP_ACK_FLAG, curr_tcp_segment, segment_len, &given_tcp_flags, NULL, 0);
+				update_tcb(curr_tcb, curr_tcp_segment, segment_len, &given_tcp_flags);
+				send_tcp_segment(curr_tcb, TCP_SYN_FLAG | TCP_ACK_FLAG, NULL, 0);
 				curr_tcb->state = SYN_RECEIVED;
 
 			}
@@ -1718,16 +1720,24 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 				
 				//printf("      received FIN. Sending ACK. Then sending FIN. Moving to LAST_ACK.\n");
 				printf("      received FIN. Sending ACK. Moving to CLOSE_WAIT.\n");
+				
+				update_tcb(curr_tcb, curr_tcp_segment, segment_len, &given_tcp_flags);
+				send_tcp_segment(curr_tcb, TCP_ACK_FLAG, NULL, 0);
+				
 
-				respond_to_tcp_segment(curr_tcb, TCP_ACK_FLAG, curr_tcp_segment, segment_len, &given_tcp_flags, NULL, 0);
-				//send_tcp_segment(curr_tcb, TCP_ACK_FLAG | TCP_FIN_FLAG, NULL, 0);
+				//respond_to_tcp_segment(curr_tcb, TCP_ACK_FLAG, curr_tcp_segment, segment_len, &given_tcp_flags, NULL, 0);
+				//send_tcp_segment(curr_tcb, TCP_ACK_FLAG | TCP_FIN_FLAG, NULL, 0); // part II 
 
 				//curr_tcb->state = LAST_ACK;
 				curr_tcb->state = CLOSE_WAIT;
 			
 			} else {			
 				
-				respond_to_tcp_segment(curr_tcb, TCP_ACK_FLAG, curr_tcp_segment, segment_len, &given_tcp_flags, NULL, 0);
+				if (update_tcb(curr_tcb, curr_tcp_segment, segment_len, &given_tcp_flags) > 0) {
+					send_tcp_segment(curr_tcb, TCP_ACK_FLAG, NULL, 0);
+				}
+
+				//respond_to_tcp_segment(curr_tcb, TCP_ACK_FLAG, curr_tcp_segment, segment_len, &given_tcp_flags, NULL, 0);
 			}
 
 			
@@ -1755,12 +1765,19 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 				
 				printf("      received FIN. Sending ACK. Moving to CLOSED.\n");
 				
-				respond_to_tcp_segment(curr_tcb, TCP_ACK_FLAG, curr_tcp_segment, segment_len, &given_tcp_flags, NULL, 0);
+				update_tcb(curr_tcb, curr_tcp_segment, segment_len, &given_tcp_flags);
+				send_tcp_segment(curr_tcb, TCP_ACK_FLAG, NULL, 0);
+				
+				//respond_to_tcp_segment(curr_tcb, TCP_ACK_FLAG, curr_tcp_segment, segment_len, &given_tcp_flags, NULL, 0);
 				curr_tcb->state = CLOSED;
 			
 			} else {
 				
-				respond_to_tcp_segment(curr_tcb, TCP_ACK_FLAG, curr_tcp_segment, segment_len, &given_tcp_flags, NULL, 0);
+				if (update_tcb(curr_tcb, curr_tcp_segment, segment_len, &given_tcp_flags) > 0) {
+					send_tcp_segment(curr_tcb, TCP_ACK_FLAG, NULL, 0);
+				}
+
+				//respond_to_tcp_segment(curr_tcb, TCP_ACK_FLAG, curr_tcp_segment, segment_len, &given_tcp_flags, NULL, 0);
 
 			}
 
@@ -1810,6 +1827,44 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 	}
 
 }
+
+/*
+ *
+ * maybe return the difference between the original seq num and the current seq num
+ *
+ */
+int update_tcb(struct tcb *curr_tcb, uint8_t *original_tcp_segment, int original_segment_len, struct tcp_flags *original_flags) 
+{
+	
+	uint16_t new_offset_reserved_control;
+
+	struct tcp_header *original_tcp_header = (struct tcp_header *) original_tcp_segment;
+	uint16_t original_tcp_offset = ntohs(original_tcp_header->offset_reserved_control) >> 12; // DOUBLE CHECK!!!  
+	uint32_t original_payload_len = original_segment_len - (original_tcp_offset * 4);
+	
+	uint32_t original_ack_num = curr_tcb->ack_num;
+
+	// Set the phantom byte 
+	if ((original_flags->SYN) || (original_flags->FIN)) {
+		original_payload_len += 1;
+	}
+	
+	// Update the acknowledgement number in the TCb
+	curr_tcb->ack_num = ntohl(original_tcp_header->seq_num) + original_payload_len;
+
+	// Update the window size 	
+	curr_tcb->window = ntohs(original_tcp_header->window);
+	
+	if (original_flags->SYN) {
+		printf("1\n");
+		return 1;
+	} else {
+		printf("%d\n", curr_tcb->ack_num - original_ack_num);
+		return curr_tcb->ack_num - original_ack_num;
+	}
+	
+}
+
 
 /*
  * NOTE: Double check the updating of seq and ack in TCB
