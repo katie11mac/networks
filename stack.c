@@ -430,13 +430,9 @@ int handle_ethernet_frame(struct interface *iface)
 	
 	// Set the frame length 
 	if (check_fcs) {
-		//printf("CHECKING THE FCS\n");
 		payload_len = frame_len - sizeof(struct ether_header) - ETHER_FCS_SIZE;
 	} else {
-		//printf("NOT CHECKING THE FCS\n");
 		payload_len = frame_len - sizeof(struct ether_header);
-		//printf("FRAME LENGTH: %ld (%lx)\n", frame_len, frame_len);
-		//printf("PAYLOAD LENGTH: %d (%x)\n", payload_len, payload_len);
 	}
 	
 	// Acknowledge broadcasts and set ether_dst_addr_results
@@ -765,10 +761,8 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_len)
 	// Interpret data as IPv4 header
 	curr_ip_header = (struct ip_header *) packet;
 	
-	//printf("    PACKET_LEN: %d %x\n", packet_len, packet_len);	
-	//printf("    GIVEN PACKET LEN: %d %x\n", ntohs(curr_ip_header->total_length), ntohs(curr_ip_header->total_length));
-	
 	// Check if total length is correct 
+	// Check if it is at least the size it claims it to be due to padding
 	if (packet_len < ntohs(curr_ip_header->total_length)) {
 		printf("    dropping packet from %u.%u.%u.%u (wrong length)\n", curr_ip_header->src_addr[0],
 																	    curr_ip_header->src_addr[1],
@@ -811,7 +805,6 @@ int handle_ip_packet(struct interface *iface, uint8_t *packet, int packet_len)
 
 	// Set payload
 	payload = packet + sizeof(struct ip_header);
-	//payload_len = packet_len - sizeof(struct ip_header);
 	payload_len = ntohs(curr_ip_header->total_length) - sizeof(struct ip_header);
 
 	// Check ip destination 
@@ -1677,6 +1670,7 @@ void set_tcp_flags(struct tcp_flags *flags, struct tcp_header *curr_tcp_header)
 
 
 /*
+ * Update the TCB state according to the TCP state machine standards
  */
 void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segment_len) 
 {
@@ -1723,16 +1717,11 @@ void update_tcp_state(struct tcb *curr_tcb, uint8_t *curr_tcp_segment, int segme
 
 			if (given_tcp_flags.FIN) {
 				
-				//printf("      received FIN. Sending ACK. Then sending FIN. Moving to LAST_ACK.\n");
 				printf("      received FIN. sending ACK. moving to CLOSE_WAIT.\n");
 				
 				update_tcb(curr_tcb, curr_tcp_segment, segment_len, &given_tcp_flags);
 				send_tcp_segment(curr_tcb, TCP_ACK_FLAG, NULL, 0);
 				
-
-				//send_tcp_segment(curr_tcb, TCP_ACK_FLAG | TCP_FIN_FLAG, NULL, 0); // part II 
-
-				//curr_tcb->state = LAST_ACK;
 				curr_tcb->state = CLOSE_WAIT;
 			
 			} else {			
@@ -1855,7 +1844,8 @@ int update_tcb(struct tcb *curr_tcb, uint8_t *original_tcp_segment, int original
 	// Update the window size 	
 	curr_tcb->window = ntohs(original_tcp_header->window);
 	
-	if ((original_flags->SYN) || (original_flags->FIN)) {
+	// Need to check if we received a SYN packet since original ack num will be 0
+	if (original_flags->SYN) {
 		return 1;
 	} else {
 		return curr_tcb->ack_num - original_ack_num;
@@ -1864,6 +1854,7 @@ int update_tcb(struct tcb *curr_tcb, uint8_t *original_tcp_segment, int original
 }
 
 /*
+ * Send TCP segment based on information stored in the curr tcb 
  */
 int send_tcp_segment(struct tcb *curr_tcb, uint8_t flags, uint8_t *payload, size_t payload_len) 
 {
