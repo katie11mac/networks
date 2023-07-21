@@ -6,4 +6,6 @@
 - Crafted and deployed custom frames and packets to thoroughly test proper functionality of physical and link layers, ensuring reliable data transmission 
 - Used the netcat program as the remote connection endpoint to ensure end-to-end functionality.
 
+For more information, please read the assignment descriptions. 
+
 (CSCI 0451 Computer Networks, Spring 2023) 
